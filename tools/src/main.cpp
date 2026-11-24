@@ -1,10 +1,13 @@
-// GeoDan Tools - Geode layer. Only draws the TOOLS popup and reads and writes
-// settings; the tool list and its rules live in core/tool_registry.hpp.
+// GeoDan Tools - Geode layer. Draws the TOOLS popup and reads and writes
+// settings. The tool list and its rules live in core/tool_registry.hpp.
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PauseLayer.hpp>
 #include <Geode/ui/Popup.hpp>
 
+#include <cmath>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "core/tool_registry.hpp"
 
@@ -14,20 +17,63 @@ namespace core = geodan::core;
 namespace {
 
 constexpr int kToolsButtonTag = 0x6744;
-constexpr float kWidth = 420.f;
-constexpr float kHeight = 270.f;
-constexpr float kCardWidth = 190.f;
-constexpr float kCardHeight = 52.f;
-constexpr float kGapX = 20.f;
-constexpr float kGapY = 10.f;
+constexpr float kWidth = 440.f;
+constexpr float kHeight = 372.f;
+constexpr float kRowHeight = 38.f;
+constexpr float kHeaderHeight = 24.f;
+constexpr float kPillWidth = 46.f;
+constexpr float kPillHeight = 24.f;
 
 // Saved value, or the default from mod.json when nothing is saved yet.
 bool savedOrDefault(std::string_view id, bool) {
     return Mod::get()->getSettingValue<bool>(std::string(id));
 }
 
+// Which popup section a tool belongs to.
+enum class Section { Hitboxes, Trajectory, Planned };
+
+Section sectionOf(const core::ToolDef& tool) {
+    if (!core::canEnable(tool)) return Section::Planned;
+    if (tool.id == "trajectory") return Section::Trajectory;
+    return Section::Hitboxes;
+}
+
+// Points on a circle arc from angle a0 to a1 (radians), centred on c.
+void appendArc(std::vector<CCPoint>& pts, CCPoint c, float r, float a0, float a1) {
+    constexpr int steps = 12;
+    for (int i = 0; i <= steps; ++i) {
+        const float a = a0 + (a1 - a0) * static_cast<float>(i) / steps;
+        pts.push_back(ccp(c.x + r * std::cos(a), c.y + r * std::sin(a)));
+    }
+}
+
+// A pill switch: a rounded track with a white knob on the right when on.
+// Built from draw nodes so it does not depend on game sprite names.
+CCNode* makePill(bool on, bool enabled) {
+    auto* node = CCNode::create();
+    node->setContentSize(CCSize(kPillWidth, kPillHeight));
+    auto* draw = CCDrawNode::create();
+    const float r = kPillHeight / 2.f;
+    const float knobX = kPillWidth / 2.f - r;
+    std::vector<CCPoint> track;
+    appendArc(track, ccp(-knobX, 0.f), r, M_PI / 2.f, 3.f * M_PI / 2.f);
+    appendArc(track, ccp(knobX, 0.f), r, -M_PI / 2.f, M_PI / 2.f);
+    ccColor4F fill = !enabled ? ccc4f(0.22f, 0.22f, 0.25f, 1.f)
+                   : on ? ccc4f(0.25f, 0.72f, 0.40f, 1.f)
+                        : ccc4f(0.40f, 0.40f, 0.46f, 1.f);
+    draw->drawPolygon(track.data(), static_cast<unsigned int>(track.size()), fill,
+                      0.f, ccc4f(0, 0, 0, 0));
+    std::vector<CCPoint> knob;
+    appendArc(knob, ccp(on ? knobX : -knobX, 0.f), r - 4.f, 0.f, 2.f * M_PI);
+    draw->drawPolygon(knob.data(), static_cast<unsigned int>(knob.size()),
+                      ccc4f(0.96f, 0.96f, 0.96f, enabled ? 1.f : 0.5f), 0.f, ccc4f(0, 0, 0, 0));
+    draw->setPosition(ccp(kPillWidth / 2.f, kPillHeight / 2.f));
+    node->addChild(draw);
+    return node;
+}
+
 class ToolsPopup : public geode::Popup {
-    CCNode* m_cards = nullptr;
+    CCNode* m_content = nullptr;
 
 public:
     static ToolsPopup* create() {
@@ -48,69 +94,77 @@ private:
         return true;
     }
 
-    // Two columns of cards. Rebuilt after every change, so labels match settings.
+    // Lays the popup out from the top down: one header per section, then its
+    // rows. Rebuilt after every change so the pills match the settings.
     void rebuild() {
-        if (m_cards) m_cards->removeFromParent();
-        m_cards = CCNode::create();
-        m_mainLayer->addChild(m_cards, 5);
+        if (m_content) m_content->removeFromParent();
+        m_content = CCNode::create();
+        m_mainLayer->addChild(m_content, 5);
 
         const auto size = m_mainLayer->getContentSize();
-        const float left = (size.width - (kCardWidth * 2.f + kGapX)) / 2.f;
-        const float top = size.height - 62.f;
+        float y = size.height - 64.f;
+
+        y = addSection(y, "HITBOXES", Section::Hitboxes, size);
+        y = addSection(y, "TRAJECTORY", Section::Trajectory, size);
+        y = addSection(y, "COMING NEXT", Section::Planned, size);
+
+        auto* summary = CCLabelBMFont::create(
+            ("Tools on: " + std::to_string(core::countOn(savedOrDefault))).c_str(), "chatFont.fnt");
+        summary->setScale(0.5f);
+        summary->setColor(ccc3(190, 190, 190));
+        summary->setPosition(ccp(size.width / 2.f, 14.f));
+        m_content->addChild(summary);
+    }
+
+    float addSection(float y, const char* header, Section section, CCSize size) {
+        auto* label = CCLabelBMFont::create(header, "goldFont.fnt");
+        label->setScale(0.45f);
+        label->setAnchorPoint(ccp(0.f, 0.5f));
+        label->setPosition(ccp(28.f, y - kHeaderHeight / 2.f));
+        m_content->addChild(label);
+        y -= kHeaderHeight;
+
+        auto* menu = CCMenu::create();
+        menu->setPosition(ccp(0.f, 0.f));
+        menu->setContentSize(size);
+        m_content->addChild(menu);
 
         for (std::size_t i = 0; i < core::kToolCount; ++i) {
             const auto& tool = core::kTools[i];
-            const float col = static_cast<float>(i % 2);
-            const float row = static_cast<float>(i / 2);
-            const float x = left + col * (kCardWidth + kGapX);
-            const float y = top - row * (kCardHeight + kGapY);
-            addCard(i, tool, x, y);
+            if (sectionOf(tool) != section) continue;
+            addRow(menu, i, tool, y, size);
+            y -= kRowHeight;
         }
-
-        auto* summary = CCLabelBMFont::create(
-            ("On: " + std::to_string(core::countOn(savedOrDefault))).c_str(), "chatFont.fnt");
-        summary->setScale(0.5f);
-        summary->setColor(ccc3(190, 190, 190));
-        summary->setPosition(ccp(size.width / 2.f, 16.f));
-        m_cards->addChild(summary);
+        return y - 8.f;
     }
 
-    void addCard(std::size_t index, const core::ToolDef& tool, float x, float y) {
-        auto* card = CCNode::create();
-        card->setPosition(ccp(x, y - kCardHeight));
-        m_cards->addChild(card);
-
+    void addRow(CCMenu* menu, std::size_t index, const core::ToolDef& tool,
+                float y, CCSize size) {
         const bool available = core::canEnable(tool);
         const bool on = core::isOn(tool, savedOrDefault);
 
-        // Card body: the whole card is a button when the tool can be switched on.
         auto* title = CCLabelBMFont::create(std::string(tool.title).c_str(), "bigFont.fnt");
         title->setScale(0.3f);
         title->setAnchorPoint(ccp(0.f, 0.5f));
-        title->setPosition(ccp(10.f, kCardHeight - 14.f));
-        if (!available) title->setColor(ccc3(120, 120, 120));
-        card->addChild(title);
+        title->setPosition(ccp(34.f, y - kRowHeight / 2.f + 7.f));
+        title->setColor(available ? ccc3(255, 255, 255) : ccc3(120, 120, 120));
+        m_content->addChild(title);
 
         auto* blurb = CCLabelBMFont::create(std::string(tool.blurb).c_str(), "chatFont.fnt");
         blurb->setScale(0.42f);
         blurb->setAnchorPoint(ccp(0.f, 0.5f));
-        blurb->setPosition(ccp(10.f, kCardHeight - 34.f));
-        blurb->setColor(ccc3(170, 170, 170));
-        card->addChild(blurb);
+        blurb->setPosition(ccp(34.f, y - kRowHeight / 2.f - 7.f));
+        blurb->setColor(ccc3(165, 165, 165));
+        m_content->addChild(blurb);
 
-        const char* badge = !available ? "PLANNED" : (on ? "ON" : "OFF");
-        auto* badgeLabel = CCLabelBMFont::create(badge, "bigFont.fnt");
-        badgeLabel->setScale(0.26f);
-        badgeLabel->setColor(!available ? ccc3(110, 110, 110)
-                             : on ? ccc3(80, 220, 120) : ccc3(255, 200, 70));
-        auto* button = CCMenuItemSpriteExtra::create(badgeLabel, this,
-            menu_selector(ToolsPopup::onToggle));
-        button->setTag(static_cast<int>(index));
-        button->setEnabled(available);
-        auto* menu = CCMenu::create();
-        menu->addChild(button);
-        menu->setPosition(ccp(kCardWidth - 30.f, kCardHeight / 2.f));
-        card->addChild(menu);
+        // Pill switch on the right. Planned tools show a greyed, disabled pill.
+        auto* pill = CCMenuItemSpriteExtra::create(
+            makePill(on, available), this, menu_selector(ToolsPopup::onToggle));
+        pill->setTag(static_cast<int>(index));
+        pill->setEnabled(available);
+        pill->setPosition(ccp(size.width - 28.f - kPillWidth / 2.f,
+                              y - kRowHeight / 2.f));
+        menu->addChild(pill);
     }
 
     void onToggle(CCObject* sender) {
