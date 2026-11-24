@@ -17,12 +17,14 @@ namespace core = geodan::core;
 namespace {
 
 constexpr int kToolsButtonTag = 0x6744;
-constexpr float kWidth = 440.f;
-constexpr float kHeight = 372.f;
-constexpr float kRowHeight = 38.f;
-constexpr float kHeaderHeight = 24.f;
-constexpr float kPillWidth = 46.f;
-constexpr float kPillHeight = 24.f;
+// Side panel size. Sized to fit the game window (about 320 points tall).
+constexpr float kWidth = 290.f;
+constexpr float kHeight = 300.f;
+constexpr float kRowHeight = 32.f;
+constexpr float kHeaderHeight = 16.f;
+constexpr float kPillWidth = 40.f;
+constexpr float kPillHeight = 22.f;
+constexpr float kEdgeGap = 10.f;
 
 // Saved value, or the default from mod.json when nothing is saved yet.
 bool savedOrDefault(std::string_view id, bool) {
@@ -89,8 +91,11 @@ public:
 private:
     bool initPopup() {
         if (!Popup::init(kWidth, kHeight)) return false;
-        this->setTitle("GeoDan Tools");
+        this->setTitle("GeoDan Tools", "goldFont.fnt", 0.55f, 14.f);
         this->rebuild();
+        // Slide the panel to the right edge; the dim backdrop still covers the screen.
+        const auto win = CCDirector::get()->getWinSize();
+        m_mainLayer->setPosition(ccp(win.width - kWidth / 2.f - kEdgeGap, win.height / 2.f));
         return true;
     }
 
@@ -102,7 +107,7 @@ private:
         m_mainLayer->addChild(m_content, 5);
 
         const auto size = m_mainLayer->getContentSize();
-        float y = size.height - 64.f;
+        float y = size.height - 42.f;
 
         y = addSection(y, "HITBOXES", Section::Hitboxes, size);
         y = addSection(y, "TRAJECTORY", Section::Trajectory, size);
@@ -112,15 +117,15 @@ private:
             ("Tools on: " + std::to_string(core::countOn(savedOrDefault))).c_str(), "chatFont.fnt");
         summary->setScale(0.5f);
         summary->setColor(ccc3(190, 190, 190));
-        summary->setPosition(ccp(size.width / 2.f, 14.f));
+        summary->setPosition(ccp(size.width / 2.f, 12.f));
         m_content->addChild(summary);
     }
 
     float addSection(float y, const char* header, Section section, CCSize size) {
         auto* label = CCLabelBMFont::create(header, "goldFont.fnt");
-        label->setScale(0.45f);
+        label->setScale(0.4f);
         label->setAnchorPoint(ccp(0.f, 0.5f));
-        label->setPosition(ccp(28.f, y - kHeaderHeight / 2.f));
+        label->setPosition(ccp(16.f, y - kHeaderHeight / 2.f));
         m_content->addChild(label);
         y -= kHeaderHeight;
 
@@ -135,7 +140,7 @@ private:
             addRow(menu, i, tool, y, size);
             y -= kRowHeight;
         }
-        return y - 8.f;
+        return y - 4.f;
     }
 
     void addRow(CCMenu* menu, std::size_t index, const core::ToolDef& tool,
@@ -144,16 +149,16 @@ private:
         const bool on = core::isOn(tool, savedOrDefault);
 
         auto* title = CCLabelBMFont::create(std::string(tool.title).c_str(), "bigFont.fnt");
-        title->setScale(0.3f);
+        title->setScale(0.28f);
         title->setAnchorPoint(ccp(0.f, 0.5f));
-        title->setPosition(ccp(34.f, y - kRowHeight / 2.f + 7.f));
+        title->setPosition(ccp(16.f, y - kRowHeight / 2.f + 6.f));
         title->setColor(available ? ccc3(255, 255, 255) : ccc3(120, 120, 120));
         m_content->addChild(title);
 
         auto* blurb = CCLabelBMFont::create(std::string(tool.blurb).c_str(), "chatFont.fnt");
-        blurb->setScale(0.42f);
+        blurb->setScale(0.34f);
         blurb->setAnchorPoint(ccp(0.f, 0.5f));
-        blurb->setPosition(ccp(34.f, y - kRowHeight / 2.f - 7.f));
+        blurb->setPosition(ccp(16.f, y - kRowHeight / 2.f - 6.f));
         blurb->setColor(ccc3(165, 165, 165));
         m_content->addChild(blurb);
 
@@ -162,7 +167,7 @@ private:
             makePill(on, available), this, menu_selector(ToolsPopup::onToggle));
         pill->setTag(static_cast<int>(index));
         pill->setEnabled(available);
-        pill->setPosition(ccp(size.width - 28.f - kPillWidth / 2.f,
+        pill->setPosition(ccp(size.width - 16.f - kPillWidth / 2.f,
                               y - kRowHeight / 2.f));
         menu->addChild(pill);
     }
