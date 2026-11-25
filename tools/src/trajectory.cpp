@@ -259,13 +259,14 @@ void updateGeoDanTrajectory(PlayLayer* layer, float dt) {
     runtime.drawNode->clear();
     runtime.drawNode->setVisible(true);
 
-    const float timeWarp = layer->m_gameState.m_timeWarp;
-    if (!std::isfinite(dt) || dt <= 0.f || !std::isfinite(timeWarp) || timeWarp <= 0.f) {
+    // The simulation uses a fixed physics interval. Render-frame dt and time
+    // warp must not change the horizon represented by maxSamples.
+    if (!std::isfinite(dt) || dt <= 0.f) {
         for (auto& prediction : runtime.predictions) prediction.reset();
         return;
     }
-
-    const float frameDt = dt / timeWarp;
+    constexpr float kSimulationStepSeconds = 1.f / 240.f;
+    const float frameDt = kSimulationStepSeconds;
     auto* live1 = layer->m_player1;
     auto* live2 = layer->m_player2;
 
@@ -406,11 +407,6 @@ class $modify(GeoDanTrajectoryPlayerObject, PlayerObject) {
         PlayerObject::playBumpEffect(objectType, object);
     }
 
-    void playBurstEffect() {
-        if (trajectory::SimulationContext::active()) return;
-        PlayerObject::playBurstEffect();
-    }
-
     void playDeathEffect() {
         if (trajectory::SimulationContext::active()) return;
         PlayerObject::playDeathEffect();
@@ -432,4 +428,4 @@ class $modify(GeoDanTrajectoryHardStreak, HardStreak) {
         if (trajectory::SimulationContext::active()) return;
         HardStreak::addPoint(point);
     }
-}
+};
