@@ -1,11 +1,9 @@
 name: GeoDan core tests
 
 on:
-  push:
-    branches:
-      - main
-      - workflow-codex/trajectory-rebuild
-  pull_request:
+  # CI is intentionally manual for candidate development. Run it at reviewed,
+  # meaningful checkpoints rather than consuming minutes on every commit.
+  workflow_dispatch:
 
 jobs:
   core-tests:
