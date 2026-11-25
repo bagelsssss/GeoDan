@@ -66,7 +66,7 @@ The exact readback path must be selected at runtime from verified graphics capab
 A recording session is a directory containing:
 - `manifest.json`: schema version, capture dimensions, target FPS, actual captured count, missed cadence intervals, queue drops, start/end timestamps, and completion/error status.
 - `frames/frame_000000.png`, etc.: one image for each successfully encoded capture. Sequence numbers must not be renumbered to hide gaps.
-- `frames.csv`: sequence, presentation timestamp in nanoseconds, delta from prior capture, missed intervals, and writer result.
+- `frames.csv`: sequence, presentation timestamp in nanoseconds, delta from prior capture, missed intervals, and writer result. The portable writer currently emits `written` rows only; queue drops are counted in the manifest.
 - Optional geometry sidecars may be added later, but they must use the same sequence number as the corresponding image.
 
 The image parser should consume a completed manifest, not scan an arbitrary folder while the recorder is still writing. A session is marked complete only after the writer drains and all files are closed. Interrupted sessions must be marked incomplete and retain enough metadata to diagnose the stop.
@@ -102,11 +102,12 @@ The current gameplay overlay has been split so the hitbox geometry and trail dra
 2. Unit tests for cadence, timestamp monotonicity, queue bounds and drops — **added; execution still required**.
 3. Cocos capture target and portrait camera transform — target primitive added; layer selection and crop/scale validation remain.
 4. Refactor existing overlay draw code to render into the recorder target without changing normal gameplay appearance.
-5. Reusable pixel-buffer pool and background image writer.
-6. Session manifest and CSV writer, finalized only after worker drain.
-7. Recorder start/stop controls and lifecycle cleanup.
-8. Profile at 60 FPS on the target device and report frame time, capture time, encode throughput, queue depth, cadence misses and drops.
+5. Reusable pixel-buffer pool and background PNG encoder/writer — buffer pool added; encoder/thread integration remains.
+6. Portable session manifest and CSV writer — worker-owned sink implemented; synthetic tests added, execution still required.
+7. Recorder worker lifecycle, queue drain/join, start/stop controls and error propagation.
+8. Validate parser handoff against real encoded frames, then profile at 60 FPS on target hardware.
 
 ## Explicit non-claims
 
 No 60 FPS result, Geode build, image output, parser compatibility, or in-game behavior is claimed until measured. A successful pure-C++ model test does not establish GPU capture performance.
+\n## Portable session writer checkpoint\n\n`core/recorder_session.hpp` adds a Geode-free `SessionWriter` for the parser-facing directory contract. It is owned and called by the future encoder/writer worker (never the render thread) and accepts already-encoded PNG bytes; it deliberately does not implement PNG compression or GPU readback.\n\nA new session directory contains a manifest initially marked `recording`, then finalized as `complete`, `incomplete`, or `error`; sequence-named PNG files under `frames/`; and `frames.csv` with sequence, monotonic timestamp, delta, missed cadence intervals and write result.\n\nFrame files are written to temporary paths and renamed into place. The manifest is staged through a temporary file. Existing session directories are never overwritten. Sequence gaps remain visible. Duplicate/out-of-order sequences, non-monotonic timestamps, inconsistent deltas and payloads without the PNG signature are rejected. Queue drops are counted separately from cadence misses.\n\nThe writer is deliberately synchronous and single-owner: it is a worker-side sink, not yet a thread manager. The future recorder lifecycle must close the producer queue, drain accepted frames, call `finalize`, then join the worker. If destroyed while active, it attempts to leave an incomplete manifest. Process crashes or power loss can still interrupt filesystem operations; this is not a transactional filesystem.\n\n

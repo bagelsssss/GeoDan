@@ -8,7 +8,7 @@
 
 - **Status:** Active — isolated Level Recorder candidate; not approved for promotion.
 - **Active task:** Implement a 360 × 1080 portrait level recorder with black background, diagnostic overlays, parser-ready session output, and a 60 FPS performance target.
-- **Current stage:** Temporary disabled-by-default portrait preview test integrated; needs local build and in-game visual validation. No pixel readback or recording writer.
+- **Current stage:** Temporary disabled-by-default portrait preview test integrated; needs local build/in-game visual validation. Portable worker-owned session writer and synthetic tests added; test execution still required. No GPU readback or PNG encoder.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Latest verified candidate HEAD before checklist update:** `4e258bfe560501d658fe9cce476f58e242fea53b`.
@@ -35,7 +35,7 @@
 - **Base SHA:** `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Promotion status:** Experimental only. User has not approved promotion.
 - **Main-workflow changed:** No.
-- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate, reusable preallocated RGBA buffer pool, bounded non-blocking queue, model tests, recorder design contract, and manually triggered test workflow. Extracted hitbox geometry and trail drawing into `tools/src/overlay_renderer.hpp`, with the live `PlayLayer` overlay now calling the shared renderer. No offscreen capture target, GPU readback, image encoder, session writer, UI, or parser handoff has been implemented yet.
+- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate, reusable preallocated RGBA buffer pool, bounded non-blocking queue and model tests. Shared hitbox/trail renderer is used by live PlayLayer. Added portrait target and disabled-by-default preview harness. Added `core/recorder_session.hpp`, a worker-owned portable sink for encoded PNG frames, versioned manifest, ordered frame files and CSV metadata, plus synthetic session tests. No GPU readback, actual PNG encoder, worker-thread lifecycle, controls or parser integration yet.
 - **Trajectory candidate:** Separate branch `workflow-codex/trajectory-rebuild`; not merged or modified.
 
 ## Decisions and findings
@@ -56,8 +56,8 @@ _Record exact repository-relative paths and a short description._
 
 - **Last updated:** 2026-11-25.
 - **Completed:** Isolated recorder branch created; portable capture config/timing/backpressure model, bounded queue, reusable pixel buffer pool, tests, design contract, and manual-only test workflow committed.
-- **Remaining:** Integrate the capture target with a verified gameplay-only subtree; choose/visually validate portrait focus and scale; implement verified GPU readback and background PNG/session writer; add recorder controls and parser handoff; build, test, and profile.
-- **Exact stopping point:** Temporary preview integration committed but not locally built or visually tested; no pixel readback, encoder, or recording lifecycle exists.
+- **Remaining:** User must build and visually validate the portrait preview. Independently, run the portable model and session tests; implement PNG encoding and worker lifecycle that drains the bounded queue into SessionWriter; define/verify parser handoff; later validate GPU readback and profile on target hardware.
+- **Exact stopping point:** Temporary preview integration committed but not locally built or visually tested. Portable SessionWriter and tests are present but not executed; no pixel encoder or worker lifecycle exists.
 - **Next action:** Continue Codex work in `~/workflow-codex` only after verifying that workspace and its branch/HEAD; otherwise continue through this isolated remote branch without claiming local workspace access.
 - **Blockers / risks:** Synchronous `CCRenderTexture::newCCImage` is unsuitable as an assumed 60 FPS hot path; cross-platform asynchronous GPU readback support is unverified. No test/build/Actions/in-game run has occurred.
 - **Promotion:** Not approved; `~/main-workflow` unchanged.
@@ -124,3 +124,4 @@ _Record exact repository-relative paths and a short description._
 - Changed: tools/src/overlay.cpp, tools/mod.json, docs/level-recorder-design.md, checks/codex-check-list.md.
 - Next: build candidate, enable Portrait capture preview (TEST) in Geode mod settings, enter a level, and report visual results/build errors. Do not proceed to GPU readback until this passes.
 - Follow-up source review added the missing `capture` namespace alias used by the temporary preview hook; this is a source-level correction, not a build result.
+\n### 2026-11-25 — portable recording session writer\n- Verified branch HEAD before work: `0f197adc547ced7dabb2b47757bd3a6653970c52`; main baseline remains `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`.\n- User approved continuing with work that does not require the portrait preview test.\n- Added `core/recorder_session.hpp`, a portable worker-owned sink for already-encoded PNG bytes. It creates a new session directory, writes a recording manifest, sequence-named frame files and CSV metadata, and finalizes complete/incomplete/error state.\n- Frame files and manifest use temporary files followed by rename. Existing session directories are not overwritten. Sequence gaps remain visible; duplicate/out-of-order sequences, non-monotonic timestamps, inconsistent deltas and non-PNG signatures are rejected.\n- Queue drops are separately recorded in the manifest; cadence misses are summed from written frame stamps. Writer has no internal thread: future lifecycle must own it on the background worker, drain the queue, finalize, and join.\n- Added `tests/test_recorder_session.cpp` using synthetic PNG-signature payloads. These tests exercise filesystem layout/metadata, finalization, abort, duplicate rejection and no-overwrite behavior. They have NOT been compiled or run here; the synthetic payload does not validate a real PNG encoder.\n- Updated the design contract and this checklist. No image parser integration, PNG encoder, GPU readback, recorder controls, or worker thread was added.\n- Changed: `core/recorder_session.hpp` (new), `tests/test_recorder_session.cpp` (new), `docs/level-recorder-design.md`, `checks/codex-check-list.md`.\n- No local workspace, build, test, in-game run, or benchmark is claimed. `main` and `~/main-workflow` remain unchanged; candidate is experimental.\n- Next: run both portable recorder tests in the user's environment; then implement a worker lifecycle and connect an encoder interface. Do not start real capture until the portrait preview test passes.
