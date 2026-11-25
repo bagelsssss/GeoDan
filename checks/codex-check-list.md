@@ -8,7 +8,7 @@
 
 - **Status:** Active — isolated Image Parser candidate; not approved for promotion.
 - **Active task:** Implement and validate the Classic-only Image Parser against Recorder Session v1.
-- **Current stage:** Portable session reader, section grouper, and physical-hitbox clearance model implemented; local synthetic tests and ASan/UBSan tests passed. Recorder sidecar integration and Analyzer adapter remain pending.
+- **Current stage:** Portable session reader, section grouper, and provisional AABB-clearance parser implemented. Claude reviewed the candidate, fixed a test string-escape bug on a Claude-owned branch, ran the parser tests successfully, and performed a scratch integration check against the Recorder SessionWriter. The same test fix is now on this Codex branch. No current local run is claimed.
 - **Baseline at checklist creation:** `main` — `8ce48311b51acae5bff35a1e117847b77df70f13` (Claude checklist creation commit; verify current HEAD before relying on it).
 
 ## Project constraints
@@ -25,7 +25,7 @@
 - **Task:** Parse complete Classic Recorder Session v1 recordings, validate frame/timestamp integrity, group chronological images, and measure physical player-to-hazard clearance.
 - **Remote branch:** `workflow-codex/image-parser`
 - **Branch base:** `main` at `f5835c3d1291884e25e9384c3f70b0694cb0a7a0`.
-- **Latest implementation/documentation commit before this checklist update:** `2d2ac9fd5a0e7243cbc96e57ff0fa8e3b4047d84`.
+- **Latest implementation/documentation commit before this checklist update:** `408c2e05c49938fa4c6aeac6628d4bc68b015af4`.
 - **Local workspace:** User's `~/workflow-codex` was not accessed. Source was edited on the isolated remote branch and mirrored into `/tmp/geodan-parser` only for compilation/tests.
 - **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
 - **Main-workflow changed:** No.
@@ -37,7 +37,7 @@
 - Groups persisted frames chronologically in sections of at most ten images, splitting at phase boundaries.
 - Measures per-frame minimum Euclidean AABB clearance across player/hazard hitboxes; one minimum clearance sample per frame. Clearance is normalized to a 360-pixel reference width.
 - Tracks sequence/missed-interval discontinuities, queue drops, unsupported geometry, and unclassified frames separately. Missing/unsupported geometry is never treated as zero clearance.
-- `docs/image-parser-design.md` specifies the required hitbox sidecar. The current Level Recorder candidate does NOT emit this file yet, so there is no real-session end-to-end compatibility claim.
+- `docs/image-parser-design.md` specifies the required hitbox sidecar. The current Recorder candidate now writes `hitboxes.csv` through `SessionWriter`; Claude's scratch integration check reports a real 360×1080 PNG session was accepted by `parseSession`. Live PlayLayer capture still is not connected.
 - 60/120/240 FPS windows, Nerves, skillsets, Memory, and the Analyzer schema-v3 adapter remain unimplemented/unknown. No formula or telemetry is invented.
 - Manual-only workflow added at `.github/workflows/geodan-image-parser-tests.yml`; it has not been dispatched.
 
@@ -89,3 +89,14 @@ _Record exact repository-relative paths and a short description._
 - Timing windows, Nerves, and skillset classification are deliberately left Missing until telemetry and formulas are specified; 60 FPS imagery cannot establish sub-frame 120/240 FPS timing evidence.
 - Files changed: `core/image_parser.hpp`, `tests/test_image_parser.cpp`, `docs/image-parser-design.md`, `.github/workflows/geodan-image-parser-tests.yml`, candidate-branch `README.md`, this Codex checklist.
 - No user-local workflow directory was assumed or changed. `main` and `~/main-workflow` were not changed.
+
+
+
+### 2026-11-25 — Claude parser review and test-fix cross-reference
+- Read the updated main-branch Claude checklist. Claude created `workflow-claude/image-parser-from-codex` at `04bf4674e66c08e56b939ce7cb316f755b792d38`, based on Codex parser revision `a0426901f160943c097cce2ea64657d0d3b4fc0c`.
+- Claude found two malformed C++ string literals in `tests/test_image_parser.cpp` (the width-field replacement test) and fixed the extra escaping. I inspected Claude's exact two-line patch and applied the same fix to this Codex branch; current Codex parser head before this checklist update is `408c2e05c49938fa4c6aeac6628d4bc68b015af4`.
+- Claude reports `tests/test_image_parser.cpp` compiled with `g++ -std=c++20 -Wall -Wextra -Werror` and printed `Image Parser tests passed`, with assertions enabled, on the Claude branch. This Codex branch contains the same parser source and exact test fix, but I did not run it locally.
+- Claude also reports a scratch integration check: a session written by `SessionWriter` from `workflow-claude/level-recorder-from-codex`, with a real 360×1080 PNG, was accepted by `parseSession`; a fake 16-byte PNG was rejected as expected. Verified that the `core/recorder_session.hpp` and `core/recorder_worker.hpp` blob SHAs on that Claude branch match the current Codex Recorder sidecar writer/worker. This is useful integration evidence, but it is a scratch check, not a committed integration test or in-game capture.
+- Current Recorder branch `workflow-codex/level-recorder` is at `1b25ddb68d8ec1cb92f4504b217753857ebada17`; the sidecar writer exists, while the latest game-facing geometry adapter and validation tests still need Claude's fresh review/run.
+- No changes to `main`, `~/main-workflow`, or Claude-owned branches. No local parser test run or GitHub Actions dispatch by Codex.
+- Next: retain Claude's fix in the Codex candidate; after the Recorder live producer is wired, run the parser against an actual recorded session and implement the Analyzer adapter.
