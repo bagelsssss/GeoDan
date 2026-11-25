@@ -26,8 +26,8 @@
 - **Task:** Trajectory rebuild, as Claude's independent candidate.
 - **Duplicates Codex work:** `workflow-codex/trajectory-rebuild` (head `bd4498f`) already has a 435-line `tools/src/trajectory.cpp`, a rules model with tests, and `docs/trajectory-eclipse-reference.md`. Claude's version would overlap it.
 - **Workspace:** `/home/claude/GeoDan-new` (sandbox). Not `~/workflow-claude`.
-- **Branch:** None. Local files are untracked on `main`.
-- **Promotion status:** None. `~/main-workflow` not changed.
+- **Branch:** `workflow-claude/trajectory-candidate` at `11ea778` (pushed 2026-11-25). Experimental, does not compile yet (see Decisions). Not on `main`.
+- **Promotion status:** None. `~/main-workflow` not changed. Not approved for promotion.
 
 ## Decisions and findings
 
@@ -51,14 +51,14 @@
 ## Files changed
 
 - `checks/claude-check-list.md` — this checklist (docs only).
-- Untracked, not committed, not on any branch: `core/trajectory_model.hpp`, `tests/test_trajectory_model.cpp`, `tools/src/trajectory.cpp`, `tools/src/trajectory.hpp`.
+- On `workflow-claude/trajectory-candidate` (`11ea778`), not on `main`: `core/trajectory_model.hpp`, `tests/test_trajectory_model.cpp`, `tools/src/trajectory.cpp`, `tools/src/trajectory.hpp`.
 
 ## Handoff / next action
 
 - **Last updated:** 2026-11-25, after fast-forwarding `main` to `f5835c3`.
 - **Completed:** Hitbox model/trail core and tests, Tools popup and TOOLS button, hitbox/trail overlay (`48ae322`). Checklist update (this file).
 - **Remaining:** Decide trajectory ownership with the user. If Claude continues, move the untracked trajectory files onto `workflow-claude/trajectory` (or similar) and fix the `PlayLayer` namespace. Do not promote without approval.
-- **Exact stopping point:** Trajectory files are untracked in `/home/claude/GeoDan-new` and fail type-check. Nothing committed for trajectory.
+- **Exact stopping point:** Trajectory files are committed on `workflow-claude/trajectory-candidate` (`11ea778`) and fail type-check. Nothing trajectory-related on `main`.
 - **Open question for the user:** Keep Claude's trajectory candidate, or review Codex's `workflow-codex/trajectory-rebuild` instead? And should the hitbox/popup commits on `main` move to a candidate branch?
 - **Blockers / risks:** Old-code exposure described above. Can't verify in-game. `~/workflow-claude` not verified.
 - **Next action for Codex:** Read this file. Note that Claude's trajectory files are not on any branch yet, so there is no overlap in committed code. Wait for the user's decision before taking over any shared area.
