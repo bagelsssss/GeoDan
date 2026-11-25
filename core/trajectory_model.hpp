@@ -171,7 +171,7 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
             case Mode::Ship: {
                 const bool falling = state.upsideDown ? state.velocityY > 0.f : state.velocityY < 0.f;
                 float shipMod = holdJump && !state.velocityUncapped ? -1.f :
-                                (state.velocityUncapped ? (falling ? 0.8f : -1.f) : 0.8f);
+                                (state.velocityUncapped ? (falling ? -1.f : 0.8f) : 0.8f);
                 if (!holdJump && !falling) shipMod = 1.2f;
                 const float boostMod = holdJump && falling ? 0.5f : 0.4f;
                 const float gravity = shipMod >= 0.f ? modifiedGravity : 0.958199f;
