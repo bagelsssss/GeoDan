@@ -52,8 +52,9 @@ struct Measurement {
 
 struct SegmentEvidence {
     std::uint32_t index = 0;
-    double startX = 0.0;
-    double endX = 0.0;
+    // Inclusive sample-index range, independent of world orientation or mode.
+    std::uint64_t firstSampleIndex = 0;
+    std::uint64_t lastSampleIndex = 0;
     GameMode mode = GameMode::Unknown;
 
     Measurement minimumClearance;
@@ -66,12 +67,20 @@ struct SegmentEvidence {
     std::uint32_t unsupportedInteractions = 0;
 
     bool valid() const {
-        if (!std::isfinite(startX) || !std::isfinite(endX) || endX < startX)
+        if (mode == GameMode::Unknown || lastSampleIndex < firstSampleIndex)
             return false;
+        const auto nonNegative = [](const Measurement& m) {
+            return !m.present || m.value >= 0.0;
+        };
         return minimumClearance.valid() && hazardDensityPer1000Units.valid() &&
                tightestTimingWindowFrames.valid() && requiredInputsPerSecond.valid() &&
                peakInputsPerSecond.valid() && successfulTrialRate.valid() &&
-               attemptsToComplete.valid();
+               attemptsToComplete.valid() && nonNegative(hazardDensityPer1000Units) &&
+               nonNegative(tightestTimingWindowFrames) &&
+               nonNegative(requiredInputsPerSecond) && nonNegative(peakInputsPerSecond) &&
+               nonNegative(attemptsToComplete) &&
+               (!successfulTrialRate.present ||
+                (successfulTrialRate.value >= 0.0 && successfulTrialRate.value <= 1.0));
     }
 
     bool hasValidatedGeometryEvidence() const {
