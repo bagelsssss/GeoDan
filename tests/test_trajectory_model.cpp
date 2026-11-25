@@ -56,6 +56,23 @@ int main() {
     settings.maxSamples = 120;
     CHECK(settings.boundedMaxSamples() == 120);
 
-    if (failures == 0) std::puts("trajectory model: all checks passed");
+    // Nested scopes restore the simulation state when each scope exits.
+    CHECK(!tr::SimulationContext::active());
+    {
+        tr::SimulationContext::Scope outer;
+        CHECK(tr::SimulationContext::active());
+        CHECK(tr::SimulationContext::nestingDepth() == 1);
+        {
+            tr::SimulationContext::Scope inner;
+            CHECK(tr::SimulationContext::active());
+            CHECK(tr::SimulationContext::nestingDepth() == 2);
+        }
+        CHECK(tr::SimulationContext::active());
+        CHECK(tr::SimulationContext::nestingDepth() == 1);
+    }
+    CHECK(!tr::SimulationContext::active());
+    CHECK(tr::SimulationContext::nestingDepth() == 0);
+
+    if (failures == 0) std::puts("trajectory model + simulation guard: all checks passed");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -103,4 +103,29 @@ struct Prediction {
     }
 };
 
+// Shared by game hooks on the gameplay thread. Nested scopes are supported
+// so a helper cannot accidentally clear an outer simulation guard.
+class SimulationContext {
+public:
+    class Scope {
+    public:
+        Scope() { ++depth(); }
+        ~Scope() { --depth(); }
+
+        Scope(const Scope&) = delete;
+        Scope& operator=(const Scope&) = delete;
+        Scope(Scope&&) = delete;
+        Scope& operator=(Scope&&) = delete;
+    };
+
+    [[nodiscard]] static bool active() { return depth() != 0; }
+    [[nodiscard]] static std::size_t nestingDepth() { return depth(); }
+
+private:
+    static std::size_t& depth() {
+        static thread_local std::size_t value = 0;
+        return value;
+    }
+};
+
 } // namespace geodan::core::trajectory

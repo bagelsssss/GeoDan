@@ -6,7 +6,7 @@
 
 ## Current status
 
-- **Status:** Active — trajectory prediction data model implemented; game-facing simulation remains unimplemented.
+- **Status:** Active — prediction data model and nested RAII simulation guard implemented; game-facing simulation remains unimplemented.
 - **Active task:** Implement a safe, GeoDan-owned trajectory simulator using verified Geometry Dash 2.2081 behavior.
 - **Current stage:** Core prediction state/data model.
 - **Current branch:** `workflow-codex/trajectory-rebuild`.
@@ -44,7 +44,7 @@
 | Date | Command / test | Result | Notes |
 |---|---|---|---|
 | 2026-11-25 | Source/repository inspection | Completed | Re-read shared guide and both checklists; verified branch HEAD and source tree. No local checkout/runtime available. |
-| 2026-11-25 | `g++ -std=c++20 -Wall -Wextra -Werror` trajectory model test | Passed | Compiled and ran a temporary local copy of the committed header/test source; output: `trajectory model: all checks passed`. This validates only the pure data model, not Geode integration. |
+| 2026-11-25 | `g++ -std=c++20 -Wall -Wextra -Werror` trajectory model + guard test | Passed | Compiled and ran a temporary local copy of the committed header/test source; output: `trajectory model + simulation guard: all checks passed`. This validates only the pure data model, not Geode integration. |
 | 2026-11-25 | Geode build / in-game test | Not run | Must be done later in the user's local environment. |
 
 ## Files changed
@@ -70,4 +70,4 @@
 - Added pure data structures for two independent prediction paths, bounded sample count, terminal reasons, and reset behavior.
 - Added a standalone C++ test source and compiled/ran it with `g++ -std=c++20 -Wall -Wextra -Werror`; all checks passed.
 - Changed the candidate workflow to `workflow_dispatch` only, so pushes no longer automatically consume Actions minutes. The workflow itself was not run.
-- No Geode build or in-game test was performed.
+- Added a nested RAII simulation context using thread-local nesting depth. No Geode build or in-game test was performed.
