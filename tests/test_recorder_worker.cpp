@@ -25,7 +25,13 @@ int main() {
         if (!pixels) return EXIT_FAILURE;
         const std::uint8_t rgba[8]{255, 0, 0, 255, 0, 255, 0, 255};
         std::copy(std::begin(rgba), std::end(rgba), pixels->data());
-        if (!queue.tryPush(rec::QueuedFrame{{0, 0, 0, 0}, std::move(*pixels)}))
+        rec::FrameGeometry geometry;
+        geometry.sequence = 0;
+        geometry.phase = rec::CapturePhase::ActiveGameplay;
+        geometry.status = rec::GeometryStatus::Valid;
+        geometry.entities.push_back({rec::GeometryEntityKind::Player, 1, {0.0, 0.0, 1.0, 1.0}});
+        geometry.entities.push_back({rec::GeometryEntityKind::Hazard, 2, {1.5, 0.0, 2.0, 1.0}});
+        if (!queue.tryPush(rec::QueuedFrame{{0, 0, 0, 0}, std::move(*pixels), std::move(geometry)}))
             return EXIT_FAILURE;
         if (!worker.start(root / "session", {2, 1, 60}, 1'700'000'000'000'000'000ull))
             return EXIT_FAILURE;
