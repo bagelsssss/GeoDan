@@ -3,7 +3,8 @@
 // Portable, Geode-free judge model for GeoDan.
 // The Image Parser supplies recorded-run measurements. Swag-route search
 // supplies separately validated alternative-route evidence. This model does
-// not recreate the recorded run or assign a calibrated Dan tier.
+// not recreate the recorded run; its score and calibration primitives do not
+// imply that a feature-weight formula or measured calibration curve exists.
 
 #include <algorithm>
 #include <cmath>
