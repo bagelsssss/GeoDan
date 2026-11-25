@@ -23,12 +23,21 @@ int main() {
 
     dan::SegmentEvidence segment;
     segment.index = 0;
-    segment.firstSampleIndex = 0;
+    segment.firstSampleIndex = 241;
     segment.lastSampleIndex = 300;
     segment.mode = dan::GameMode::Classic;
+    segment.phase = dan::SegmentPhase::ActiveGameplay;
     segment.minimumClearance = metric(2.5, dan::EvidenceSource::Geometry);
     segment.tightestTimingWindowFrames = metric(3.0, dan::EvidenceSource::Simulation);
     level.segments.push_back(segment);
+    auto idleSegment = segment;
+    idleSegment.index = 1;
+    idleSegment.firstSampleIndex = 0;
+    idleSegment.lastSampleIndex = 240;
+    idleSegment.phase = dan::SegmentPhase::StartIdle;
+    idleSegment.minimumClearance = {};
+    idleSegment.tightestTimingWindowFrames = {};
+    level.segments.push_back(idleSegment);
     level.captureComplete = true;
     level.simulationComplete = true;
 
@@ -36,7 +45,7 @@ int main() {
     assert(dan::canAssignDan(level));
 
     auto platformerSegment = segment;
-    platformerSegment.index = 1;
+    platformerSegment.index = 2;
     platformerSegment.mode = dan::GameMode::Platformer;
     platformerSegment.firstSampleIndex = 301;
     platformerSegment.lastSampleIndex = 500;
