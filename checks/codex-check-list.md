@@ -2,65 +2,50 @@
 
 > **Owner:** Codex maintains this file. Claude reads it but must not silently edit it.
 >
-> **Required:** Before project work or commit review, read [`README.md`](./README.md) and [`claude-check-list.md`](./claude-check-list.md) as well as this file.
+> **Required:** Read `checks/README.md` and `checks/claude-check-list.md` before project work.
 
 ## Current status
 
-- **Status:** Awaiting Codex's first entry.
-- **Active task:** None recorded.
-- **Current stage:** Not initialized.
-- **Baseline at checklist creation:** `main` — `8ce48311b51acae5bff35a1e117847b77df70f13` (Claude checklist creation commit; verify current HEAD before relying on it).
+- **Status:** Shared development candidate assembled on `alpha-branch`; unfinished components are intentionally retained.
+- **Current branch:** `alpha-branch`.
+- **Baseline:** `main` at `0e7a3a7fb6ac0995ad9d176d0c1ccd63b1b585bf`.
+- **User decision:** Codex and Claude may contribute to `alpha-branch` as the shared candidate. Coordinate before overlapping edits and preserve each contributor's provenance.
+- **Promotion:** Not approved for `main` or `~/main-workflow`.
+- **Local workspace:** User's local repositories were not accessed.
 
-## Project constraints
+## Included Codex workstreams
 
-- Do not modify the archived `GeoDan-deprecated` repository.
-- The old trajectory implementation is known to be broken. Do not consult, copy, port, or reuse it as a reference.
-- Do not claim tests, builds, or in-game verification that were not actually performed.
-- Read both agent checklists before project work and commit reviews.
-- Update this file with concrete progress and a precise handoff before stopping.
+1. **Trajectory** — `workflow-codex/trajectory-rebuild` at `bd4498f51d43ff24f5c0bebb9cbbb83f2801b5d1`.
+   - Includes the model, Geode-facing hidden-player simulator, collision filters, hooks, overlay renderer integration, tests, and docs.
+   - Known issue: candidate's trajectory source has a compile error at the end of `tools/src/trajectory.cpp`; the timestep is frame-time based. Neither is silently fixed here.
+2. **Level Recorder** — `workflow-codex/level-recorder` at `a1563a3d719d196f5fac1c545f6a1f735de2546e`.
+   - Includes capture timing/backpressure model, pixel buffer pool, PNG encoder, worker/session writer, hitbox sidecar writer, geometry adapter, portrait target/preview, tests, and docs.
+   - Known issue: Codex candidate still has no live PlayLayer producer or GPU pixel readback; tool remains planned. Geometry uses provisional AABBs and marks unsupported cases.
+3. **Image Parser** — `workflow-codex/image-parser` at `44b8fdb0eed5a740ee63776b94d9ab44bbf22c35`.
+   - Includes session validation, hitbox sidecar parsing, frame sections, clearance metrics, tests, and docs.
+   - Known issue: no actual live capture pipeline or Analyzer adapter; some telemetry and classification are intentionally missing.
+4. **Dan Analyzer** — `workflow-codex/dan-analyzer` at `2085263aa9e6bbd6d45045cf8a039e9fb8e3e4cd`.
+   - Includes Classic-only evidence aggregation, validation, route-comparison primitives, score-scale/calibration scaffolding, tests, and docs.
+   - Known issue: the latest test suite was reported failing by Claude at `tests/test_dan_analyzer_model.cpp:229`; scoring weights and calibrated curve remain undefined.
 
-## Active work
+## Shared Tools integration
 
-- **Status:** Active — isolated trajectory candidate; not approved for promotion.
-- **Task:** Fresh trajectory rebuild. The old trajectory implementation must not be consulted, copied, ported, or reused.
-- **Remote branch:** `workflow-codex/trajectory-rebuild`
-- **Branch base:** `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`
-- **Candidate kickoff commit:** `b381803c0bddf021cb7754f556a57fbd58d96d45`
-- **Local workspace:** `~/workflow-codex` not yet verified or created; user currently has no access to their Arch PC.
-- **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
-- **Main-workflow changed:** No.
-- **Implementation status:** No trajectory implementation code written yet; branch currently records kickoff/workflow notes only.
+- Latest `main` remains the baseline for the existing Tools button, popup, tool registry, hitbox model/trail and other shared files.
+- Recorder's shared overlay renderer and portrait-preview path are included.
+- Trajectory hooks have been integrated into that Recorder overlay: per-frame update, reset, and quit cleanup.
+- `tools/mod.json` retains both the Recorder portrait-preview diagnostic setting and the Trajectory setting.
+- The shared overlay/mod integration is source-composed, not Geode-compiled or in-game verified.
 
-## Decisions and findings
+## Validation status
 
-_Add dated, evidence-backed entries. Label each as a user decision, verified finding, or proposal._
+- Portable test evidence exists on source candidates, but not all exact latest candidate suites have been rerun after assembly.
+- Claude's latest reported Dan Analyzer test failure is retained and must be investigated.
+- No combined Geode build, GitHub Actions run, or in-game validation has been performed on `alpha-branch`.
+- Do not treat this branch as buildable or the analyzer pipeline as end-to-end until validated.
 
-## Test and build record
+## Handoff
 
-| Date | Command / test | Result | Notes |
-|---|---|---|---|
-| — | — | Not recorded | Do not infer test results. |
-
-## Files changed
-
-_Record exact repository-relative paths and a short description._
-
-## Handoff / next action
-
-- **Last updated:** Not initialized.
-- **Completed:** No Codex work recorded yet.
-- **Remaining:** Populate this section when work begins and before handing off.
-- **Exact stopping point:** Not recorded.
-- **Next action for Claude:** Read this file and the Claude checklist; coordinate before taking over overlapping work.
-- **Blockers / risks:** None recorded.
-- **Relevant commit:** `8ce48311b51acae5bff35a1e117847b77df70f13` (baseline at creation; verify current HEAD).
-
-## Session log
-
-### 2026-11-25 — isolated trajectory branch created
-- Created `workflow-codex/trajectory-rebuild` from current `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`.
-- Added kickoff status to this checklist on the candidate branch (commit `b381803c0bddf021cb7754f556a57fbd58d96d45`).
-- User requested that branch workflow and current branch status also be documented in both repository READMEs and in the checks on `main`.
-- The root README, `checks/README.md`, and this checklist are shared workflow documentation on `main`. No trajectory code or `~/main-workflow` changes.
-- User is away from their Arch PC; local workspace setup is deferred.
-
+- Review the composed `tools/src/overlay.cpp` and `tools/mod.json` before further edits.
+- Resolve the Trajectory compile/timestep issues and Dan Analyzer failing test.
+- Wire and validate Recorder live capture/readback; then run Parser on an actual captured session and connect Parser output to Analyzer.
+- Keep `main` and `~/main-workflow` untouched unless the user separately approves promotion.

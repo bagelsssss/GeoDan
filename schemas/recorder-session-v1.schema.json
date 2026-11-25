@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bagelsssss/GeoDan/blob/workflow-codex/level-recorder/schemas/recorder-session-v1.schema.json",
+  "title": "GeoDan Recorder Session Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "width",
+    "height",
+    "target_fps",
+    "frames_written",
+    "missed_capture_intervals",
+    "writer_queue_drops",
+    "start_unix_ns",
+    "end_unix_ns",
+    "first_sequence",
+    "last_sequence",
+    "stop_reason",
+    "frames_metadata",
+    "frames_directory"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "status": { "enum": ["recording", "complete", "incomplete", "error"] },
+    "width": { "type": "integer", "minimum": 1 },
+    "height": { "type": "integer", "minimum": 1 },
+    "target_fps": { "type": "integer", "minimum": 1 },
+    "frames_written": { "type": "integer", "minimum": 0 },
+    "missed_capture_intervals": { "type": "integer", "minimum": 0 },
+    "writer_queue_drops": { "type": "integer", "minimum": 0 },
+    "start_unix_ns": { "type": "integer", "minimum": 0 },
+    "end_unix_ns": { "type": ["integer", "null"], "minimum": 0 },
+    "first_sequence": { "type": ["integer", "null"], "minimum": 0 },
+    "last_sequence": { "type": ["integer", "null"], "minimum": 0 },
+    "stop_reason": { "type": "string" },
+    "frames_metadata": { "const": "frames.csv" },
+    "frames_directory": { "const": "frames" }
+  }
+}
