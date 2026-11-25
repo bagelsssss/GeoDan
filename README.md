@@ -10,7 +10,7 @@ Ranks Classic Geometry Dash levels on the osu!mania dan scale.
 | Level recorder | Records Classic gameplay on a blank background with physical hitboxes/tools available | Candidate mostly implemented; not built or runtime-tested |
 | Image parser | Groups recorded images into sections and measures player-to-hazard clearance, frame windows, and Nerves | Not implemented |
 | Swag route detection | Searches and validates alternative completable paths | Not implemented; simulation is reserved for route exploration |
-| Dan analyzer | Judges parser and route evidence, then assigns a calibrated Dan | Portable judge foundation implemented on candidate branch; no Dan formula |
+| Dan analyzer | Judges parser and route evidence, then assigns a calibrated Dan | Portable judge, score-scale, raw-section aggregation, calibration, and skillset primitives implemented on candidate branch; feature weights and measured calibration curve pending |
 
 **Scope:** Classic Geometry Dash only. Platformer implementation and support are cancelled.
 
