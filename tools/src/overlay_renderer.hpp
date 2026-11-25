@@ -4,6 +4,7 @@
 
 #include <Geode/Geode.hpp>
 #include <algorithm>
+#include <cmath>
 #include <array>
 #include <vector>
 
