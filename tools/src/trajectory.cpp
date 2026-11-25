@@ -408,11 +408,6 @@ class $modify(GeoDanTrajectoryPlayerObject, PlayerObject) {
         PlayerObject::playBumpEffect(objectType, object);
     }
 
-    void playBurstEffect() {
-        if (trajectory::SimulationContext::active()) return;
-        PlayerObject::playBurstEffect();
-    }
-
     void playDeathEffect() {
         if (trajectory::SimulationContext::active()) return;
         PlayerObject::playDeathEffect();

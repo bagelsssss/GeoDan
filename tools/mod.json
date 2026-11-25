@@ -36,12 +36,6 @@
       "description": "Predicted path ahead for hold and release.",
       "default": false
     },
-    "level-recorder": {
-      "type": "bool",
-      "name": "Level recorder",
-      "description": "Records the level with the tools on, to a session folder. Off by default.",
-      "default": false
-    },
     "portrait-preview-test": {
       "type": "bool",
       "name": "Portrait capture preview (TEST)",

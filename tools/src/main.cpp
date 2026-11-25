@@ -32,12 +32,11 @@ bool savedOrDefault(std::string_view id, bool) {
 }
 
 // Which popup section a tool belongs to.
-enum class Section { Hitboxes, Trajectory, Recorder, Planned };
+enum class Section { Hitboxes, Trajectory, Planned };
 
 Section sectionOf(const core::ToolDef& tool) {
     if (!core::canEnable(tool)) return Section::Planned;
     if (tool.id == "trajectory") return Section::Trajectory;
-    if (tool.id == "level-recorder") return Section::Recorder;
     return Section::Hitboxes;
 }
 
