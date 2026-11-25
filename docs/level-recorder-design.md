@@ -46,6 +46,19 @@ The capture must preserve the same geometry, colors, and overlay visibility as t
 
 The camera/crop transform must be explicit and stable for a session. Do not guess its world-space framing from device resolution. The initial capture should be validated visually before treating the frame layout as a parser contract.
 
+## Readback API hazard discovered during API review
+
+The Geode 2.2081 Cocos bindings expose `CCRenderTexture::newCCImage`, but the inspected inline implementation reads pixels with `glReadPixels` synchronously and allocates two full-frame byte arrays before constructing a `CCImage`. That is an unsuitable default hot path for a 60 FPS recorder because it introduces a GPU/CPU synchronization point and repeated full-frame allocations.
+
+Do not call `CCRenderTexture::newCCImage` or `CCRenderTexture::saveToFile` once per frame as the final optimized design. Prefer:
+- a reusable render target;
+- a preallocated ring of pixel buffers;
+- asynchronous GPU readback (pixel-pack buffers / supported extension) where the active graphics backend actually supports it;
+- a non-blocking fallback that measures the readback cost and records skipped captures rather than stalling gameplay;
+- background PNG encoding and file writes after CPU ownership of a completed buffer is established.
+
+The exact readback path must be selected at runtime from verified graphics capabilities. Do not assume desktop OpenGL PBO support exists on every Android/iOS backend. If a platform has no viable asynchronous readback path, report that limitation rather than claiming 60 FPS capture is guaranteed.
+
 ## Session output contract
 
 A recording session is a directory containing:
