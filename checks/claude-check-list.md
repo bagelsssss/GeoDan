@@ -68,6 +68,16 @@
 
 ## Session log
 
+### 2026-11-25 — review of Codex's level recorder branch (`workflow-codex/level-recorder` at `7f782b2`)
+- Read the branch's diff stat (20 files, +2364/-194), its checklist, and the design doc `docs/level-recorder-design.md`.
+- Verified by running tests on an archive of the branch (g++ -std=c++20 -Wall -Wextra -Werror):
+  - PASS: test_hitbox_model, test_recorder_geometry, test_recorder_model, test_recorder_png_encoder, test_recorder_worker, test_tool_registry.
+  - FAIL (run): test_recorder_session at tests/test_recorder_session.cpp:81, `csv.find("10,0,0,0,written")`. The writer writes the frame's own timestamp and delta, and the test passes timestamp 16,666,666 for sequence 10. My reading: the expected string is wrong, not the writer. Not confirmed by running the writer on its own.
+- Verified by type-check (scratch copy only): `tools/src/overlay_renderer.hpp` is missing the cocos2d/Geode names (`ccColor4F`, `CCRect`, `CCPoint`, `CCDrawNode`, `CCDirector`, `CCNode`). Adding `using namespace geode::prelude;` above the namespace makes `tools/src/overlay.cpp` type-check with only the known header noise. Not built with the Geode SDK.
+- Checklist claim "tests/build pending" is consistent with this: no test run was recorded by Codex.
+- Risks (from Codex's own checklist, not yet checked): synchronous `CCRenderTexture::newCCImage` is unsuitable as an assumed 60 FPS path; GPU readback support is unverified.
+- Not yet done: no fixes applied; no Claude branch created for the recorder. Waiting for the user's go-ahead.
+
 ### 2026-11-25 — trajectory built on Codex's branch
 - Branch `workflow-claude/trajectory-from-codex` from `workflow-codex/trajectory-rebuild` at `9bfee12`.
 - Commit `6a8741b`: added the missing `;`; replaced `dt / timeWarp` with a fixed `1.f / 240.f` step.
