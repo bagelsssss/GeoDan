@@ -15,6 +15,7 @@
 #include <string>
 #include <system_error>
 #include "recorder_model.hpp"
+#include "recorder_geometry.hpp"
 
 namespace geodan::core::recorder {
 struct SessionConfig {
@@ -60,13 +61,22 @@ public:
         m_csv << "sequence,timestamp_ns,delta_ns,missed_intervals,write_status\n";
         m_csv.flush();
         if (!m_csv) return fail("cannot_write_frames_csv_header");
+        m_hitboxesCsv.open(m_sessionDirectory / "hitboxes.csv",
+                           std::ios::out | std::ios::binary | std::ios::trunc);
+        if (!m_hitboxesCsv) return fail("cannot_open_hitboxes_csv");
+        m_hitboxesCsv << "sequence,phase,geometry_status,entity_type,entity_id,left,top,right,bottom\n";
+        m_hitboxesCsv.flush();
+        if (!m_hitboxesCsv) return fail("cannot_write_hitboxes_csv_header");
         if (!writeManifest("recording", 0, "")) return fail("cannot_write_initial_manifest");
         return true;
     }
 
     // Sequence gaps are preserved in filenames; frames are never renumbered.
-    bool writeFrame(const FrameStamp& stamp, std::span<const std::uint8_t> pngBytes) {
+    bool writeFrame(const FrameStamp& stamp, std::span<const std::uint8_t> pngBytes,
+                    const FrameGeometry& geometry) {
         if (m_state != State::Recording || !hasPngSignature(pngBytes)) return false;
+        if (geometry.sequence != stamp.sequence || !geometry.valid())
+            return fail("invalid_or_mismatched_frame_geometry");
         if (!m_hasLastFrame) {
             // The first persisted frame may follow one or more captured frames
             // dropped before reaching the writer. Only sequence zero must have
@@ -113,6 +123,15 @@ public:
             std::filesystem::remove(finalPath, ec);
             return fail("cannot_write_frame_metadata");
         }
+        if (!writeGeometryCsvFrame(m_hitboxesCsv, geometry)) {
+            std::filesystem::remove(finalPath, ec);
+            return fail("cannot_write_hitbox_metadata");
+        }
+        m_hitboxesCsv.flush();
+        if (!m_hitboxesCsv) {
+            std::filesystem::remove(finalPath, ec);
+            return fail("hitbox_metadata_flush_failed");
+        }
         if (!m_hasLastFrame) m_firstSequence = stamp.sequence;
         m_hasLastFrame = true;
         m_lastSequence = stamp.sequence;
@@ -134,9 +153,11 @@ public:
     bool finalize(std::uint64_t endUnixNs, const std::string& stopReason = "user_stop") {
         if (m_state != State::Recording) return false;
         m_csv.flush();
-        const bool csvOkay = static_cast<bool>(m_csv);
+        m_hitboxesCsv.flush();
+        const bool csvOkay = static_cast<bool>(m_csv) && static_cast<bool>(m_hitboxesCsv);
         m_csv.close();
-        if (!csvOkay) return fail("frames_csv_flush_failed");
+        m_hitboxesCsv.close();
+        if (!csvOkay) return fail("session_metadata_flush_failed");
         if (!writeManifest("complete", endUnixNs, stopReason))
             return fail("cannot_finalize_manifest");
         m_state = State::Complete;
@@ -146,8 +167,10 @@ public:
     bool abort(const std::string& reason, std::uint64_t endUnixNs) {
         if (m_state != State::Recording) return false;
         m_csv.flush();
-        const bool csvOkay = static_cast<bool>(m_csv);
+        m_hitboxesCsv.flush();
+        const bool csvOkay = static_cast<bool>(m_csv) && static_cast<bool>(m_hitboxesCsv);
         m_csv.close();
+        m_hitboxesCsv.close();
         const bool manifestOkay = writeManifest(csvOkay ? "incomplete" : "error", endUnixNs, reason);
         m_state = csvOkay && manifestOkay ? State::Incomplete : State::Failed;
         if (!manifestOkay) m_error = "cannot_write_abort_manifest";
@@ -254,6 +277,10 @@ private:
             m_csv.flush();
             m_csv.close();
         }
+        if (m_hitboxesCsv.is_open()) {
+            m_hitboxesCsv.flush();
+            m_hitboxesCsv.close();
+        }
         if (wasRecording && !m_sessionDirectory.empty())
             (void)writeManifest("error", nowUnixNs(), message);
         m_state = State::Failed;
@@ -265,6 +292,7 @@ private:
     std::filesystem::path m_sessionDirectory;
     std::filesystem::path m_framesDirectory;
     std::ofstream m_csv;
+    std::ofstream m_hitboxesCsv;
     std::uint64_t m_startUnixNs = 0, m_framesWritten = 0;
     std::uint64_t m_missedIntervals = 0, m_queueDrops = 0;
     std::uint64_t m_firstSequence = 0, m_lastSequence = 0, m_lastTimestampNs = 0;
