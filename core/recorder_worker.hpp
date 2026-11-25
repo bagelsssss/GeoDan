@@ -3,6 +3,9 @@
 #pragma once
 
 #include <cstdint>
+#include <exception>
+#include <optional>
+#include <span>
 #include <filesystem>
 #include <future>
 #include <string>
