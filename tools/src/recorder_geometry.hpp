@@ -16,6 +16,8 @@
 
 namespace geodan::tools::capture {
 
+using namespace geode::prelude;
+
 namespace hb = geodan::core::hitbox;
 namespace rec = geodan::core::recorder;
 namespace overlay = geodan::tools::overlay;
