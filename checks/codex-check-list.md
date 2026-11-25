@@ -21,7 +21,15 @@
 
 ## Active work
 
-_No active Codex task recorded._
+- **Status:** Active — isolated trajectory candidate; not approved for promotion.
+- **Task:** Fresh trajectory rebuild. The old trajectory implementation must not be consulted, copied, ported, or reused.
+- **Remote branch:** `workflow-codex/trajectory-rebuild`
+- **Branch base:** `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`
+- **Candidate kickoff commit:** `b381803c0bddf021cb7754f556a57fbd58d96d45`
+- **Local workspace:** `~/workflow-codex` not yet verified or created; user currently has no access to their Arch PC.
+- **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
+- **Main-workflow changed:** No.
+- **Implementation status:** No trajectory implementation code written yet; branch currently records kickoff/workflow notes only.
 
 ## Decisions and findings
 
@@ -49,4 +57,10 @@ _Record exact repository-relative paths and a short description._
 
 ## Session log
 
-_Add newest entries first. Include date/time and relevant commit SHA._
+### 2026-11-25 — isolated trajectory branch created
+- Created `workflow-codex/trajectory-rebuild` from current `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`.
+- Added kickoff status to this checklist on the candidate branch (commit `b381803c0bddf021cb7754f556a57fbd58d96d45`).
+- User requested that branch workflow and current branch status also be documented in both repository READMEs and in the checks on `main`.
+- The root README, `checks/README.md`, and this checklist are shared workflow documentation on `main`. No trajectory code or `~/main-workflow` changes.
+- User is away from their Arch PC; local workspace setup is deferred.
+
