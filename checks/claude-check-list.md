@@ -66,6 +66,16 @@
 
 ## Session log
 
+### 2026-11-25 — review of Codex's trajectory branch (`workflow-codex/trajectory-rebuild` at `9bfee12`)
+- Read both checklists and the branch's `core/trajectory_model.hpp`, `tools/src/trajectory.cpp`, `tools/src/overlay.cpp`, `tools/mod.json`.
+- Verified (type-check, scratch copy only, not committed to any branch): `tools/src/trajectory.cpp` line 435 is missing a `;` after the last `$modify` block. With that added, the file type-checks against the Geode 5.11.2 headers; only the known header noise remains (`Modify.hpp`, `SEL_HttpResponse`, `MusicDownload`). Not built with the Geode SDK.
+- Verified: `tests/test_*.cpp` pass on that branch (3 files). `check_commit.py` settings-match passes (4 tools, keys match).
+- Verified finding (confirmed in code): step is `frameDt = dt / timeWarp`, taken from the frame time. The prediction length (steps × step time) then depends on frame rate. Needs a fixed physics step, as my candidate uses.
+- Risk (unverified): `spawnParticle` returns `nullptr` during simulation. If a caller dereferences the result, this crashes. Needs a caller audit.
+- Risk (unverified): simulation players are added directly to `m_objectLayer`, not a hidden layer. Game code that iterates the object layer could see them. Needs an in-game check.
+- Note: `isSupportedCollisionObject` treats no-touch and group-disabled objects as supported (kept in the vector). That looks intentional, but it is not documented.
+- Proposal (not approved): build on Codex's branch on a Claude-owned branch, applying the `;` fix and the fixed 1/240 step. Keep the `spawnParticle` and parent-layer questions open. Drop Claude's own candidate `workflow-claude/trajectory-candidate` (`11ea778`), since it duplicates Codex's work and does not compile.
+
 ### 2026-11-25 — recheck after pause
 - Fetched remote. `main` was 8 commits ahead (checklists and README from the user). Local `main` fast-forwarded to `f5835c3`.
 - Read both checklists, the root README and the checks README in full.
