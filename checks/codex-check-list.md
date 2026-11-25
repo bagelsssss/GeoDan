@@ -50,14 +50,14 @@
 
 | Date | Command / test | Result | Notes |
 |---|---|---|---|
-| 2026-11-25 | Portable model test using local source-equivalent copy: g++ -std=c++20 -Wall -Wextra -Werror | Passed | Output: Dan analyzer evidence model: all checks passed. The test source was reconstructed from the committed model; exact remote file was not compiled directly. |
+| 2026-11-25 | Portable model test using local source-equivalent copy: g++ -std=c++20 -Wall -Wextra -Werror | Passed | Output: Dan analyzer evidence model: all checks passed. Covers classic and platformer segments, idle sample exclusion, evidence provenance, unsupported interactions, numeric bounds and skillset validation. The test/header were reconstructed source-equivalently from the committed files; exact remote files were not compiled directly. |
 | 2026-11-25 | GitHub Actions analyzer workflow | Not run | Workflow is workflow_dispatch only. |
 | 2026-11-25 | Geode build / in-game tests | Not run | Model is Geode-free; no analyzer UI or game integration exists. |
 
 ## Files changed
 
-- core/dan_analyzer_model.hpp — Geode-free evidence types, per-segment geometry/simulation measurements, skillset evidence, memory evidence channels, conservative readiness gate, and 1st–10th Dan tier labels.
-- tests/test_dan_analyzer_model.cpp — tests missing evidence, validated source requirements, unsupported interactions, invalid numeric values, skillset validation, and tier bounds.
+- core/dan_analyzer_model.hpp — Geode-free evidence types, sample-indexed mode/phase segments, per-segment geometry/simulation measurements, skillset evidence, separate memory signals, conservative readiness gate, and 1st–10th Dan tier labels.
+- tests/test_dan_analyzer_model.cpp — tests missing evidence, classic/platformer mode handling, startup-idle exclusion, validated source requirements, unsupported interactions, invalid numeric values, skillset validation, and tier bounds.
 - docs/dan-analyzer-design.md — measurement-first architecture, current pipeline status, physics-test limitations, and next stages.
 - README.md — marks Tools and Level Recorder as candidate mostly implemented but untested; records parser, simulator, and analyzer status.
 - .github/workflows/geodan-analyzer-tests.yml — manual-only portable test workflow.
@@ -67,10 +67,10 @@
 - **Last updated:** 2026-11-25.
 - **Completed:** Started the isolated analyzer branch from main. Added a portable evidence model, tests, architecture notes, pipeline status update and a manual-only test workflow.
 - **Remaining:** Verify exact committed source with the test compiler; define parser-to-analyzer and simulator-to-analyzer input contracts; design segment aggregation; define skillset evidence aggregation; assemble calibration dataset; only then implement 1st–10th dan assignment.
-- **Exact stopping point:** Analyzer candidate branch workflow-codex/dan-analyzer. Latest code/docs commit before this checklist update: 291ebb4cf2c4881828095d48287268ccabb57e1a.
+- **Exact stopping point:** Analyzer candidate branch workflow-codex/dan-analyzer. Latest code/docs commit before this checklist update: e9eef4179a660470bc655facbbd5ce6dc1f72bd4.
 - **Next action:** Continue with a versioned evidence contract and segment-level feature aggregation. Do not implement a dan score formula yet.
 - **Blockers / risks:** Physics evidence includes a run with noclip unverified and support_match=0 on the slope hook; trajectory candidate not built/in-game validated; capture/parser not end-to-end validated; calibration dataset/held-out set not ready.
-- **Relevant commits:** 2821cde01b627a092f81ae24446a4d6ed2c9c4fc (model); 23569e093b7d40eab204a4d97ce26b54d541978a (tests); 01c93c0897538cb503b8185cb102fb3bd9f62c1c (design); a625d7082df7d3f480beaefedb244d33536669e8 (README); fea78c0d9132d82f3e3bd1c378db935156f99887 (unsupported evidence); 5a167fcb3d26de42b9ae37e0325322c67362abbd (unsupported evidence test); c71268a4d3ec5934deb0d95d14708539096b73f8 (manual test workflow); 291ebb4cf2c4881828095d48287268ccabb57e1a (design clarification).
+- **Relevant commits:** 2821cde01b627a092f81ae24446a4d6ed2c9c4fc (model); 23569e093b7d40eab204a4d97ce26b54d541978a (tests); 01c93c0897538cb503b8185cb102fb3bd9f62c1c (design); a625d7082df7d3f480beaefedb244d33536669e8 (README); fea78c0d9132d82f3e3bd1c378db935156f99887 (unsupported evidence); 5a167fcb3d26de42b9ae37e0325322c67362abbd (unsupported evidence test); c71268a4d3ec5934deb0d95d14708539096b73f8 (manual test workflow); 291ebb4cf2c4881828095d48287268ccabb57e1a (design clarification); 48429eaa4c89b41dba53d438c533e53b37fcb02a (sample-index ranges and metric bounds); b349c9c3f993aa0893e09a3dba171b6d9d6699ef (range tests); 6d304f564dc2b5b9abd7c3b67520b8e8cc31d70c (classic/platformer test); a23bec0b73ca5377967a21afb2848a438feed630 (active-vs-idle phase); 97261e82fa369faee561622c0a41d0cd7ebf6935 (idle exclusion test); e9eef4179a660470bc655facbbd5ce6dc1f72bd4 (design notes).
 
 ## Session log
 
@@ -78,9 +78,9 @@
 - Read the shared workflow guide and both agent checklists on main; checked remote branch list and candidate files.
 - Confirmed main has no analyzer implementation. Created workflow-codex/dan-analyzer from main, keeping the analyzer work isolated.
 - Reviewed the trajectory candidate and uploaded rotated-slope test log. The log header says noclip=unverified; slope hook records have support_match=0 before an airborne transition. Did not treat this as validated physics.
-- Added the portable evidence model and tests. The model stores source/state/sample count for every metric; unknown is distinct from zero; unsupported evidence remains explicit.
+- Added the portable evidence model and tests. The model stores source/state/sample count for every metric; unknown is distinct from zero; unsupported evidence remains explicit. Segment ranges use sample indices rather than world X, and explicit phases keep startup idle/pause/respawn/transition samples out of difficulty calculations.
 - Added all 26 requested skillset labels and classic/platformer mode fields. Added 1st–10th Dan tier names only; no tier mapping or score formula.
 - Added conservative readiness gate; its per-segment geometry+simulation requirement is documented as a proposal, not a final scoring rule.
-- Added manual-only test workflow and updated README pipeline statuses. Tools and Level Recorder are recorded as candidate mostly implemented, untested and not promoted.
-- A local source-equivalent C++ test copy compiled with g++ -std=c++20 -Wall -Wextra -Werror and passed. Exact remote source compilation and GitHub Actions were not run.
+- Added manual-only test workflow and updated README pipeline statuses. Tools README wording now clearly says the candidate is isolated and not tested together. Tools and Level Recorder are recorded as candidate mostly implemented, untested and not promoted.
+- A local source-equivalent C++ test copy compiled with g++ -std=c++20 -Wall -Wextra -Werror and passed after adding classic/platformer and idle-phase coverage. Exact remote source compilation and GitHub Actions were not run.
 - No Geode code, gameplay hook, simulator physics, main-workflow, or main branch changes.
