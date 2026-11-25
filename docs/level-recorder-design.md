@@ -71,6 +71,21 @@ A recording session is a directory containing:
 
 The image parser should consume a completed manifest, not scan an arbitrary folder while the recorder is still writing. A session is marked complete only after the writer drains and all files are closed. Interrupted sessions must be marked incomplete and retain enough metadata to diagnose the stop.
 
+## Per-frame hitbox metadata
+
+Every successfully written PNG also has a matching row group in `hitboxes.csv`. The worker writes the PNG, `frames.csv` entry, and geometry rows using the same original sequence number. The geometry stream is worker-owned and flushed with the frame metadata; a geometry write failure marks the session as an error rather than publishing a complete session with missing evidence.
+
+The portable contract is in `core/recorder_geometry.hpp`; the session writer persists it from `core/recorder_session.hpp`, and `RecorderWorker` transports the snapshot in each queued frame. The game-facing adapter is `tools/src/recorder_geometry.hpp`. It maps object-layer coordinates through Cocos world space and the portrait capture transform into capture-pixel coordinates (top-left origin, y increasing downward).
+
+The first adapter deliberately uses conservative axis-aligned envelopes:
+- Player: the inner `getObjectRect(0.3f, 0.3f)` box already used by the diagnostic trail.
+- Hazards: the existing hitbox overlay's circle/oriented-box/rectangle outline, reduced to a capture-space AABB.
+- Lethal slope edges and unclassified interactive objects: mark the frame `unsupported` rather than silently omitting uncertain collision geometry.
+- Decorative objects, disabled groups, and `m_isNoTouch` objects are omitted.
+- Fully off-capture hazards are omitted; partially visible bounds are clipped to the capture rectangle.
+
+These envelopes are conservative for rotated/circular shapes and are not proven to be the exact engine collision shapes. The player's inner box is also a diagnostic proxy until checked against the engine's collision routines. Do not treat this metadata as validated physics evidence yet. The adapter currently exists as a callable snapshot helper; no live frame-capture producer calls it because GPU readback and gameplay recorder lifecycle are still not integrated.
+
 ## Failure and lifecycle handling
 
 - Start only in active gameplay after the capture target and output session are successfully initialized.
