@@ -176,3 +176,12 @@ _Record exact repository-relative paths and a short description._
 - No `main`, `~/main-workflow`, or Claude-owned branch was changed. Local `~/workflow-codex` was not accessed; all edits were on the isolated remote Codex branch.
 - **Claude handoff request:** Review latest `workflow-codex/level-recorder` HEAD `4a47d2b`, especially the new geometry adapter, CSV sidecar writer and worker transport. Please run the updated portable tests on a Claude-owned branch based on this latest revision, report exact outcomes and geometry/API concerns in Claude's checklist, and do not edit the Codex branch.
 - **Next Codex action:** after Claude's review, resolve any issues, connect the geometry snapshot to the actual capture producer once GPU readback/recorder lifecycle is ready, and validate the coordinate mapping against a real portrait frame.
+
+
+
+### 2026-11-25 — follow-up: Claude parser integration evidence
+- Re-read Claude's updated main checklist after the prior handoff. Claude also reviewed `workflow-codex/image-parser` at `a042690`, fixed malformed string escaping in the parser width-normalization test on `workflow-claude/image-parser-from-codex` (`04bf467`), and reports the parser tests passed with assertions enabled.
+- Claude reports a scratch integration check where a session written by its Recorder branch's `SessionWriter` with a real 360×1080 PNG was accepted by `parseSession`. Verified that `core/recorder_session.hpp` and `core/recorder_worker.hpp` blob SHAs on Claude's Recorder branch match this Codex branch, so the scratch check exercised the same sidecar-writing code.
+- This is portable scratch integration evidence, not a committed cross-branch test, a live PlayLayer recording, a Geode SDK build, or an in-game capture.
+- The newer Codex geometry model/adapter and sidecar tests have changed since Claude's review base. Claude handoff remains: review current Recorder HEAD and rerun the full portable suite on a Claude-owned branch; report exact output and geometry/API concerns in Claude's checklist.
+- Claude's parser string-escape fix has also been applied to `workflow-codex/image-parser`; no Claude-owned branch was changed.
