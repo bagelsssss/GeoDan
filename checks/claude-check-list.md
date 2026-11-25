@@ -148,3 +148,43 @@
 - Codex checklist on main still says "Awaiting Codex's first entry"; real Codex logs live on the branches. Stale on main.
 - Geode CLI not installed in this sandbox; no Geode build was run. `geode build --platform windows` from Linux is unverified.
 - Not changed: source, branches, `~/main-workflow`. Worktrees removed.
+
+### 2026-11-25 — Windows build and in-game results, review plan (Claude)
+- Scope: updates the record after the first Windows build of combined work. Nothing merged to main; no source changed on main.
+
+**Build (user's PC, Arch, Geode CLI 4.0.1, SDK 5.11.2 at ~/.local/share/Geode/sdk, g++ 16.2.1):**
+- `workflow-claude/recorder-live-from-codex` (`860be16`): `geode build --platform windows --config RelWithDebInfo --ninja` succeeded and installed `local.geodan-tools.geode`.
+- `workflow-claude/combined-progress` at `9acfeb0`: failed. `trajectory.cpp` hooked `PlayerObject::playBurstEffect`, which is `win inline` in the 2.2081 bindings. Geode's static_assert stops this.
+- `workflow-claude/combined-progress` at `a9f2856`: removed that hook; build succeeded (exit 0), packaged and installed.
+- My earlier type-checks used the macOS bindings (gen-mac). They did not catch the Windows inline error. Corrected: earlier "clean" type-check results for trajectory were not valid for Windows.
+
+**Windows-binding check (class-by-class against bindings/2.2081/GeometryDash.bro):**
+- Codex trajectory head (`bd4498f`): hooked methods checked per class. Only PlayerObject::playBurstEffect is inline on Windows. Codex's head still contains that hook; Codex must remove it.
+- A name-only grep gave false positives (incrementJumps matched other classes); per-class checking is required.
+
+**In-game results so far (user report):**
+- Menu on the installed mod (not the combined build): shows HITBOXES, TRAJECTORY, COMING NEXT with "Level recorder: Records the level with the tools on. Next." That text is Codex's level-recorder branch (`a1563a3`). Trajectory switch on, no predicted path visible. Codex's level-recorder branch has no trajectory code, so the switch does nothing.
+- Combined build after the fix: not yet confirmed in game by the user.
+- Recorder (live, `860be16`): creates session folders under `…/GeometryDash/geode/mods/local.geodan-tools/recordings/`. Two sessions: one `complete` with `stop_reason: level_restart`, one still `recording`. Both have `frames_written: 0`, frames.csv header only, no PNGs. Capture never queued a frame. Cause not known: no GeoDan lines in the Geode logs were found, and the log-path check was not yet run.
+- Probable causes to check in code (not yet verified): readback returning null or a size mismatch; the render returning false; the player focus returning nothing. The live recorder is my code and the bug is mine to fix.
+
+**Decisions and requests:**
+- User asked to stop in-game testing of the recorder until Codex's review is done.
+- User asked Codex to review all its implementations (prompt written; Codex to run it). Codex's branches become the base for my next work; my own branches are to be removed by the user after review (not deleted by me).
+- Proposed deletion (user's decision, not executed): `workflow-claude/trajectory-candidate` (11ea778), `level-recorder-from-codex` (47f3cb5), `recorder-live-from-codex` (860be16), `trajectory-from-codex` (6a8741b), `image-parser-from-codex` (04bf467), `combined-progress` (a9f2856). SHAs are recorded here for recovery.
+- main's popup/hitbox work stays unless the user asks otherwise.
+
+**My next steps (after Codex's review report):**
+1. Review each Codex implementation against its branch and the Windows bindings.
+2. Create `workflow-claude/improve-on-codex` (name to confirm) from Codex's reviewed head.
+3. Fix the live recorder's zero-frame bug on top of Codex's base; fix the trajectory's inline hook and frame-time step if Codex has not.
+4. Run the portable tests per file and the Windows build; report results to the user. No in-game claims until the user confirms.
+
+**Not verified:** in-game trajectory behaviour; in-game recorder behaviour; any Codex branch built on Windows except `recorder-live-from-codex` (`860be16`) and `combined-progress` (`a9f2856`).
+
+### 2026-11-25 — alpha prototype decisions (user)
+- User decision: build the alpha from Codex's reviewed code. Wait for Codex's self-review report before writing any alpha code.
+- User decision: the alpha stays on a repo candidate branch. Promotion into ~/main-workflow needs a separate, explicit user approval after testing.
+- Scope proposed by Claude and not yet confirmed by user: hitboxes, unclassified outlines, hitbox trail, working trajectory, level recorder writing frames the image parser accepts. Dan analyzer out of scope (test failing).
+- Estimate given: about 3–5 hours of Claude work, plus game sessions from the user. Start after Codex's review report.
+- Status: waiting on Codex's review. No alpha code written yet.
