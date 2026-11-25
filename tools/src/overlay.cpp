@@ -246,7 +246,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
     }
 
     void onQuit() {
-        PlayLayer::onQuit();
         cleanupGeoDanTrajectory(this);
+        PlayLayer::onQuit();
     }
 };
