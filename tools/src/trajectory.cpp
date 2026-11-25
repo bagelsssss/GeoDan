@@ -336,8 +336,9 @@ class $modify(GeoDanTrajectoryBaseLayer, GJBaseGameLayer) {
         GJBaseGameLayer::gameEventTriggered(event, material, playerID);
     }
 
-    CCParticleSystemQuad* spawnParticle(const char* plist, int zOrder,
-                                        tCCPositionType positionType, CCPoint position) {
+    cocos2d::CCParticleSystemQuad* spawnParticle(const char* plist, int zOrder,
+                                                  cocos2d::tCCPositionType positionType,
+                                                  cocos2d::CCPoint position) {
         if (trajectory::SimulationContext::active()) return nullptr;
         return GJBaseGameLayer::spawnParticle(plist, zOrder, positionType, position);
     }
