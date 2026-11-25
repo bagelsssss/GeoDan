@@ -103,3 +103,37 @@ At that baseline, the Tools menu foundation and hitbox/unclassified/trail overla
 - The old trajectory implementation is known to be broken. Do not consult, copy, port, or reuse it as a reference. Build new trajectory work from verified Geometry Dash movement/collision behavior and current Geode bindings, as directed by the user.
 - Never claim code, tests, builds, or in-game behavior were verified unless they were actually checked.
 - Preserve user-approved architecture and decisions. Label new ideas as proposals until approved.
+
+## Isolated agent workflows and approved integration workflow
+
+The project uses three separate local working directories. These are workflow copies, not three names for the same checkout:
+
+| Directory | Owner / purpose | May contain |
+|---|---|---|
+| `~/workflow-codex` | Codex's isolated implementation workspace | Codex experiments, drafts, tests, and candidate implementations |
+| `~/workflow-claude` | Claude's isolated implementation workspace | Claude experiments, drafts, tests, and candidate implementations |
+| `~/main-workflow` | The user-approved integration workspace and source used for the actual GeoDan code | Only implementations the user has selected or explicitly approved for integration |
+
+### Rules for the three workflows
+
+1. Claude works in `~/workflow-claude`; Codex works in `~/workflow-codex`. Neither agent may use the other agent's workspace as its own working directory or overwrite the other agent's files.
+2. Each agent may independently implement, test, revise, or discard its own candidate. Experimental work must remain isolated in that agent's workflow.
+3. Candidate implementations are not automatically part of GeoDan just because they compile, pass tests, or are committed in an agent workspace.
+4. The user decides which candidate (or which specific parts of candidates) should be promoted. For example, if the user prefers Claude's trajectory implementation, the approved Claude changes are copied or merged into `~/main-workflow`; if the user prefers Codex's, the approved Codex changes are promoted instead.
+5. Selective combination is allowed only after reviewing the differences and resolving dependencies, conflicts, and incompatible assumptions. Do not blindly combine entire workspaces.
+6. Before promotion, the responsible agent must summarize the candidate's changes, exact commit or revision, tests and results, known limitations, and files to be promoted. The user must explicitly approve the promotion.
+7. Promotion into `~/main-workflow` must preserve provenance: record which agent/workspace and revision each promoted change came from. Do not silently replace an existing implementation.
+8. `~/main-workflow` is the integration/build source of truth for the actual mod. Run integration checks there after promotion. Do not describe an experimental candidate as the active GeoDan implementation until it has been promoted.
+9. Keep the three working directories separate. Do not assume they exist, share a Git history, or are synchronized; verify their actual state before operating on them.
+10. The GitHub repository and its branches/commits remain the shared remote record. Local workflow directory names do not themselves establish that a change was pushed or committed.
+
+### Required status in agent handoffs
+
+Each agent's checklist entry for active work must identify:
+- Which workspace it is using (`~/workflow-codex` or `~/workflow-claude`).
+- Its branch and exact HEAD/revision.
+- Whether the work is experimental, awaiting review, approved for promotion, or already promoted.
+- Exact promotion source and destination when applicable.
+- Whether `~/main-workflow` was changed (it must not be changed before user approval).
+
+The user owns the final selection and promotion decision. If approval is unclear, leave the candidate in its isolated workspace and ask before promoting it.
