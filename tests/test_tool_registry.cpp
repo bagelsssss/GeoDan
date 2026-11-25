@@ -10,7 +10,9 @@ static int g_fail = 0;
 
 int main() {
     CHECK(kToolCount == 6);
+    std::size_t availableCount = 0;
     for (std::size_t i = 0; i < kToolCount; ++i) {
+        if (kTools[i].status == Status::Available) ++availableCount;
         const auto& t = kTools[i];
         CHECK(!t.id.empty() && !t.title.empty() && !t.blurb.empty());
         for (std::size_t j = 0; j < i; ++j) {
@@ -24,7 +26,8 @@ int main() {
     auto nothingSaved = [](std::string_view, bool fallback) { return fallback; };
     auto everythingOn = [](std::string_view, bool) { return true; };
     CHECK(countOn(nothingSaved) == 0);
-    CHECK(countOn(everythingOn) == 4);   // the four available tools, not the two planned ones
+    CHECK(availableCount == 3);
+    CHECK(countOn(everythingOn) == 3);   // three implemented tools; trajectory is planned in this candidate
     for (const auto& t : kTools)
         if (t.status == Status::Planned) CHECK(!isOn(t, everythingOn));
 
