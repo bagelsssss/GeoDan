@@ -6,11 +6,11 @@
 
 ## Current status
 
-- **Status:** Active — Classic-only Dan Analyzer judge foundation updated to consume Image Parser measurements and swag-route evidence; no calibrated Dan formula.
-- **Active task:** Implement the portable judge/evidence contract before Image Parser integration.
-- **Current stage:** Classic-only schema, parser evidence validation, and route evidence validation.
+- **Status:** Active — Classic-only Dan Analyzer now includes section aggregation and parser/route consistency verification; no calibrated Dan formula.
+- **Active task:** Prepare the portable judge for Image Parser integration.
+- **Current stage:** Section aggregation, level-summary consistency, and swag-route adjustment evidence.
 - **Current branch:** workflow-codex/dan-analyzer.
-- **Latest implementation commit:** a5cff6e6a7f9a59b0bd68a87e27a448296676572 (README update; branch head should be verified before further edits).
+- **Latest implementation commit before this checklist update:** 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design documentation update).
 
 ## Project constraints
 
@@ -35,7 +35,7 @@
 - **Branch:** workflow-codex/dan-analyzer, originally based on main at 5cfd2dc01f17761f77be4aee6970f8b1998b10f2.
 - **Promotion state:** Experimental; not approved for ~/main-workflow.
 - **Main workflow changed:** No.
-- **Verified previous branch head:** 943ed2f5d7bba22149184703fe3f17c8abc349c3. A compare against the branch ref reported identical before edits.
+- **Verified previous branch head:** f15de523c78930f6970e18b8320ec21c2a55706a. Compare against workflow-codex/dan-analyzer reported 8 commits ahead, 0 behind before this checklist update.
 
 ## Decisions and findings
 
@@ -58,26 +58,26 @@
 | Date | Command / test | Result | Notes |
 |---|---|---|---|
 | 2026-11-25 | g++ -std=c++20 -Wall -Wextra -Werror -I/tmp/geodan-analyzer /tmp/geodan-analyzer/test_dan_analyzer_model.cpp | Passed | Exact current candidate model/test contents were reconstructed locally and compiled; output: Dan analyzer judge model: all checks passed. |
-| 2026-11-25 | GitHub Actions analyzer workflow | Not run | Workflow remains workflow_dispatch only. |
+| 2026-11-25 | GitHub Actions analyzer workflow | Not run | Workflow remains workflow_dispatch only; this session had no workflow-dispatch action. |
 | 2026-11-25 | Geode build / in-game tests | Not run | No game integration or actual parser/route-search runtime exists. |
 
 ## Files changed
 
-- core/dan_analyzer_model.hpp — Classic-only portable evidence and judge model; per-section clearance, 60/120/240 frame windows, Nerves, parser frame accounting, skillset/memory evidence, swag-route comparison, and readiness verdict.
-- tests/test_dan_analyzer_model.cpp — tests Classic-only schema, idle exclusion, clearance plausibility, parser accounting, all frame-window rates, Nerves, easier/harder route behavior, incomplete route search, and unsupported hitboxes.
-- docs/dan-analyzer-design.md — documents Classic-only responsibilities, parser contract, hitbox basis, route evidence, judge behavior, and deferred Dan calibration.
-- README.md — updates the pipeline to distinguish Image Parser from Swag Route Detection and records Classic-only scope.
+- core/dan_analyzer_model.hpp — adds weighted section aggregation, section-level distribution summaries, timing-window totals and coverage, Nerves aggregation, parser-to-section consistency checks, overflow guards, ordered/non-overlapping section validation, integral timing counts, unique route IDs/reference validation, and incomplete status for unquantified easier routes.
+- tests/test_dan_analyzer_model.cpp — adds tests for two-section aggregation, weighted mean/median/p10, tightest clearance, frame-window totals, Nerves, idle exclusion, parser-summary mismatches, missing data, fractional timing counts, easier-route maximum bypass, harder-route non-inflation, and unquantified easier routes.
+- docs/dan-analyzer-design.md — documents aggregation semantics and explicitly distinguishes section-level percentiles from exact frame-level percentiles.
+- README.md — unchanged in this milestone; it already describes the Classic-only pipeline.
 - .github/workflows/geodan-analyzer-tests.yml — unchanged; manual-only portable test workflow.
 
 ## Handoff / next action
 
 - **Last updated:** 2026-11-25.
-- **Completed:** Removed GameMode/Platformer from the analyzer model. Replaced the earlier geometry+simulation-per-segment requirement with parser evidence for recorded gameplay and separate swag-route evidence. Added validation for parser frame accounting, clearance ordering, 60/120/240 timing windows, Nerves, unsupported hitboxes, route completion, easier-route bypass fraction, and harder-route non-inflation. Updated docs and candidate README.
-- **Remaining:** Add explicit consistency checks between section-level and level-level aggregates; settle exact Nerves semantics with the user; define route-search coverage/termination evidence; implement and test feature aggregation; only later calibrate Dan scoring on a held-out Classic dataset.
-- **Exact stopping point:** Model and tests locally compiled from the exact content pushed to the candidate branch. No Geode build, parser integration, route simulation, or Dan calibration.
-- **Next action:** Continue with consistency validation and feature aggregation, without adding a Dan formula until evidence semantics and calibration are ready.
-- **Blockers / risks:** Image Parser and Swag Route Detection do not yet exist. Frame-window validity depends on actual recorder timestamp/frame precision. The simulator candidate is not validated. Nerves and bypass-fraction measurement definitions still need calibration.
-- **Relevant commits:** bdd14552e31a00234fcdb0a9557122c9a2ed1f00 (Classic-only judge model); 485d10bb0779a28f62fade1ab010e161f8297c19 (tests); 8a062ab1573cef0ddcdde7282772aa990416ee24 (design); a5cff6e6a7f9a59b0bd68a87e27a448296676572 (README).
+- **Completed:** Added weighted section aggregates for clearance and Nerves, section-level weighted median/p10 distributions, min/max, timing-window totals and coverage, maximum validated easier-route bypass fraction, and consistency checks against parser-level mean/minimum/timing/Nerves summaries. Added chronological non-overlap/range checks, fractional timing rejection, overflow guards, unique route IDs, exactly one reference route, and an insufficient-evidence gate for completed easier routes without validated bypass fractions. Expanded tests and documented which statistics cannot be reconstructed exactly from section summaries.
+- **Remaining:** Run the exact branch test suite. Add integration with the future Image Parser and Swag Route Detection. Define Nerves semantics and route-search coverage/termination evidence with the user. Calibrate the eventual Dan formula only on a held-out Classic dataset.
+- **Exact stopping point:** Code, tests, and documentation committed to the isolated remote branch. The new test suite was authored but NOT compiled or run in this session. No GitHub Actions run, Geode build, parser integration, route simulation, or Dan calibration.
+- **Next action:** Run `g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_dan_analyzer_model.cpp -o /tmp/geodan-dan-analyzer-tests && /tmp/geodan-dan-analyzer-tests` in the Codex checkout or manually dispatch the existing portable test workflow; fix any failures before extending the model.
+- **Blockers / risks:** Image Parser and Swag Route Detection do not yet exist. Frame-window validity depends on actual recorder timestamp/frame precision. The simulator candidate is not validated. Nerves and bypass-fraction measurement definitions still need calibration. Whole-level frame median/p10 cannot be exactly reconstructed from section summary percentiles; the model deliberately reports section-level distributions separately.
+- **Relevant commits:** 8582cf6e751f87db2be3e9c646dcbcbd5a4b7f88 (aggregation); e72f0f84236b9ea9e9e696346d5b5a7650d0ae33 (validation hardening); d620f39adcd7de5f9555a579408463c9cb973343 (tests); 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design docs).
 
 ## Session log
 
@@ -91,3 +91,15 @@
 - Updated README and design documentation to state Classic-only scope and distinguish Image Parser from route-search simulation.
 - Compiled the locally reconstructed exact model/test contents with g++ -std=c++20 -Wall -Wextra -Werror; all checks passed.
 - No main branch, main-workflow, local user workspace, Geode integration, or in-game behavior was changed.
+
+
+### 2026-11-25 — Section aggregation and consistency verification
+- Re-read the shared workflow guide and both agent checklists. Confirmed the candidate branch was identical to the recorded prior head before edits.
+- Added section-level aggregate distributions: sample-count-weighted means, weighted median and p10 across section values, min/max, coverage counts, and represented samples.
+- Added total 60/120/240 frame-window counts and coverage, weighted Nerves aggregation, and maximum validated bypass fraction across completed easier routes.
+- Added parser-summary consistency checks for weighted clearance mean, minimum clearance, timing-window totals, Nerves weighted mean, and clearance sample count.
+- Deliberately did not claim that a true frame-level median/p10 can be reconstructed from per-section summary statistics; the model reports section-level distributions separately.
+- Hardened validation for chronological non-overlapping section ranges, source-frame bounds, strictly increasing section indexes, integral frame-window counts, duplicate route IDs, exactly one reference route, overflow, and completed easier routes with missing/unvalidated bypass fractions.
+- Expanded portable tests for two-section aggregation, weighted distributions, timing totals, Nerves, idle exclusion, parser-summary mismatch, incomplete evidence, fractional windows, easier/harder route comparison, and unquantified easier routes.
+- Updated design documentation. The test suite was authored but was NOT compiled or run in this session; no GitHub Actions dispatch action was available.
+- No main branch, main-workflow, local user workspace, Geode runtime, Image Parser, or Swag Route simulator was changed.
