@@ -68,6 +68,13 @@
 
 ## Session log
 
+### 2026-11-25 — recorder live integration: scoped, not started (user said go ahead)
+- Found: the recorder branch has no live pipeline. The writer (`SessionWriter`), worker (`RecorderWorker`), geometry adapter (`snapshotGeometry`) and portrait target exist, but nothing connects them to PlayLayer. Codex's checklist says PlayLayer integration waits for a local Geode build and visual check.
+- Found: pixel readback is not implemented on the recorder branch. The SDK bindings do contain `CCRenderTexture::newCCImage` (synchronous). Codex calls that unsuitable for a 60 FPS path. Asynchronous readback is unverified.
+- Found: the `level-recorder` tool is still marked Planned in `core/tool_registry.hpp`, so the menu cannot enable it.
+- Decision needed (user): accept a synchronous readback at 60 FPS (unverified, may drop frames), or wait for the local build check. Also: whether to enable `level-recorder` in the menu now, disabled by default.
+- No code written for this step. Branch unchanged.
+
 ### 2026-11-25 — image parser review and build-on (`workflow-codex/image-parser` at `a042690`)
 - Read the branch diff (6 files, +805/-11: `core/image_parser.hpp`, `tests/test_image_parser.cpp`, docs, workflow). Portable code only; no game files.
 - Verified: `tests/test_image_parser.cpp` did NOT compile: lines 96 and 98 used `"\\"width\\":360"`, which ends the string literal early (6 occurrences in those two lines). Fixed.
