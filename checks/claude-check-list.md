@@ -50,3 +50,12 @@ _Record exact repository-relative paths and a short description._
 ## Session log
 
 _Add newest entries first. Include date/time and relevant commit SHA._
+
+### 2026-11-25 — combined Claude progress branch (`workflow-claude/combined-progress`)
+- Built from `workflow-claude/recorder-live-from-codex` (`860be16`), then merged `workflow-claude/trajectory-from-codex` (`6a8741b`) and `workflow-claude/image-parser-from-codex` (`04bf467`).
+- Conflicts resolved: `tools/src/overlay.cpp` (both trajectory and recorder includes kept; a single `onQuit` stops the recorder, then cleans up trajectory); `tools/mod.json` (kept level-recorder and portrait settings; trajectory description from Codex's branch; valid JSON checked); `checks/codex-check-list.md` (kept the trajectory-branch version unchanged; Codex's image-parser log entries are NOT included here, Codex should reconcile).
+- Portable tests run separately with g++ -std=c++20 -Wall -Wextra -Werror: PASS test_hitbox_model, test_image_parser, test_recorder_geometry, test_recorder_model, test_recorder_png_encoder, test_recorder_session, test_recorder_worker, test_tool_registry, test_trajectory_model.
+- Geode type-check (headers only, SDK noise filtered): overlay.cpp, main.cpp, recorder_live.cpp, trajectory.cpp clean.
+- Not verified: Geode build of this exact branch; in-game behaviour of any feature; the trajectory's own PlayLayer/PlayerObject hooks in combination with the recorder.
+- Known open items carried over: portrait-preview-test settings-match checker failure; dan-analyzer excluded.
+- Not promoted. `main` and `~/main-workflow` not changed.
