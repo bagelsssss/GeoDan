@@ -5,6 +5,7 @@
 
 #include <Geode/Geode.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -75,7 +76,8 @@ inline rec::FrameGeometry snapshotGeometry(
     rec::FrameGeometry frame;
     frame.sequence = sequence;
     frame.phase = phase;
-    frame.status = rec::GeometryStatus::Valid;
+    frame.status = phase == rec::CapturePhase::Unknown
+        ? rec::GeometryStatus::Unsupported : rec::GeometryStatus::Valid;
 
     if (!layer || !layer->m_objectLayer || !layer->m_objects || !transform.valid()) {
         frame.status = rec::GeometryStatus::Unsupported;
