@@ -8,7 +8,7 @@ Ranks Geometry Dash levels on the osu!mania dan scale.
 |---|---|---|
 | Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory) | Mostly implemented candidate; not built or in-game tested (isolated branch) |
 | Level recorder | Records the level on a blank background with the tools on | Mostly implemented candidate; not built or in-game tested (isolated branch) |
-| Image parser | Turns the recorder's video into per-frame images the analyzer can read | planned |
+| Image parser | Validates recorder sessions, groups frames, and measures physical-hitbox clearance | Experimental candidate on `workflow-codex/image-parser`; Recorder sidecar and end-to-end validation pending |
 | Simulator | Plays the level by trial and error with no user input | planned |
 | Analyzer | Calculates the dan from a fixed dan list. The main mod | planned |
 
@@ -34,3 +34,5 @@ Agent implementation work is done on separate Git branches, not directly on `mai
 These remote branches are separate from the local working directories described below. Creating a remote branch does not create or modify a directory on the user's computer.
 
 The `main` branch is the shared project baseline and documentation record; it is not the place for experimental agent implementation. The user-approved integration checkout is `~/main-workflow`. Agent candidates must remain isolated until the user reviews and explicitly approves promotion into `~/main-workflow`. A candidate branch is not automatically accepted or part of the actual mod.
+
+The Image Parser candidate is on `workflow-codex/image-parser`. It consumes Recorder Session v1 plus a `hitboxes.csv` sidecar; the current Level Recorder candidate does not yet produce that sidecar. Synthetic portable tests pass, but no real recording or in-game integration has been validated.
