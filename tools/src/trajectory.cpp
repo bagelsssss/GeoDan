@@ -45,9 +45,25 @@ bool isFinitePoint(CCPoint point) {
     return std::isfinite(point.x) && std::isfinite(point.y);
 }
 
+bool isMovingObject(GameObject* object) {
+    if (!s_runtime || !s_runtime->owner || !s_runtime->owner->m_objectsToMove || !object)
+        return false;
+
+    auto* moving = s_runtime->owner->m_objectsToMove;
+    for (unsigned int i = 0; i < moving->count(); ++i) {
+        if (moving->objectAtIndex(i) == object)
+            return true;
+    }
+    return false;
+}
+
 bool isSupportedCollisionObject(GameObject* object) {
     if (!object || object->m_isNoTouch || object->getGroupDisabled())
         return true;
+    // The simulator does not advance level movers, so stop before using their
+    // current-frame positions as if they were static geometry.
+    if (isMovingObject(object))
+        return false;
 
     switch (object->m_objectType) {
         case GameObjectType::Solid:
