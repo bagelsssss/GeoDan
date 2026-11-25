@@ -112,3 +112,95 @@
 
 
 - Additional tests: parser-level timing-window total mismatch and overlapping section sample ranges are explicitly rejected. These tests are authored but still unrun.
+
+
+## 2026-11-25 — Codex full self-review (Dan Analyzer)
+
+**Review status:** Portable test suite passed after correcting a floating-point boundary defect and unsupported-evidence classification. This is still an evidence/judging foundation, not a complete Dan scoring formula.
+
+- Reviewed branch: workflow-codex/dan-analyzer
+- Implementation/test head: 35042561622e0d1a0e222eb3b12614355ba93de8
+- Branch base: main snapshot 5cfd2dc01f17761f77be4aee6970f8b1998b10f2
+- Commits since branch base: 56. Full ordered commit list and diffs: https://github.com/bagelsssss/GeoDan/compare/5cfd2dc01f17761f77be4aee6970f8b1998b10f2...35042561622e0d1a0e222eb3b12614355ba93de8
+- Main was read at feb19b3e68e9c1996e673248a7cd006cd630c7a1; this candidate started from the earlier base above.
+- No changes to main, ~/main-workflow, Claude-owned branches, or GeoDan-deprecated.
+
+### Files changed relative to the branch base
+
+- .github/workflows/geodan-analyzer-tests.yml — original manual-only Analyzer portable test workflow.
+- .github/workflows/geodan-codex-review-tests.yml — one-time, path-filtered review workflow with a separate compile-and-run step for every test.
+- README.md — Classic-only Analyzer pipeline status.
+- checks/codex-check-list.md — Analyzer design/development log and this review.
+- core/dan_analyzer_model.hpp — Classic-only evidence validation, section aggregates, route evidence, raw contribution aggregation, calibration and skillset classification.
+- core/tool_registry.hpp — review correction: trajectory marked Planned because this Analyzer-only candidate does not include trajectory code.
+- docs/dan-analyzer-design.md — evidence contract, route semantics, aggregate and calibration limitations.
+- tests/test_dan_analyzer_model.cpp — evidence, aggregate, route, calibration, score-band and classification tests, including the corrected boundary and unsupported-skill cases.
+- tests/test_tool_registry.cpp — test that this component candidate has three Available tools.
+- tools/mod.json — removed the unavailable trajectory setting.
+- tools/src/main.cpp — moved trajectory out of Available sections into Planned/Coming Next.
+
+### Geode hook audit
+
+Only PauseLayer and PlayLayer $modify classes remain in the Tools shell. Checked the exact declaring class blocks in bindings/2.2081/GeometryDash.bro from geode-sdk/bindings revision d14587bf6c08b9114b5605ec6a3c42cc16b02de6 (blob 1d194f26246c69adf609a136d0d8056a4702a739):
+
+| Modify class | Hooked method | Windows binding |
+|---|---|---|
+| PauseLayer | customSetup() | win 0x37c870, not inline |
+| PlayLayer | postUpdate(float) | win 0x3b4ba0, not inline |
+| PlayLayer | resetLevel() | win 0x3b8eb0, not inline |
+
+The Analyzer itself is pure C++; it is not connected to a Geode hook or game layer.
+
+### Test record
+
+All tests were run separately on GitHub Actions Ubuntu 26.04.1 at implementation/test head 35042561622e0d1a0e222eb3b12614355ba93de8. All steps completed with exit code 0.
+
+| Test | Exact command | Exit | Stdout |
+|---|---|---:|---|
+| test_dan_analyzer_model.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_dan_analyzer_model.cpp -o /tmp/geodan-dan_analyzer_model-review && /tmp/geodan-dan_analyzer_model-review | 0 | Dan analyzer aggregation and verification: all checks passed |
+| test_hitbox_model.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_hitbox_model.cpp -o /tmp/geodan-hitbox_model-review && /tmp/geodan-hitbox_model-review | 0 | hitbox model + trail: all checks passed |
+| test_tool_registry.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_tool_registry.cpp -o /tmp/geodan-tool_registry-review && /tmp/geodan-tool_registry-review | 0 | tool registry: all checks passed |
+
+Workflow: https://github.com/bagelsssss/GeoDan/actions/runs/45558634606
+
+### Known failure E — test assertion or model?
+
+The assertion is correct; the model was wrong.
+
+- The rating policy puts X.65 in Mid/High.
+- The old implementation computed fraction = displayed - floor(displayed) and compared it with 0.65. Binary floating-point can represent 1.65 - 1.0 as slightly below 0.65, incorrectly classifying an exact 1.65 as Mid.
+- Fixed ratingBandForScore to round to integer hundredths first and compare integer remainders. This preserves the policy and does not weaken the assertion.
+- The same integer-boundary path handles 20.00 as Iota Mid/High and starts Kappa at 20.01.
+- The formerly failing tests/test_dan_analyzer_model.cpp now compiles and runs successfully; output is shown above.
+
+Additional model correction found during review: classifyMainSkillset and classifySubSkillsets previously could select evidence marked Unsupported if its positive-observation ratio was high. Both now explicitly exclude Unsupported evidence, with regression tests. This keeps unsupported evidence from producing a skillset tag.
+
+### What works, what is broken, and what remains unverified
+
+- Portable PASS: schema and evidence validation, active-section aggregation, timing-window totals, Nerves aggregation, route evidence, incomplete-evidence handling, raw-score section aggregation, calibration interpolation, rating-band boundaries, and skillset classification tests.
+- Not a completed Dan scorer: no feature-weight formula or method to derive each section's raw contribution from parser measurements is implemented. Calibration anchors with actual measured raw scores are absent; Deadlocked is a designated 6.50 analyzed-score anchor with no invented raw score. No calibrated Dan can be assigned from a real level yet.
+- Integration missing: no Image Parser→Analyzer adapter, no live Swag Route Search/Simulator integration, no level input pipeline.
+- Memory: the two memory evidence fields are represented separately; Memory skillset classification remains deliberately excluded under the recorded project decision.
+- Platformer: deliberately cancelled; Analyzer is Classic-only.
+- Geode Windows build: NOT RUN / not verified.
+- In-game test: NOT RUN in this review. The Analyzer is portable/pure C++ and has no in-game UI or runtime integration in this branch.
+- Calibration quality: no held-out-level evaluation or real-level accuracy result is available.
+
+### Settings and registry
+
+- hitboxes, unclassified, and hitbox-trail are the three Available tools with matching false-by-default settings.
+- trajectory, level-recorder, and macro-bot are Planned; trajectory setting removed from mod.json.
+- No portrait-preview-test setting exists on this branch.
+
+### Review commits made
+
+- cbe5cab750647006e5d49fbf37bf879eece083af — mark trajectory Planned in Analyzer-only component candidate.
+- 4551d93c4b975edd0656645bd5197ab5aba22d73 — begin removal of unavailable trajectory setting.
+- a1dbf6314870c4e60ba917535997aadcc1783ac7 — move trajectory to Planned popup section.
+- b164080d9ce4771976c79b9de4b0beb3f9d3088b — finish removal of trajectory setting from mod.json.
+- 2eef2444d9d7035bfd3cf5d10633fc1ea85a8778 — exclude Unsupported evidence from skillset classification.
+- 696b8e9bc801956e5b6667488ec1492001e9ae01 — add unsupported-evidence classification regression tests.
+- 68cc2e81e44ee1501cef3906d166118b2fc78edd — align registry test with the three Available tools.
+- 35042561622e0d1a0e222eb3b12614355ba93de8 — add one-time review workflow and run the test suite.
+
+Next action: define the parser-to-analyzer adapter and evidence-grounded section scoring formula, then populate real measured calibration anchors before any accuracy claim.
