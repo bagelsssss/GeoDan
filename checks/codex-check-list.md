@@ -2,65 +2,85 @@
 
 > **Owner:** Codex maintains this file. Claude reads it but must not silently edit it.
 >
-> **Required:** Before project work or commit review, read [`README.md`](./README.md) and [`claude-check-list.md`](./claude-check-list.md) as well as this file.
+> **Required:** Before project work or commit review, read README.md and claude-check-list.md as well as this file.
 
 ## Current status
 
-- **Status:** Awaiting Codex's first entry.
-- **Active task:** None recorded.
-- **Current stage:** Not initialized.
-- **Baseline at checklist creation:** `main` — `8ce48311b51acae5bff35a1e117847b77df70f13` (Claude checklist creation commit; verify current HEAD before relying on it).
+- **Status:** Active — initial portable Dan Analyzer evidence model and readiness gate added; no scoring formula.
+- **Active task:** Build a measurement-first Dan Analyzer that consumes evidence from geometry parsing and the Simulator.
+- **Current stage:** Evidence schema/model foundation; feature aggregation and calibration remain future stages.
+- **Current branch:** workflow-codex/dan-analyzer.
+- **Latest verified HEAD before this checklist update:** 291ebb4cf2c4881828095d48287268ccabb57e1a.
 
 ## Project constraints
 
-- Do not modify the archived `GeoDan-deprecated` repository.
-- The old trajectory implementation is known to be broken. Do not consult, copy, port, or reuse it as a reference.
+- Do not modify the archived GeoDan-deprecated repository.
+- Do not consult, copy, port, or reuse the old broken trajectory implementation.
 - Do not claim tests, builds, or in-game verification that were not actually performed.
 - Read both agent checklists before project work and commit reviews.
-- Update this file with concrete progress and a precise handoff before stopping.
+- Keep this candidate isolated; do not modify main-workflow or promote without explicit user approval.
+- Keep GitHub Actions manual-only and use them sparingly.
+- Prioritize measurement accuracy over tuning dan labels.
+- Do not calibrate alpha–kappa in the initial analyzer pass.
+- Unknown evidence is not zero; unsupported interactions are not safe/empty space.
 
 ## Active work
 
-- **Status:** Active — isolated trajectory candidate; not approved for promotion.
-- **Task:** Fresh trajectory rebuild. The old trajectory implementation must not be consulted, copied, ported, or reused.
-- **Remote branch:** `workflow-codex/trajectory-rebuild`
-- **Branch base:** `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`
-- **Candidate kickoff commit:** `b381803c0bddf021cb7754f556a57fbd58d96d45`
-- **Local workspace:** `~/workflow-codex` not yet verified or created; user currently has no access to their Arch PC.
-- **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
-- **Main-workflow changed:** No.
-- **Implementation status:** No trajectory implementation code written yet; branch currently records kickoff/workflow notes only.
+- **Status:** Active — isolated analyzer candidate, not approved for promotion.
+- **Workspace:** ~/workflow-codex (local checkout not verified; remote branch is the source edited in this session).
+- **Branch:** workflow-codex/dan-analyzer, based on main at 5cfd2dc01f17761f77be4aee6970f8b1998b10f2.
+- **Promotion state:** Experimental; not approved for ~/main-workflow.
+- **Main workflow changed:** No.
 
 ## Decisions and findings
 
-_Add dated, evidence-backed entries. Label each as a user decision, verified finding, or proposal._
+- **User decision:** Tools and Level Recorder may be marked mostly implemented but not tested. README records them as candidate implementations, not promoted/validated features.
+- **User decision:** Bot search policy remains single.
+- **User decision:** Memory threshold policy remains both. Exact semantics and numeric threshold are not guessed; visual obstruction and simulation unclear-path evidence are kept separate.
+- **User decision:** Final Dan measurement policy remains both. Exact combination semantics are not guessed beyond recording geometry and simulation evidence independently.
+- **User decision:** Classic and platformer are distinct supported game modes.
+- **User decision:** Preserve the requested skillset taxonomy: Circles, Clicksync, Fast-Paced, Timings, Chokepoints, Unbalanced, Learny, Memory, High CPS, Gimmicky, Flow, Slow-Paced, Bossfight, Mirror, Nerve Control, Cube, Ship, Ball, UFO, Wave, Robot, Spider, Old Swing, New Swing, Duals, Overall.
+- **Verified repository finding:** Main had no Dan Analyzer implementation at branch creation; the analyzer is being started as a new portable core model.
+- **Verified repository finding:** The trajectory candidate branch contains a first hold/release simulator, but it is not built or validated in-game.
+- **Physics evidence review:** Uploaded geodan-log(2).txt records a rotated-slope run with noclip=unverified. It shows a flat-floor grounded event around frame 312, slope/direction hook calls for object 1743 around frames 552–576, support_match=0, and an airborne transition around frame 577. This is diagnostic evidence, not a validated physics oracle.
+- **Repository consistency issue:** The trajectory branch's checklist names 9bfee125b1a0c8a413522fe0025ae0a195c78de8 as latest, but GitHub's branch listing returned bd4498f51d43ff24f5c0bebb9cbbb83f2801b5d1. Treat the actual remote ref as source of truth; reconcile checklist later.
+- **Design proposal:** Calibration eligibility currently requires validated geometry and simulation evidence per segment, with no unsupported interactions. This is a conservative readiness gate, not a finalized dan formula.
 
 ## Test and build record
 
 | Date | Command / test | Result | Notes |
 |---|---|---|---|
-| — | — | Not recorded | Do not infer test results. |
+| 2026-11-25 | Portable model test using local source-equivalent copy: g++ -std=c++20 -Wall -Wextra -Werror | Passed | Output: Dan analyzer evidence model: all checks passed. The test source was reconstructed from the committed model; exact remote file was not compiled directly. |
+| 2026-11-25 | GitHub Actions analyzer workflow | Not run | Workflow is workflow_dispatch only. |
+| 2026-11-25 | Geode build / in-game tests | Not run | Model is Geode-free; no analyzer UI or game integration exists. |
 
 ## Files changed
 
-_Record exact repository-relative paths and a short description._
+- core/dan_analyzer_model.hpp — Geode-free evidence types, per-segment geometry/simulation measurements, skillset evidence, memory evidence channels, conservative readiness gate, and 1st–10th Dan tier labels.
+- tests/test_dan_analyzer_model.cpp — tests missing evidence, validated source requirements, unsupported interactions, invalid numeric values, skillset validation, and tier bounds.
+- docs/dan-analyzer-design.md — measurement-first architecture, current pipeline status, physics-test limitations, and next stages.
+- README.md — marks Tools and Level Recorder as candidate mostly implemented but untested; records parser, simulator, and analyzer status.
+- .github/workflows/geodan-analyzer-tests.yml — manual-only portable test workflow.
 
 ## Handoff / next action
 
-- **Last updated:** Not initialized.
-- **Completed:** No Codex work recorded yet.
-- **Remaining:** Populate this section when work begins and before handing off.
-- **Exact stopping point:** Not recorded.
-- **Next action for Claude:** Read this file and the Claude checklist; coordinate before taking over overlapping work.
-- **Blockers / risks:** None recorded.
-- **Relevant commit:** `8ce48311b51acae5bff35a1e117847b77df70f13` (baseline at creation; verify current HEAD).
+- **Last updated:** 2026-11-25.
+- **Completed:** Started the isolated analyzer branch from main. Added a portable evidence model, tests, architecture notes, pipeline status update and a manual-only test workflow.
+- **Remaining:** Verify exact committed source with the test compiler; define parser-to-analyzer and simulator-to-analyzer input contracts; design segment aggregation; define skillset evidence aggregation; assemble calibration dataset; only then implement 1st–10th dan assignment.
+- **Exact stopping point:** Analyzer candidate branch workflow-codex/dan-analyzer. Latest code/docs commit before this checklist update: 291ebb4cf2c4881828095d48287268ccabb57e1a.
+- **Next action:** Continue with a versioned evidence contract and segment-level feature aggregation. Do not implement a dan score formula yet.
+- **Blockers / risks:** Physics evidence includes a run with noclip unverified and support_match=0 on the slope hook; trajectory candidate not built/in-game validated; capture/parser not end-to-end validated; calibration dataset/held-out set not ready.
+- **Relevant commits:** 2821cde01b627a092f81ae24446a4d6ed2c9c4fc (model); 23569e093b7d40eab204a4d97ce26b54d541978a (tests); 01c93c0897538cb503b8185cb102fb3bd9f62c1c (design); a625d7082df7d3f480beaefedb244d33536669e8 (README); fea78c0d9132d82f3e3bd1c378db935156f99887 (unsupported evidence); 5a167fcb3d26de42b9ae37e0325322c67362abbd (unsupported evidence test); c71268a4d3ec5934deb0d95d14708539096b73f8 (manual test workflow); 291ebb4cf2c4881828095d48287268ccabb57e1a (design clarification).
 
 ## Session log
 
-### 2026-11-25 — isolated trajectory branch created
-- Created `workflow-codex/trajectory-rebuild` from current `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`.
-- Added kickoff status to this checklist on the candidate branch (commit `b381803c0bddf021cb7754f556a57fbd58d96d45`).
-- User requested that branch workflow and current branch status also be documented in both repository READMEs and in the checks on `main`.
-- The root README, `checks/README.md`, and this checklist are shared workflow documentation on `main`. No trajectory code or `~/main-workflow` changes.
-- User is away from their Arch PC; local workspace setup is deferred.
-
+### 2026-11-25 — Dan Analyzer evidence model foundation
+- Read the shared workflow guide and both agent checklists on main; checked remote branch list and candidate files.
+- Confirmed main has no analyzer implementation. Created workflow-codex/dan-analyzer from main, keeping the analyzer work isolated.
+- Reviewed the trajectory candidate and uploaded rotated-slope test log. The log header says noclip=unverified; slope hook records have support_match=0 before an airborne transition. Did not treat this as validated physics.
+- Added the portable evidence model and tests. The model stores source/state/sample count for every metric; unknown is distinct from zero; unsupported evidence remains explicit.
+- Added all 26 requested skillset labels and classic/platformer mode fields. Added 1st–10th Dan tier names only; no tier mapping or score formula.
+- Added conservative readiness gate; its per-segment geometry+simulation requirement is documented as a proposal, not a final scoring rule.
+- Added manual-only test workflow and updated README pipeline statuses. Tools and Level Recorder are recorded as candidate mostly implemented, untested and not promoted.
+- A local source-equivalent C++ test copy compiled with g++ -std=c++20 -Wall -Wextra -Werror and passed. Exact remote source compilation and GitHub Actions were not run.
+- No Geode code, gameplay hook, simulator physics, main-workflow, or main branch changes.
