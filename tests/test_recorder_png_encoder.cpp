@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <span>
 #include <vector>
 #include "recorder_png_encoder.hpp"
 
