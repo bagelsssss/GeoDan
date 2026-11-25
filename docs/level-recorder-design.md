@@ -16,14 +16,14 @@
 
 60 FPS is a performance target, not a guarantee independent of hardware or game frame rate. The recorder must never invent frames or conceal missed captures.
 
-1. Capture at most once for each real rendered game frame.
+1. Pace captures to the configured 60 Hz timeline: at 120 Hz rendering, capture every second render; at 60 Hz, capture each render.
 2. Use a monotonic high-resolution clock for timestamps.
 3. Store a contiguous capture sequence number and the actual presentation timestamp for every image.
 4. Record missed 60 Hz intervals and writer-queue drops separately.
 5. Never block the gameplay/render thread on compression, filesystem writes, or waiting for a free queue slot.
 6. Use a bounded queue and a fixed-size reusable pixel-buffer pool. If no buffer is available, skip that capture and increment a counter.
 7. Compress and write images on a worker thread. All Cocos/OpenGL calls and GPU readback stay on the render thread unless a platform-specific asynchronous readback path is proven safe.
-8. Do not create duplicate images to pad a recording to 60 FPS. The manifest must preserve real timing and gaps.
+8. Do not create duplicate images to pad a recording to 60 FPS. The manifest must preserve real timing and gaps. If the game cannot supply 60 distinct states per second, the recorder must report a degraded/incomplete cadence rather than inventing footage.
 
 ## Performance budget
 
