@@ -16,8 +16,7 @@ The old repo, `GeoDan-deprecated`, is archived. Some of its code is being ported
 
 ## Tools (`tools/`)
 
-Geode mod `local.geodan-tools`. A TOOLS button on the pause menu opens a popup where each tool can be switched on or off.
-Planned tools are listed but cannot be turned on yet.
+Tools is being developed as a companion Geode mod. Its hitbox/trail/trajectory and recorder candidates are isolated on their respective workflow branches; they have not yet been built and validated together or promoted into the main integration workspace. Treat the pipeline table above as candidate status, not a release claim.
 
 Build (from `tools/`): `GEODE_SDK=<path to Geode SDK> geode build --platform windows --config RelWithDebInfo --ninja`
 
