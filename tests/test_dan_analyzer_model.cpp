@@ -169,6 +169,16 @@ int main() {
     assert(judged.aggregate.confirmedEasierRouteCount == 2);
     assert(judged.aggregate.maximumDifficultyBypassFraction.value == 0.7);
 
+    // A completed easier route without validated bypass coverage blocks calibration.
+    level = validLevel();
+    auto unquantifiedEasier = dan::SwagRouteEvidence{};
+    unquantifiedEasier.routeId = 1;
+    unquantifiedEasier.kind = dan::RouteKind::Alternative;
+    unquantifiedEasier.outcome = dan::RouteOutcome::Completed;
+    unquantifiedEasier.relationToReference = dan::DifficultyRelation::Easier;
+    level.routes.push_back(unquantifiedEasier);
+    assert(dan::judge(level).status == dan::JudgeStatus::InsufficientEvidence);
+
     level = validLevel();
     level.segments[0].unsupportedHitboxCount = 1;
     assert(dan::judge(level).status == dan::JudgeStatus::InsufficientEvidence);
