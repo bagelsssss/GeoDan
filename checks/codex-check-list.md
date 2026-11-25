@@ -35,7 +35,7 @@
 - **Branch:** workflow-codex/dan-analyzer, originally based on main at 5cfd2dc01f17761f77be4aee6970f8b1998b10f2.
 - **Promotion state:** Experimental; not approved for ~/main-workflow.
 - **Main workflow changed:** No.
-- **Latest remote branch HEAD:** 48d38e6080dfcd0c1cad10e03cba1320302e4ecd. Current compare against main: 44 commits ahead, 1 behind. Candidate remains isolated.
+- **Latest implementation commit:** 10cb7db3fe3df30292eb12175c8ecc9820ca65e9. The subsequent checklist handoff is committed separately. Current compare against main before the final handoff update: 44 commits ahead, 1 behind. Candidate remains isolated.
 
 ## Decisions and findings
 
@@ -83,7 +83,7 @@
 - **Exact stopping point:** Code, tests, and documentation committed to the isolated remote branch. The new test suite was authored but NOT compiled or run in this session. No GitHub Actions run, Geode build, parser integration, route simulation, or Dan calibration.
 - **Next action:** Run `g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_dan_analyzer_model.cpp -o /tmp/geodan-dan-analyzer-tests && /tmp/geodan-dan-analyzer-tests` in the Codex checkout or manually dispatch the existing portable test workflow; fix any failures before extending the model.
 - **Blockers / risks:** Image Parser and Swag Route Detection do not yet exist. Frame-window validity depends on actual recorder timestamp/frame precision. The simulator candidate is not validated. Nerves and bypass-fraction measurement definitions still need calibration. Whole-level frame median/p10 cannot be exactly reconstructed from section summary percentiles; the model deliberately reports section-level distributions separately.
-- **Relevant commits:** 8582cf6e751f87db2be3e9c646dcbcbd5a4b7f88 (aggregation); e72f0f84236b9ea9e9e696346d5b5a7650d0ae33 (validation hardening); d620f39adcd7de5f9555a579408463c9cb973343 (tests); 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design docs); 109139b73fe743d61a6b3f18836251a4ce5fa13f (additional verification tests); 653cdb4833711d368bcf8cf3c9cba190f247c0bc through 48d38e6080dfcd0c1cad10e03cba1320302e4ecd (score/calibration/classification milestone).
+- **Relevant commits:** 8582cf6e751f87db2be3e9c646dcbcbd5a4b7f88 (aggregation); e72f0f84236b9ea9e9e696346d5b5a7650d0ae33 (validation hardening); d620f39adcd7de5f9555a579408463c9cb973343 (tests); 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design docs); 109139b73fe743d61a6b3f18836251a4ce5fa13f (additional verification tests); 653cdb4833711d368bcf8cf3c9cba190f247c0bc through 10cb7db3fe3df30292eb12175c8ecc9820ca65e9 (score/calibration/classification milestone).
 
 ## Session log
 
