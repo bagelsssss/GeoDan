@@ -117,7 +117,7 @@ No 60 FPS result, Geode build, image output, parser compatibility, or in-game be
 
 A new session directory contains a manifest initially marked `recording`, then finalized as `complete`, `incomplete`, or `error`; sequence-named PNG files under `frames/`; and `frames.csv` with sequence, monotonic timestamp, delta, missed cadence intervals and write result.
 
-Frame files are written to temporary paths and renamed into place. The manifest is staged through a temporary file. Existing session directories are never overwritten. Sequence gaps remain visible. Duplicate/out-of-order sequences, non-monotonic timestamps, inconsistent deltas and payloads without the PNG signature are rejected. Queue drops are counted separately from cadence misses.
+Frame files are written to temporary paths and renamed into place. The manifest is staged through a temporary file. Existing session directories are never overwritten. Sequence gaps remain visible. Duplicate/out-of-order sequences, non-monotonic timestamps, inconsistent deltas and payloads without the PNG signature are rejected. Queue drops and total capture-cadence misses are supplied as aggregate counters after the worker drains the producer queue, so they include frames that never reached disk.
 
 The writer is deliberately synchronous and single-owner: it is a worker-side sink, not yet a thread manager. The future recorder lifecycle must close the producer queue, drain accepted frames, call `finalize`, then join the worker. If destroyed while active, it attempts to leave an incomplete manifest. Process crashes or power loss can still interrupt filesystem operations; this is not a transactional filesystem.
 

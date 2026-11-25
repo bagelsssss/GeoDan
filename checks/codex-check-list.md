@@ -11,7 +11,7 @@
 - **Current stage:** Temporary disabled-by-default portrait preview test integrated; needs local build/in-game visual validation. Portable worker-owned session writer and synthetic tests added; test execution still required. No GPU readback or PNG encoder.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
-- **Latest verified candidate HEAD before this checklist update:** `4bb9aefb556115f9a35a80ddf24975b9a3e0a1c5`.
+- **Latest verified candidate HEAD before this checklist update:** `c5015d204b88d30dacbaff3762d9e7c702df26fa`.
 - **Local workspace:** `~/workflow-codex` has not been verified in this session. Remote GitHub branch is the candidate source.
 - **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
 - **Main-workflow changed:** No.
