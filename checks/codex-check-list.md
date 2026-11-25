@@ -6,10 +6,16 @@
 
 ## Current status
 
-- **Status:** Awaiting Codex's first entry.
-- **Active task:** None recorded.
-- **Current stage:** Not initialized.
-- **Baseline at checklist creation:** `main` — `8ce48311b51acae5bff35a1e117847b77df70f13` (Claude checklist creation commit; verify current HEAD before relying on it).
+- **Status:** Active — isolated Level Recorder candidate; not approved for promotion.
+- **Active task:** Implement a 360 × 1080 portrait level recorder with black background, diagnostic overlays, parser-ready session output, and a 60 FPS performance target.
+- **Current stage:** Portable recorder model and implementation contract added; game capture path not yet implemented.
+- **Candidate branch:** `workflow-codex/level-recorder`
+- **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
+- **Latest candidate commit at checklist update:** To be recorded after this update commit.
+- **Local workspace:** `~/workflow-codex` has not been verified in this session. Remote GitHub branch is the candidate source.
+- **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
+- **Main-workflow changed:** No.
+- **Other candidate:** `workflow-codex/trajectory-rebuild` is separate and untouched by this recorder task.
 
 ## Project constraints
 
@@ -21,15 +27,16 @@
 
 ## Active work
 
-- **Status:** Active — isolated trajectory candidate; not approved for promotion.
-- **Task:** Fresh trajectory rebuild. The old trajectory implementation must not be consulted, copied, ported, or reused.
-- **Remote branch:** `workflow-codex/trajectory-rebuild`
-- **Branch base:** `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`
-- **Candidate kickoff commit:** `b381803c0bddf021cb7754f556a57fbd58d96d45`
-- **Local workspace:** `~/workflow-codex` not yet verified or created; user currently has no access to their Arch PC.
-- **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
+- **Status:** Active — isolated Level Recorder candidate; implementation is incomplete.
+- **Task:** Build the new continuous level recorder, replacing screenshot-at-a-time behavior with a parser-oriented recording session.
+- **User decisions:** Initial configurable capture resolution is 360 × 1080. The target is 60 FPS footage. Frames use a black background with enabled diagnostic tools composited into the image. Output is handed to the image parser.
+- **Performance requirements:** No blocking disk I/O or image compression on the game/render thread; bounded queue; explicit timestamps and dropped-frame accounting; no fabricated duplicate frames.
+- **Remote branch:** `workflow-codex/level-recorder`
+- **Base SHA:** `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
+- **Promotion status:** Experimental only. User has not approved promotion.
 - **Main-workflow changed:** No.
-- **Implementation status:** No trajectory implementation code written yet; branch currently records kickoff/workflow notes only.
+- **Implementation so far:** Added portable config/timing/backpressure model, unit tests, recorder design contract, and manually triggered test workflow. No Cocos/GPU capture, image encoder, session writer, UI, or parser handoff has been implemented yet.
+- **Trajectory candidate:** Separate branch `workflow-codex/trajectory-rebuild`; not merged or modified.
 
 ## Decisions and findings
 
@@ -57,10 +64,16 @@ _Record exact repository-relative paths and a short description._
 
 ## Session log
 
-### 2026-11-25 — isolated trajectory branch created
-- Created `workflow-codex/trajectory-rebuild` from current `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`.
-- Added kickoff status to this checklist on the candidate branch (commit `b381803c0bddf021cb7754f556a57fbd58d96d45`).
-- User requested that branch workflow and current branch status also be documented in both repository READMEs and in the checks on `main`.
-- The root README, `checks/README.md`, and this checklist are shared workflow documentation on `main`. No trajectory code or `~/main-workflow` changes.
-- User is away from their Arch PC; local workspace setup is deferred.
+### 2026-11-25 — Level Recorder candidate kickoff and portable foundation
+- Created isolated branch `workflow-codex/level-recorder` from `main` SHA `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`.
+- Read root README, shared checklist guide, both agent checklists, current main tree, tools CMake, tool registry, mod settings and gameplay overlay.
+- Added `core/recorder_model.hpp`: configurable capture dimensions/FPS/queue capacity, RGBA byte-budget helpers, monotonic frame timestamps, missed-cadence accounting, and a bounded non-blocking producer queue.
+- Added `tests/test_recorder_model.cpp` covering config, timestamps, missed intervals, bounded queue, drops, close and drain behavior. Test execution is not yet recorded.
+- Added `docs/level-recorder-design.md` with capture/rendering, 60 FPS, queue, session format, lifecycle, failure and profiling contracts.
+- Added `.github/workflows/geodan-recorder-model.yml`, triggered only by `workflow_dispatch`; no per-commit build/test trigger was added and no workflow was run.
+- User-selected resolution: 360 × 1080. Target cadence: 60 FPS. No guarantee is claimed before profiling.
+- No Geode capture code, Cocos render target, pixel readback, PNG encoder, session writer, recorder controls, or image-parser integration has been implemented.
+- No build, unit test, Actions run, in-game test, or performance benchmark has been executed in this session.
+- `~/main-workflow` and `main` were not changed. The trajectory candidate branch was not touched.
+- Next: implement and validate capture target/camera framing, share overlay draw logic, then bounded pixel-buffer pool + background encoder/writer and parser session handoff. Profile GPU readback separately; do not claim 60 FPS until measured.
 
