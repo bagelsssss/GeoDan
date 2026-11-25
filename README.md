@@ -6,9 +6,9 @@ Ranks Geometry Dash levels on the osu!mania dan scale.
 
 | Part | Job | Status |
 |---|---|---|
-| Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory, later the macro bot) | `tools/`: debug menu in progress |
-| Level recorder | Records the level on a blank background with the tools on | planned |
-| Image parser | Turns the recorder's video into per-frame images the analyzer can read | planned |
+| Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory) | Mostly implemented candidate; not built or in-game tested (isolated branch) |
+| Level recorder | Records the level on a blank background with the tools on | Mostly implemented candidate; not built or in-game tested (isolated branch) |
+| Image parser | Validates recorder sessions, groups frames, and measures physical-hitbox clearance | Experimental candidate on `workflow-codex/image-parser`; Recorder sidecar and end-to-end validation pending |
 | Simulator | Plays the level by trial and error with no user input | planned |
 | Analyzer | Calculates the dan from a fixed dan list. The main mod | planned |
 
@@ -16,8 +16,7 @@ The old repo, `GeoDan-deprecated`, is archived. Some of its code is being ported
 
 ## Tools (`tools/`)
 
-Geode mod `local.geodan-tools`. A TOOLS button on the pause menu opens a popup where each tool can be switched on or off.
-Planned tools are listed but cannot be turned on yet.
+Tools is being developed as a companion Geode mod. Its current implementation is a candidate on workflow-codex/trajectory-rebuild; the separate Level Recorder candidate is on workflow-codex/level-recorder. Neither candidate has been built and runtime-validated together or promoted into the user's main integration workspace.
 
 Build (from `tools/`): `GEODE_SDK=<path to Geode SDK> geode build --platform windows --config RelWithDebInfo --ninja`
 
@@ -35,3 +34,5 @@ Agent implementation work is done on separate Git branches, not directly on `mai
 These remote branches are separate from the local working directories described below. Creating a remote branch does not create or modify a directory on the user's computer.
 
 The `main` branch is the shared project baseline and documentation record; it is not the place for experimental agent implementation. The user-approved integration checkout is `~/main-workflow`. Agent candidates must remain isolated until the user reviews and explicitly approves promotion into `~/main-workflow`. A candidate branch is not automatically accepted or part of the actual mod.
+
+The Image Parser candidate is on `workflow-codex/image-parser`. It consumes Recorder Session v1 plus a `hitboxes.csv` sidecar; the current Level Recorder candidate does not yet produce that sidecar. Synthetic portable tests pass, but no real recording or in-game integration has been validated.
