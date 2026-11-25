@@ -1,26 +1,24 @@
-name: GeoDan core tests
-
+name: GeoDan Codex self-review tests
 on:
-  # CI is intentionally manual for candidate development. Run it at reviewed,
-  # meaningful checkpoints rather than consuming minutes on every commit.
   workflow_dispatch:
+  push:
+    branches: [workflow-codex/trajectory-rebuild]
+    paths: [.github/workflows/geodan-core-tests.yml]
+
+permissions:
+  contents: read
 
 jobs:
-  core-tests:
+  portable-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up C++ compiler
-        run: sudo apt-get update && sudo apt-get install -y g++
-      - name: Build and run hitbox and trail tests
-        run: |
-          g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_hitbox_model.cpp -o /tmp/test-hitbox
-          /tmp/test-hitbox
-      - name: Build and run tool registry tests
-        run: |
-          g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_tool_registry.cpp -o /tmp/test-registry
-          /tmp/test-registry
-      - name: Build and run trajectory model tests
-        run: |
-          g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_trajectory_model.cpp -o /tmp/test-trajectory
-          /tmp/test-trajectory
+      - name: test_hitbox_model (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_hitbox_model.cpp -o /tmp/geodan-hitbox_model-review && /tmp/geodan-hitbox_model-review
+      - name: test_tool_registry (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_tool_registry.cpp -o /tmp/geodan-tool_registry-review && /tmp/geodan-tool_registry-review
+      - name: test_trajectory_model (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_trajectory_model.cpp -o /tmp/geodan-trajectory_model-review && /tmp/geodan-trajectory_model-review
