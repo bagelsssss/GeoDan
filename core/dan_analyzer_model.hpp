@@ -17,6 +17,7 @@ inline constexpr std::uint32_t kEvidenceSchemaVersion = 1;
 enum class GameMode : std::uint8_t { Unknown, Classic, Platformer };
 enum class EvidenceState : std::uint8_t { Unknown, Observed, Measured, Validated, Unsupported };
 enum class EvidenceSource : std::uint8_t { Unknown, Geometry, Simulation, Visual, GameplayTelemetry };
+enum class SegmentPhase : std::uint8_t { Unknown, StartIdle, ActiveGameplay, Paused, Respawn, Transition };
 
 enum class Skillset : std::uint8_t {
     Circles, Clicksync, FastPaced, Timings, Chokepoints, Unbalanced, Learny, Memory,
@@ -56,6 +57,7 @@ struct SegmentEvidence {
     std::uint64_t firstSampleIndex = 0;
     std::uint64_t lastSampleIndex = 0;
     GameMode mode = GameMode::Unknown;
+    SegmentPhase phase = SegmentPhase::Unknown;
 
     Measurement minimumClearance;
     Measurement hazardDensityPer1000Units;
@@ -67,7 +69,8 @@ struct SegmentEvidence {
     std::uint32_t unsupportedInteractions = 0;
 
     bool valid() const {
-        if (mode == GameMode::Unknown || lastSampleIndex < firstSampleIndex)
+        if (mode == GameMode::Unknown || phase == SegmentPhase::Unknown ||
+            lastSampleIndex < firstSampleIndex)
             return false;
         const auto nonNegative = [](const Measurement& m) {
             return !m.present || m.value >= 0.0;
@@ -136,24 +139,29 @@ inline AnalysisReadiness assessReadiness(const LevelEvidence& level) {
         !level.captureComplete || !level.simulationComplete || level.segments.empty())
         return AnalysisReadiness::NotReady;
 
+    bool sawActiveGameplay = false;
     bool anyValidated = false;
-    bool allSegmentsHaveBothSources = true;
+    bool allActiveSegmentsHaveBothSources = true;
 
     for (const auto& segment : level.segments) {
         if (!segment.valid()) return AnalysisReadiness::InvalidEvidence;
+        if (segment.phase != SegmentPhase::ActiveGameplay) continue;
+        sawActiveGameplay = true;
         anyValidated = anyValidated || segment.hasValidatedGeometryEvidence() ||
                        segment.hasValidatedSimulationEvidence();
-        allSegmentsHaveBothSources = allSegmentsHaveBothSources &&
+        allActiveSegmentsHaveBothSources = allActiveSegmentsHaveBothSources &&
             segment.unsupportedInteractions == 0 &&
             segment.hasValidatedGeometryEvidence() &&
             segment.hasValidatedSimulationEvidence();
     }
 
+    if (!sawActiveGameplay) return AnalysisReadiness::NotReady;
+
     for (const auto& skillset : level.skillsets) {
         if (!skillset.valid()) return AnalysisReadiness::InvalidEvidence;
     }
 
-    if (allSegmentsHaveBothSources) return AnalysisReadiness::CalibrationEligible;
+    if (allActiveSegmentsHaveBothSources) return AnalysisReadiness::CalibrationEligible;
     if (anyValidated) return AnalysisReadiness::Measured;
     return AnalysisReadiness::Provisional;
 }
