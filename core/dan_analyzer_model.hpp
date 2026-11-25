@@ -85,6 +85,15 @@ struct SegmentEvidence {
             if (!value->valid()) return false;
             if (value->present && value->value < 0.0) return false;
         }
+        const Measurement* windows[] = {
+            &frameWindows.windows60, &frameWindows.windows120, &frameWindows.windows240
+        };
+        for (const auto* window : windows) {
+            if (window->present &&
+                (std::floor(window->value) != window->value ||
+                 window->value >= static_cast<double>(std::numeric_limits<std::uint64_t>::max())))
+                return false;
+        }
         if (clearance.minimumPx.present && clearance.medianPx.present &&
             clearance.minimumPx.value > clearance.medianPx.value) return false;
         if (clearance.minimumPx.present && clearance.meanPx.present &&
