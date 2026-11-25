@@ -100,3 +100,89 @@ _Record exact repository-relative paths and a short description._
 - Current Recorder branch `workflow-codex/level-recorder` is at `1b25ddb68d8ec1cb92f4504b217753857ebada17`; the sidecar writer exists, while the latest game-facing geometry adapter and validation tests still need Claude's fresh review/run.
 - No changes to `main`, `~/main-workflow`, or Claude-owned branches. No local parser test run or GitHub Actions dispatch by Codex.
 - Next: retain Claude's fix in the Codex candidate; after the Recorder live producer is wired, run the parser against an actual recorded session and implement the Analyzer adapter.
+
+
+## 2026-11-25 — Codex full self-review (Image Parser)
+
+**Review status:** Portable tests passed. Parser is a sidecar-driven, provisional geometry parser, not a pixel-recognition engine. Geode build and in-game behavior are not verified.
+
+- Reviewed branch: workflow-codex/image-parser
+- Implementation/test head: 326e2c4c3881d62708ab57a82fde9ddccc6d4c06
+- Branch base: main snapshot f5835c3d1291884e25e9384c3f70b0694cb0a7a0
+- Commits since branch base: 23. Full ordered commit list and diffs: https://github.com/bagelsssss/GeoDan/compare/f5835c3d1291884e25e9384c3f70b0694cb0a7a0...326e2c4c3881d62708ab57a82fde9ddccc6d4c06
+- Main was read at feb19b3e68e9c1996e673248a7cd006cd630c7a1; this candidate started from the earlier base above.
+- No changes to main, ~/main-workflow, Claude-owned branches, or GeoDan-deprecated.
+
+### Files changed relative to the branch base
+
+- .github/workflows/geodan-image-parser-tests.yml — original manual-only parser test workflow.
+- .github/workflows/geodan-codex-review-tests.yml — one-time, path-filtered review test workflow with a separate step for every test file.
+- README.md — pipeline status and Image Parser description.
+- checks/codex-check-list.md — parser development log and this review.
+- core/image_parser.hpp — manifest/timeline/PNG-IHDR/geometry-sidecar validator, section grouper, AABB clearance statistics and explicit missing/unsupported state.
+- core/tool_registry.hpp — review correction: trajectory marked Planned because this parser-only candidate does not include the trajectory implementation.
+- docs/image-parser-design.md — Session v1, hitbox sidecar, AABB measurement and evidence limitations.
+- tests/test_image_parser.cpp — synthetic completed-session parser tests.
+- tests/test_tool_registry.cpp — test that the branch has three Available tools.
+- tools/mod.json — removed unavailable trajectory setting; remaining tool settings are false by default.
+- tools/src/main.cpp — moved unavailable trajectory out of Available menu sections and into Planned/Coming Next.
+
+### Geode hook audit
+
+The only $modify classes are PauseLayer and PlayLayer. Checked their exact class blocks in bindings/2.2081/GeometryDash.bro from geode-sdk/bindings revision d14587bf6c08b9114b5605ec6a3c42cc16b02de6 (blob 1d194f26246c69adf609a136d0d8056a4702a739):
+
+| Modify class | Hooked method | Windows binding |
+|---|---|---|
+| PauseLayer | customSetup() | win 0x37c870, not inline |
+| PlayLayer | postUpdate(float) | win 0x3b4ba0, not inline |
+| PlayLayer | resetLevel() | win 0x3b8eb0, not inline |
+
+No inline hook found. Image Parser code itself is portable and is not wired into the mod.
+
+### Test record
+
+All tests were run separately on GitHub Actions Ubuntu 26.04.1 at implementation/test head 326e2c4c3881d62708ab57a82fde9ddccc6d4c06. All steps completed with exit code 0.
+
+| Test | Exact command | Exit | Stdout |
+|---|---|---:|---|
+| test_hitbox_model.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_hitbox_model.cpp -o /tmp/geodan-hitbox_model-review && /tmp/geodan-hitbox_model-review | 0 | hitbox model + trail: all checks passed |
+| test_image_parser.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_image_parser.cpp -o /tmp/geodan-image_parser-review && /tmp/geodan-image_parser-review | 0 | Image Parser tests passed |
+| test_tool_registry.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_tool_registry.cpp -o /tmp/geodan-tool_registry-review && /tmp/geodan-tool_registry-review | 0 | tool registry: all checks passed |
+
+Workflow: https://github.com/bagelsssss/GeoDan/actions/runs/45558630024
+
+### What the parser actually does
+
+- It reads manifest.json, frames.csv, hitboxes.csv and checks that each referenced PNG has the expected signature and IHDR dimensions.
+- It does not decode PNG pixel data, run computer vision, detect hazards from artwork, or infer collision geometry from pixels. Clearance measurements are computed from the Recorder's hitboxes.csv sidecar.
+- It groups persisted frames chronologically into sections of at most ten images, split at phase changes.
+- For valid player/hazard AABBs, it computes the minimum Euclidean rectangle gap per active frame and section/level mean, nearest-rank median, minimum and p10.
+- It normalizes pixel distances to a 360-pixel reference width and keeps missing/unsupported evidence distinct from zero.
+- The Recorder geometry adapter supplies provisional AABBs; rotated/circular shapes use envelopes, player bounds use the diagnostic inner rectangle, and lethal slope edges are unsupported. Exact engine collision geometry is not established.
+- 60/120/240 FPS windows, Nerves, skillsets, Memory classification and the Analyzer schema-v3 adapter remain unimplemented/unknown.
+- The Recorder branch still has no live frame producer, so this parser is not end-to-end usable from an actual live recording generated by the reviewed Recorder candidate. It can parse a completed session that already conforms to the documented v1 files and sidecar.
+
+### Settings and registry
+
+- hitboxes, unclassified, and hitbox-trail are the three Available tools and have matching false-by-default settings.
+- trajectory, level-recorder, and macro-bot are Planned. No trajectory switch remains in this branch's mod.json.
+- No portrait-preview-test setting exists on this branch.
+
+### What works, what is broken, and what remains unverified
+
+- Portable PASS: manifest/timeline checks, sequence/delta validation, PNG signature and dimensions, geometry-sidecar integrity, section splitting, normalized AABB clearance, and unsupported/missing evidence handling.
+- Not implemented: pixel-level image analysis, actual hitbox recognition from pixels, timing-window analysis, Nerves formula, skillset classification, Memory classification and Analyzer adapter.
+- Geode Windows build: NOT RUN / not verified.
+- In-game test: NOT RUN in this review. No actual gameplay session from the live Recorder was parsed.
+- Integration: no real Recorder→Parser end-to-end live run has been performed.
+
+### Review commits made
+
+- 8140355e040bb96024d18ae96ce6d39905240a4e — mark trajectory Planned in the parser-only component candidate.
+- 5bd52fec31e93aa513368628ed57af0e026e1366 — begin removal of the unavailable trajectory setting.
+- 2156054a988a8063735a1ffb33124105b2c9c17a — move trajectory to the Planned popup section.
+- a9b52ab3aa8c49f526b478956ea9125c043cc683 — finish removal of the trajectory setting from mod.json.
+- 4b45a5986f225284473c9454d3466d055ca6aa43 — align registry test with the three Available tools.
+- 326e2c4c3881d62708ab57a82fde9ddccc6d4c06 — add one-time review workflow and run the parser test suite.
+
+Next action: the parser needs a real completed Recorder session with the required sidecar and validated geometry. Pixel recognition and remaining Analyzer metrics must be designed as distinct future work; do not claim they are present.
