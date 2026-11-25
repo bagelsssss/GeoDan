@@ -548,7 +548,8 @@ inline MainSkillset classifyMainSkillset(const std::vector<MainSkillsetEvidence>
     const MainSkillsetEvidence* best = nullptr;
     long double bestRatio = -1.0L;
     for (const auto& item : evidence) {
-        if (!item.valid() || item.totalObservations == 0 || item.positiveObservations == 0)
+        if (!item.valid() || item.state == EvidenceState::Unsupported ||
+            item.totalObservations == 0 || item.positiveObservations == 0)
             continue;
         const long double ratio = static_cast<long double>(item.positiveObservations) /
                                   item.totalObservations;
@@ -564,8 +565,9 @@ inline std::vector<Skillset> classifySubSkillsets(
     const std::vector<SkillsetEvidence>& evidence) {
     std::vector<Skillset> result;
     for (const auto& item : evidence) {
-        if (!item.valid() || item.positiveObservations == 0 ||
-            item.skillset == Skillset::Overall || item.skillset == Skillset::Memory) continue;
+        if (!item.valid() || item.state == EvidenceState::Unsupported ||
+            item.positiveObservations == 0 || item.skillset == Skillset::Overall ||
+            item.skillset == Skillset::Memory) continue;
         if (std::find(result.begin(), result.end(), item.skillset) == result.end())
             result.push_back(item.skillset);
     }
