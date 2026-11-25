@@ -75,6 +75,17 @@ int main() {
     CHECK(paced->sequence == 1);
     CHECK(paced->missedIntervals == 0);
 
+
+    // Small sustained lateness accumulates against the anchored clock rather
+    // than being hidden by resetting the deadline after every capture.
+    rec::FrameTimeline driftTimeline(60);
+    CHECK(driftTimeline.capture(0).has_value());
+    std::optional<rec::FrameStamp> driftFrame;
+    for (std::uint64_t i = 1; i <= 125; ++i)
+        driftFrame = driftTimeline.capture(i * 16'800'000ull);
+    CHECK(driftFrame.has_value());
+    CHECK(driftTimeline.missedIntervals() == 1);
+
     rec::FrameTimeline invalidTimeline(0);
     CHECK(!invalidTimeline.valid());
     CHECK(!invalidTimeline.capture(1).has_value());
