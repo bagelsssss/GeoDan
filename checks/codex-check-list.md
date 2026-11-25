@@ -11,7 +11,7 @@
 - **Current stage:** Portable recorder model and implementation contract added; game capture path not yet implemented.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
-- **Latest candidate commit at checklist update:** To be recorded after this update commit.
+- **Latest verified candidate HEAD before checklist update:** `4e258bfe560501d658fe9cce476f58e242fea53b`.
 - **Local workspace:** `~/workflow-codex` has not been verified in this session. Remote GitHub branch is the candidate source.
 - **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
 - **Main-workflow changed:** No.
@@ -35,7 +35,7 @@
 - **Base SHA:** `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Promotion status:** Experimental only. User has not approved promotion.
 - **Main-workflow changed:** No.
-- **Implementation so far:** Added portable config/timing/backpressure model, fixed-rate capture gate, reusable preallocated RGBA buffer pool, unit tests, recorder design contract, and manually triggered test workflow. No Cocos/GPU capture, image encoder, session writer, UI, or parser handoff has been implemented yet.
+- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate (skips extra renders above 60 Hz and detects accumulated cadence drift), reusable preallocated RGBA buffer pool, bounded non-blocking queue, unit tests, recorder design contract, and manually triggered test workflow. No Cocos/GPU capture, image encoder, session writer, UI, or parser handoff has been implemented yet.
 - **Trajectory candidate:** Separate branch `workflow-codex/trajectory-rebuild`; not merged or modified.
 
 ## Decisions and findings
@@ -54,13 +54,14 @@ _Record exact repository-relative paths and a short description._
 
 ## Handoff / next action
 
-- **Last updated:** Not initialized.
-- **Completed:** No Codex work recorded yet.
-- **Remaining:** Populate this section when work begins and before handing off.
-- **Exact stopping point:** Not recorded.
-- **Next action for Claude:** Read this file and the Claude checklist; coordinate before taking over overlapping work.
-- **Blockers / risks:** None recorded.
-- **Relevant commit:** `8ce48311b51acae5bff35a1e117847b77df70f13` (baseline at creation; verify current HEAD).
+- **Last updated:** 2026-11-25.
+- **Completed:** Isolated recorder branch created; portable capture config/timing/backpressure model, bounded queue, reusable pixel buffer pool, tests, design contract, and manual-only test workflow committed.
+- **Remaining:** Implement the actual Cocos capture target and stable portrait camera framing; refactor overlay drawing for shared use; implement verified GPU readback and background PNG/session writer; add recorder controls and parser handoff; build, test, and profile.
+- **Exact stopping point:** Portable model only. No game-facing recorder code has been written.
+- **Next action:** Continue Codex work in `~/workflow-codex` only after verifying that workspace and its branch/HEAD; otherwise continue through this isolated remote branch without claiming local workspace access.
+- **Blockers / risks:** Synchronous `CCRenderTexture::newCCImage` is unsuitable as an assumed 60 FPS hot path; cross-platform asynchronous GPU readback support is unverified. No test/build/Actions/in-game run has occurred.
+- **Promotion:** Not approved; `~/main-workflow` unchanged.
+- **Relevant commit before checklist update:** `4e258bfe560501d658fe9cce476f58e242fea53b`.
 
 ## Session log
 
@@ -77,3 +78,10 @@ _Record exact repository-relative paths and a short description._
 - `~/main-workflow` and `main` were not changed. The trajectory candidate branch was not touched.
 - Next: implement and validate capture target/camera framing, share overlay draw logic, then bounded pixel-buffer pool + background encoder/writer and parser session handoff. Profile GPU readback separately; do not claim 60 FPS until measured.
 
+
+### 2026-11-25 — recorder performance refinement
+- Added a fixed-rate gate anchored to the initial 60 Hz timeline. It skips extra renders when the game renders faster than target and accumulates small delays so sustained sub-60 cadence is eventually counted as missed intervals.
+- Added a preallocated reusable RGBA pixel-buffer pool with non-blocking leases. The capture thread can skip instead of allocating or waiting when all buffers are in use.
+- Expanded tests for 120 Hz render pacing, accumulated cadence drift, and buffer reuse. These tests remain unexecuted.
+- Inspected the Geode 2.2081 `CCRenderTexture` binding and Geode `CCImage` implementation. The inspected `newCCImage` implementation performs synchronous `glReadPixels` and allocates full-frame buffers; raw `CCImage::initWithImageData` copies supplied pixels. The design therefore explicitly avoids treating those convenience APIs as an optimized per-frame path.
+- Latest source commit before this checklist update: `4e258bfe560501d658fe9cce476f58e242fea53b`.
