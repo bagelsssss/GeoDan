@@ -199,4 +199,102 @@ private:
     std::uint64_t m_popped = 0;
 };
 
+// Fixed-size reusable RGBA storage. Acquire is non-blocking: the render thread
+// skips a frame if every slot is in use rather than allocating or waiting.
+// A Lease returns its slot automatically after the writer releases it.
+class PixelBufferPool {
+public:
+    class Lease {
+    public:
+        Lease() = default;
+        Lease(const Lease&) = delete;
+        Lease& operator=(const Lease&) = delete;
+
+        Lease(Lease&& other) noexcept
+          : m_owner(std::exchange(other.m_owner, nullptr)),
+            m_index(std::exchange(other.m_index, kInvalidIndex)) {}
+
+        Lease& operator=(Lease&& other) noexcept {
+            if (this == &other) return *this;
+            reset();
+            m_owner = std::exchange(other.m_owner, nullptr);
+            m_index = std::exchange(other.m_index, kInvalidIndex);
+            return *this;
+        }
+
+        ~Lease() { reset(); }
+
+        explicit operator bool() const { return m_owner != nullptr; }
+
+        std::uint8_t* data() {
+            return *this ? m_owner->m_buffers[m_index].data() : nullptr;
+        }
+
+        const std::uint8_t* data() const {
+            return *this ? m_owner->m_buffers[m_index].data() : nullptr;
+        }
+
+        std::size_t size() const {
+            return *this ? m_owner->m_buffers[m_index].size() : 0;
+        }
+
+        std::size_t index() const { return m_index; }
+
+        void reset() {
+            if (!m_owner) return;
+            auto* owner = std::exchange(m_owner, nullptr);
+            const auto index = std::exchange(m_index, kInvalidIndex);
+            owner->release(index);
+        }
+
+    private:
+        friend class PixelBufferPool;
+        static constexpr std::size_t kInvalidIndex =
+            std::numeric_limits<std::size_t>::max();
+
+        Lease(PixelBufferPool* owner, std::size_t index)
+          : m_owner(owner), m_index(index) {}
+
+        PixelBufferPool* m_owner = nullptr;
+        std::size_t m_index = kInvalidIndex;
+    };
+
+    PixelBufferPool(std::size_t bufferCount, std::size_t bytesPerBuffer)
+      : m_buffers(bufferCount, std::vector<std::uint8_t>(bytesPerBuffer)) {
+        m_free.reserve(bufferCount);
+        for (std::size_t i = bufferCount; i > 0; --i) m_free.push_back(i - 1);
+    }
+
+    PixelBufferPool(const PixelBufferPool&) = delete;
+    PixelBufferPool& operator=(const PixelBufferPool&) = delete;
+
+    std::optional<Lease> tryAcquire() {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_free.empty()) return std::nullopt;
+        const auto index = m_free.back();
+        m_free.pop_back();
+        return Lease(this, index);
+    }
+
+    std::size_t available() const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_free.size();
+    }
+
+    std::size_t bufferCount() const { return m_buffers.size(); }
+    std::size_t bytesPerBuffer() const {
+        return m_buffers.empty() ? 0 : m_buffers.front().size();
+    }
+
+private:
+    void release(std::size_t index) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_free.push_back(index);
+    }
+
+    mutable std::mutex m_mutex;
+    std::vector<std::vector<std::uint8_t>> m_buffers;
+    std::vector<std::size_t> m_free;
+};
+
 } // namespace geodan::core::recorder
