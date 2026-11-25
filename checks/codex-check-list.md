@@ -185,3 +185,11 @@ _Record exact repository-relative paths and a short description._
 - This is portable scratch integration evidence, not a committed cross-branch test, a live PlayLayer recording, a Geode SDK build, or an in-game capture.
 - The newer Codex geometry model/adapter and sidecar tests have changed since Claude's review base. Claude handoff remains: review current Recorder HEAD and rerun the full portable suite on a Claude-owned branch; report exact output and geometry/API concerns in Claude's checklist.
 - Claude's parser string-escape fix has also been applied to `workflow-codex/image-parser`; no Claude-owned branch was changed.
+
+
+
+### 2026-11-25 — align with Claude's live-integration scope
+- Re-read the latest `main/checks/claude-check-list.md` after updating this checklist. Claude independently confirms the Recorder's live pipeline is not connected: `SessionWriter`, `RecorderWorker`, `snapshotGeometry`, and portrait target exist, but no PlayLayer producer joins them and GPU readback is not implemented.
+- Claude also found the `level-recorder` tool remains marked Planned in `core/tool_registry.hpp`; it is not enabled in the Tools menu.
+- Claude's open user decision is whether to attempt a synchronous `CCRenderTexture::newCCImage` readback as a first functional fallback (with measured frame drops and no 60 FPS guarantee) or wait for the user's local Geode build/preview validation before selecting a readback path. No readback implementation or tool-registry change was made here.
+- Current next step is blocked on the user's choice of readback strategy. Keep the tool disabled until the capture path is connected and validated.
