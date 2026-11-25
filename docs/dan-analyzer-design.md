@@ -1,97 +1,114 @@
-# Dan Analyzer — initial architecture
+# Dan Analyzer — Classic-only judge architecture
 
-## Scope
+## Scope and responsibility
 
-The Analyzer is the main GeoDan component. It consumes evidence produced by the image parser, level geometry inspection, and the Simulator. It does not own Geometry Dash physics or bot search. The first milestone is an evidence model and readiness gate, not a dan-scoring formula.
+GeoDan analyzes Classic Geometry Dash levels only. Platformer support has been cancelled and must not be reintroduced into this pipeline, its evidence schema, or its tests.
 
-The priority is measurement accuracy. Do not tune a score to force a named level into a desired rank. Do not calibrate alpha–kappa in this phase.
+The Dan Analyzer is the judge. It consumes:
+1. Measurements from the Image Parser, which analyzes the successful recorded run using physical hitboxes.
+2. Swag-route evidence from a separate route-search/simulation subsystem, which explores alternative paths not present in the recording.
 
-## Current repository status (2026-11-25)
+The Analyzer does not replay the recorded run to measure its physics. The recording already contains the player's actual successful gameplay. Simulation is retained only where exploration is needed to discover and validate alternative routes.
 
-| Component | Current state |
+The Analyzer validates evidence and eventually assigns the level's calculated Dan. This candidate implements the judge/readiness foundation, not the calibrated Dan scoring formula.
+
+## Current implementation
+
+| Area | State |
 |---|---|
-| Tools | Candidate implementation mostly present; not built or runtime-tested |
-| Level Recorder | Candidate implementation mostly present; not built or runtime-tested |
-| Image Parser | Session contract documented; end-to-end integration not verified |
-| Simulator | Hold/release trajectory candidate exists; build, side-effect isolation and gameplay behavior unverified |
-| Dan Analyzer | Evidence model foundation started here; no score formula |
+| Portable evidence model | Implemented in this candidate |
+| Classic-only scope | Implemented; no game-mode field |
+| Per-section clearance evidence | Modelled |
+| 60/120/240 FPS frame-window evidence | Modelled and required for validated timing coverage |
+| Nerves evidence | Modelled as parser output; formula not defined here |
+| Parser completeness/frame accounting | Basic validation implemented |
+| Swag-route evidence | Modelled |
+| Easier-route effect | Only confirmed easier completed alternatives are counted |
+| Harder-route effect | Harder alternatives do not increase difficulty |
+| Final Dan formula | Not implemented |
+| Geode/game integration | Not implemented or tested |
 
-The Tools and Level Recorder work remains on separate isolated branches. Their status here describes candidate work, not promotion into main.
+## Parser-to-Analyzer contract
 
-## Inputs and boundaries
+The parser provides a versioned level result containing:
 
-1. Geometry evidence: object geometry, collision provenance, segment boundaries, hazards and clearance.
-2. Simulation evidence: actual GD update/collision trial outcomes, timing windows, survival/completion, input requirements and unsupported interactions.
-3. Visual evidence: obstruction/visibility and possible memory indicators. Visual evidence alone must not prove a path is impossible.
-4. Gameplay telemetry: mode, position, velocity, input edges and timing only when read accurately.
+- Capture and parser completion flags.
+- Source, processed, and unclassified frame counts. Processed plus unclassified must account for every source frame.
+- Chronologically indexed sections with sample-index ranges.
+- Per-section mean, median, minimum, and 10th-percentile player-to-hazard clearance in normalized pixels.
+- Per-section counts of timing windows at 60, 120, and 240 FPS.
+- Per-section Nerves measurement.
+- Explicit unsupported-hitbox counts.
+- Level-level aggregate statistics and timestamp-gap metadata.
+- Skillset evidence and the two separate memory evidence channels.
 
-Each measurement carries a source, evidence state and sample count. Unknown is distinct from zero. Unsupported measurements and interactions remain explicit; they are never silently treated as safe empty space. An unsupported metric may be preserved in the record, but it does not count as validated evidence.
+Physical hitbox geometry is authoritative. Decorative artwork is not a hazard source and should not be interpreted as collision geometry. The parser must preserve unknown or unsupported hitboxes rather than silently treating them as empty space.
 
-## First evidence model
+Clearance is measured between collision boundaries, not sprite artwork. Pixel measurements must be normalized to a stable game-space scale before comparing recordings.
 
-core/dan_analyzer_model.hpp defines:
+Frame-window measurements must be supported by actual frame/timestamp precision. A 60 FPS image sequence alone cannot prove sub-frame 120/240 FPS windows. The parser must mark such measurements unknown or unsupported instead of interpolating fictional evidence.
 
-- Game modes: classic and platformer.
-- Provenance: geometry, simulation, visual, and gameplay telemetry.
-- Evidence states: unknown, observed, measured, validated, unsupported.
-- Segment measurements keyed by sample-index ranges (not assumed world-X spans), with minimum clearance, hazard density, timing windows, required/peak input rate, success rate and attempts to complete. Segment mode is explicit so classic and platformer evidence cannot be mixed silently. Segment phase distinguishes start-idle, active gameplay, pause, respawn and transition samples; only active-gameplay segments contribute to difficulty readiness.
-- All 26 user-requested skillset labels.
-- Initial 1st–10th Dan tier names, without mapping measurements to tiers.
-- A readiness gate that refuses dan assignment unless every segment has validated geometry and simulation evidence and no unsupported interactions.
+The Analyzer validates the shape, completeness, provenance, and plausibility of the parser output. It does not independently recompute image recognition.
 
-The readiness gate is deliberately conservative. It is a safety boundary, not a difficulty score. Its current requirement for validated geometry and simulation evidence in every segment is a proposed minimum-evidence rule, not a finalized scoring policy. A future calibration module may only assign a tier after its measurement features and thresholds are validated against the calibration set.
+## Section and level evidence
 
-## Skillset labels
+Each active gameplay section carries:
+- Mean clearance.
+- Median clearance.
+- Minimum clearance.
+- 10th-percentile clearance.
+- 60/120/240 FPS frame-window counts.
+- Nerves measurement.
+- Unsupported hitbox count.
 
-Circles, Clicksync, Fast-Paced, Timings, Chokepoints, Unbalanced, Learny, Memory, High CPS, Gimmicky, Flow, Slow-Paced, Bossfight, Mirror, Nerve Control, Cube, Ship, Ball, UFO, Wave, Robot, Spider, Old Swing, New Swing, Duals, Overall.
+Startup idle, pause, respawn, and transition sections are retained for audit but excluded from active difficulty evidence.
 
-The model stores evidence counts/status for each label. It does not yet invent weights or infer a skillset from object counts alone. Segment sample-index ranges are independent of world X so the same contract can represent platformer movement, reversals, and non-horizontal paths. Numeric validation rejects impossible rates (for example, a success rate outside 0–1) while preserving explicitly unsupported measurements. Circles remains the user's Nine Circles / wave-focused category, not a generic circular-object detector.
+The Analyzer preserves section-level results. It must not allow long easy sections to erase a difficult short section through a single whole-level average. The parser provides both section statistics and level aggregates so later validation can compare them.
 
-## Locked decisions to preserve
+## Nerves
 
-- Bot search policy: single.
-- Memory threshold policy: both. The exact meaning/threshold is not inferred here; visual obstruction and simulation unclear-path counts are stored separately pending the exact rule.
-- Final Dan measurement policy: both. This is recorded as a locked user decision; the precise combination rule must be carried forward from the detailed design discussion rather than guessed.
-- Platformer and classic must both be supported as distinct modes.
-- Alpha–kappa tuning is out of scope for the first calibration pass.
+Nerves is a separate parser-provided feature, not a hidden multiplier inside clearance. It may account for the position of difficult moments in the level and preceding difficulty, but its exact formula and calibration are not invented in this model.
 
-## Physics-test evidence and limitations
+## Swag routes
 
-The uploaded geodan-log(2).txt is a rotated-slope contact run. It records:
-- noclip=unverified in its header, so it is not yet safe to treat every observed outcome as authoritative.
-- A flat-floor grounded transition around frame 312.
-- Slope/direction hook calls for object ID 1743 around frames 552–576.
-- support_match=0 on the slope hook records, followed by an airborne transition around frame 577.
+The recorded successful route is currently a reference route, not proof of creator intent. Swag Route Detection searches for other valid routes and returns evidence with:
 
-The uploaded geodan-log(1).txt is a separate Future Candy MEGER ship-mode run. Its header also says noclip=unverified. The player state remains stationary for the first 240 logged frames despite nonzero reported X velocity, then begins moving; around frame 246 the recorded mode changes from ship to cube, the player Y position changes sharply, and upside changes to 1. This is a useful transition/telemetry test case, but without verified noclip state and an explicit trigger/event correlation it must not be used as a validated physics measurement.
+- Route identity and whether it is the reference or an alternative.
+- Whether it completed, failed, or encountered unsupported behavior.
+- Whether its measured difficulty is easier, equal, harder, or unknown relative to the reference.
+- The fraction of difficulty-bearing gameplay bypassed.
 
-This is useful diagnostic evidence for the simulator's collision adapter and for defining what the Analyzer should record. It does not by itself establish the correct slope collision shape or whether the run is a valid no-noclip physics reference.
+Only a completed, validated easier alternative with a validated bypass fraction is counted as affecting difficulty. Harder alternatives never increase the level's difficulty. Geometric distance or elapsed time alone is not a valid bypass measure.
 
-Both this log and geodan-log(1).txt also contain long initial periods where the player position is static while the logger continues emitting samples. The Analyzer must classify startup idle, pause, respawn and transition intervals separately from active gameplay; otherwise idle samples would distort pace, survival-time and input-rate measurements. The current evidence model therefore has an explicit segment phase, and only ActiveGameplay segments count toward calibration readiness.
+A complete route search and a completed reference route are required before the judge marks the evidence ready for calibration. Partial or unsupported searches remain insufficient evidence, not proof that no easier route exists.
 
-## Why no scoring formula yet
+## Judge behavior
 
-A score formula would currently encode unverified assumptions:
-- The trajectory candidate has not been built or tested in-game.
-- The rotated-slope run has unverified noclip state and ambiguous support matching.
-- The recorder/parser pipeline has not been end-to-end validated.
-- The calibration set is not yet a sufficiently measured, held-out dataset.
+The current portable judge:
+- Rejects malformed schemas, impossible numeric values, inconsistent frame accounting, invalid clearance ordering, and malformed route records.
+- Counts active gameplay sections while excluding idle/pause/respawn/transition sections.
+- Tracks validated clearance, timing, and Nerves coverage.
+- Tracks unsupported hitboxes and unsupported route outcomes.
+- Counts confirmed easier alternative routes.
+- Returns Rejected, InsufficientEvidence, or ValidatedForCalibration.
 
-The first scoring implementation must be explainable from measured features and must expose uncertainty. It should be calibrated on known levels, then evaluated on held-out levels without changing thresholds to fit those held-out labels.
+ValidatedForCalibration means the evidence is structurally suitable for a later calibrated rating. It does not itself assign a Dan.
 
-## Next implementation stages
+## Dan scoring and calibration
 
-1. Validate the evidence model with standalone tests.
-2. Define a versioned parser-to-analyzer and simulator-to-analyzer evidence contract.
-3. Build feature aggregation across segments, including worst-case bottlenecks rather than relying only on whole-level averages.
-4. Add skillset evidence aggregation with confidence/coverage, not hard-coded object-count heuristics.
-5. Build the calibration dataset and fixed dan-tier mapping for 1st–10th.
-6. Only then implement dan assignment and held-out evaluation.
+No score formula is included yet. A ranking formula must be calibrated against measured Classic levels and evaluated on a held-out set. Do not tune thresholds to force named levels into expected Dan ranks. Initial rating scope remains 1st–10th Dan; alpha–kappa tuning remains out of scope.
 
-## Current implementation limits
+The eventual score should use the measured clearance distribution, timing-window burden, Nerves, and the easiest confirmed valid route. A harder swag route must never inflate the score; an easier route should reduce effective difficulty according to the difficulty-bearing gameplay it bypasses.
 
-- No parser, simulator, or gameplay hook is called by this core model.
-- No dan rating is computed.
-- No skillset is automatically classified.
-- No alpha–kappa values are generated.
-- No Geode integration or in-game validation is claimed.
+## Tests and limitations
+
+The portable test covers:
+- Classic-only evidence schema (there is no Platformer mode field).
+- Active-section validation and idle-section exclusion.
+- Clearance plausibility and parser frame accounting.
+- Required 60/120/240 timing evidence.
+- Nerves numeric validation.
+- Easier versus harder alternative route behavior.
+- Incomplete route search and unsupported hitboxes.
+
+The exact committed files are compiled by the manual GitHub Actions workflow when explicitly run. No Geode build, in-game parser integration, route-search runtime, or Dan calibration is claimed.
