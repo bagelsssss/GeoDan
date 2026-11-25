@@ -26,3 +26,12 @@ Contract tests: `g++ -std=c++20 -Wall -Wextra -Werror -Ishared tests/test_tools_
 ## Status
 
 Nothing here has been run in game yet.
+
+
+## Agent branches and implementation workflow
+
+Agent implementation work is done on separate Git branches, not directly on `main`. For the current trajectory rebuild, Codex has a candidate branch named `workflow-codex/trajectory-rebuild`, created from the current `main` commit. Claude should use a separate candidate branch for its own trajectory work if/when that work begins.
+
+These remote branches are separate from the local working directories described below. Creating a remote branch does not create or modify a directory on the user's computer.
+
+The `main` branch is the shared project baseline and documentation record; it is not the place for experimental agent implementation. The user-approved integration checkout is `~/main-workflow`. Agent candidates must remain isolated until the user reviews and explicitly approves promotion into `~/main-workflow`. A candidate branch is not automatically accepted or part of the actual mod.
