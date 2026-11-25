@@ -1,6 +1,6 @@
 # Recorder session format v1 — Image Parser handoff
 
-**Status:** Candidate contract on `workflow-codex/level-recorder`. The writer and schema are experimental; no parser implementation or compatibility test exists yet.
+**Status:** Experimental Recorder Session v1 contract on `workflow-codex/level-recorder`. A portable writer now emits the geometry sidecar, and the separate Image Parser candidate can read it. No real-session compatibility or in-game validation has been performed.
 
 ## Directory layout
 
@@ -88,4 +88,4 @@ The current writer does not provide a filesystem transaction across all files. A
 
 ## Compatibility note
 
-This v1 contract describes the current portable session sink only. The actual PNG encoder, background worker lifecycle, parser implementation, and end-to-end compatibility test are still pending. Changes to the manifest shape require a schema-version increment rather than silently reinterpreting v1 fields.
+This v1 contract describes the portable session sink and its geometry sidecar. The PNG encoder and background worker exist as portable components, but GPU readback and the live PlayLayer producer are not connected. The Image Parser implementation exists on `workflow-codex/image-parser`; end-to-end compatibility and in-game validation remain pending. Changes to the manifest shape require a schema-version increment rather than silently reinterpreting v1 fields.
