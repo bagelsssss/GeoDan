@@ -31,6 +31,8 @@
 
 ## Decisions and findings
 
+- **User decision (2026-11-25, 12:11):** For every stage, Claude's main process is to review the other agent's work on its branch, then build on it on a Claude-owned branch, after checking it against the repo rules. This applies to the level recorder, image parser, simulator and analyzer, not only trajectory. Each step still needs the user's approval before promotion into `~/main-workflow`.
+
 - **User decision (2026-11-25):** Trajectory rebuild from Geode bindings, not from the old repo. Stop using the old trajectory code.
 - **Verified finding:** My first trajectory draft was based on the old trajectory code I had read earlier in this session, before the no-reference rule applied. I deleted that draft (uncommitted, never pushed). The second draft was written from the bindings, but the old code was still in this session's context, so it is not independent of it. Codex's branch should be considered the independent trajectory candidate for comparison.
 - **Verified finding:** Claude's hitbox, trail and tools-popup commits (`08a77dc` through `48ae322`) were pushed directly to `main`. The shared rules say agent implementation belongs on candidate branches. The user has not yet decided whether those commits stay on `main` or move to a candidate branch.
