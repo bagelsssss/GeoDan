@@ -60,7 +60,8 @@ int main() {
         CHECK(manifest.find("\"frames_written\": 2") != std::string::npos);
         CHECK(manifest.find("\"missed_capture_intervals\": 1") != std::string::npos);
         CHECK(manifest.find("\"writer_queue_drops\": 2") != std::string::npos);
-        CHECK(manifest.find("\"last_sequence\": 2") != std::string::npos);
+        CHECK(manifest.find("\"first_sequence\": 10") != std::string::npos);
+        CHECK(manifest.find("\"last_sequence\": 12") != std::string::npos);
         CHECK(manifest.find("\"stop_reason\": \"level_exit\"") != std::string::npos);
         const auto csv = readText(completeDir / "frames.csv");
         CHECK(csv.find("sequence,timestamp_ns,delta_ns,missed_intervals,write_status") == 0);
