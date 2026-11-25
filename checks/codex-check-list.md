@@ -11,7 +11,7 @@
 - **Current stage:** Temporary disabled-by-default portrait preview test integrated; needs local build/in-game visual validation. Portable worker-owned session writer and synthetic tests added; test execution still required. No GPU readback or PNG encoder.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
-- **Latest verified candidate HEAD before this checklist update:** `6404871e3498bdf8084a0a13381bf8eea316c8e8`.
+- **Latest verified candidate HEAD before this checklist update:** `4bb9aefb556115f9a35a80ddf24975b9a3e0a1c5`.
 - **Local workspace:** `~/workflow-codex` has not been verified in this session. Remote GitHub branch is the candidate source.
 - **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
 - **Main-workflow changed:** No.
@@ -137,3 +137,5 @@ _Record exact repository-relative paths and a short description._
 - No local workspace, build, test, in-game run, or benchmark is claimed. `main` and `~/main-workflow` remain unchanged; candidate is experimental.
 - Next: run both portable recorder tests in the user's environment; then implement a worker lifecycle and connect an encoder interface. Do not start real capture until the portrait preview test passes.
 - Source audit follow-up: manifest now records the actual first frame sequence (not an assumed zero); synthetic test uses sequence 10 then 12 to exercise a gap.
+
+- Updated the existing `workflow_dispatch`-only portable test workflow to compile and run the session-writer test alongside the recorder model test. No automatic per-commit trigger was added, and the workflow has not been dispatched.
