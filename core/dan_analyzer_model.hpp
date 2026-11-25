@@ -1,9 +1,11 @@
 #pragma once
 
-// Geode-free evidence model for GeoDan's Dan Analyzer.
-// This layer records measurements and provenance; it deliberately does not
-// simulate player physics, classify screenshots, or assign dan scores.
+// Portable, Geode-free judge model for GeoDan.
+// The Image Parser supplies recorded-run measurements. Swag-route search
+// supplies separately validated alternative-route evidence. This model does
+// not recreate the recorded run or assign a calibrated Dan tier.
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -12,17 +14,16 @@
 
 namespace geodan::core::dan {
 
-inline constexpr std::uint32_t kEvidenceSchemaVersion = 1;
+inline constexpr std::uint32_t kEvidenceSchemaVersion = 2;
 
-enum class GameMode : std::uint8_t { Unknown, Classic, Platformer };
 enum class EvidenceState : std::uint8_t { Unknown, Observed, Measured, Validated, Unsupported };
-enum class EvidenceSource : std::uint8_t { Unknown, Geometry, Simulation, Visual, GameplayTelemetry };
+enum class EvidenceSource : std::uint8_t { Unknown, HitboxGeometry, ImageParser, SwagRouteSearch, GameplayTelemetry };
 enum class SegmentPhase : std::uint8_t { Unknown, StartIdle, ActiveGameplay, Paused, Respawn, Transition };
-
 enum class Skillset : std::uint8_t {
-    Circles, Clicksync, FastPaced, Timings, Chokepoints, Unbalanced, Learny, Memory,
-    HighCps, Gimmicky, Flow, SlowPaced, Bossfight, Mirror, NerveControl, Cube, Ship,
-    Ball, Ufo, Wave, Robot, Spider, OldSwing, NewSwing, Duals, Overall,
+    Circles, Clicksync, FastPaced, Timings, Chokepoints, Unbalanced, Learny,
+    Memory, HighCps, Gimmicky, Flow, SlowPaced, Bossfight, Mirror,
+    NerveControl, Cube, Ship, Ball, Ufo, Wave, Robot, Spider,
+    OldSwing, NewSwing, Duals, Overall,
 };
 inline constexpr std::size_t kSkillsetCount = 26;
 
@@ -30,8 +31,6 @@ enum class DanTier : std::uint8_t {
     First = 1, Second, Third, Fourth, Fifth, Sixth, Seventh, Eighth, Ninth, Tenth,
 };
 
-// A measurement is meaningful only together with its source, evidence state,
-// and sample count. present=false means unknown, not zero.
 struct Measurement {
     double value = 0.0;
     std::uint32_t sampleCount = 0;
@@ -45,58 +44,52 @@ struct Measurement {
                state != EvidenceState::Unknown && source != EvidenceSource::Unknown;
     }
 
-    bool validatedFrom(EvidenceSource expectedSource) const {
-        return present && valid() && state == EvidenceState::Validated &&
-               source == expectedSource;
+    bool validatedFrom(EvidenceSource expected) const {
+        return present && valid() && state == EvidenceState::Validated && source == expected;
     }
+};
+
+struct FrameWindowCounts {
+    Measurement windows60;
+    Measurement windows120;
+    Measurement windows240;
+};
+
+struct ClearanceStatistics {
+    Measurement meanPx;
+    Measurement medianPx;
+    Measurement minimumPx;
+    Measurement percentile10Px;
 };
 
 struct SegmentEvidence {
     std::uint32_t index = 0;
-    // Inclusive sample-index range, independent of world orientation or mode.
     std::uint64_t firstSampleIndex = 0;
     std::uint64_t lastSampleIndex = 0;
-    GameMode mode = GameMode::Unknown;
     SegmentPhase phase = SegmentPhase::Unknown;
-
-    Measurement minimumClearance;
-    Measurement hazardDensityPer1000Units;
-    Measurement tightestTimingWindowFrames;
-    Measurement requiredInputsPerSecond;
-    Measurement peakInputsPerSecond;
-    Measurement successfulTrialRate;
-    Measurement attemptsToComplete;
-    std::uint32_t unsupportedInteractions = 0;
+    ClearanceStatistics clearance;
+    FrameWindowCounts frameWindows;
+    Measurement nerves;
+    std::uint32_t unsupportedHitboxCount = 0;
 
     bool valid() const {
-        if (mode == GameMode::Unknown || phase == SegmentPhase::Unknown ||
-            lastSampleIndex < firstSampleIndex)
-            return false;
-        const auto nonNegative = [](const Measurement& m) {
-            return !m.present || m.value >= 0.0;
+        if (phase == SegmentPhase::Unknown || lastSampleIndex < firstSampleIndex) return false;
+        const Measurement* values[] = {
+            &clearance.meanPx, &clearance.medianPx, &clearance.minimumPx,
+            &clearance.percentile10Px, &frameWindows.windows60,
+            &frameWindows.windows120, &frameWindows.windows240, &nerves,
         };
-        return minimumClearance.valid() && hazardDensityPer1000Units.valid() &&
-               tightestTimingWindowFrames.valid() && requiredInputsPerSecond.valid() &&
-               peakInputsPerSecond.valid() && successfulTrialRate.valid() &&
-               attemptsToComplete.valid() && nonNegative(hazardDensityPer1000Units) &&
-               nonNegative(tightestTimingWindowFrames) &&
-               nonNegative(requiredInputsPerSecond) && nonNegative(peakInputsPerSecond) &&
-               nonNegative(attemptsToComplete) &&
-               (!successfulTrialRate.present ||
-                (successfulTrialRate.value >= 0.0 && successfulTrialRate.value <= 1.0));
-    }
-
-    bool hasValidatedGeometryEvidence() const {
-        return minimumClearance.validatedFrom(EvidenceSource::Geometry) ||
-               hazardDensityPer1000Units.validatedFrom(EvidenceSource::Geometry);
-    }
-
-    bool hasValidatedSimulationEvidence() const {
-        return tightestTimingWindowFrames.validatedFrom(EvidenceSource::Simulation) ||
-               requiredInputsPerSecond.validatedFrom(EvidenceSource::Simulation) ||
-               peakInputsPerSecond.validatedFrom(EvidenceSource::Simulation) ||
-               successfulTrialRate.validatedFrom(EvidenceSource::Simulation) ||
-               attemptsToComplete.validatedFrom(EvidenceSource::Simulation);
+        for (const auto* value : values) {
+            if (!value->valid()) return false;
+            if (value->present && value->value < 0.0) return false;
+        }
+        if (clearance.minimumPx.present && clearance.medianPx.present &&
+            clearance.minimumPx.value > clearance.medianPx.value) return false;
+        if (clearance.minimumPx.present && clearance.meanPx.present &&
+            clearance.minimumPx.value > clearance.meanPx.value) return false;
+        if (clearance.percentile10Px.present && clearance.medianPx.present &&
+            clearance.percentile10Px.value > clearance.medianPx.value) return false;
+        return true;
     }
 };
 
@@ -112,62 +105,174 @@ struct SkillsetEvidence {
     }
 };
 
-// Keep both memory signals separate. The exact "both" rule and numeric
-// threshold are not guessed here; see the design document.
 struct MemoryEvidence {
-    std::uint32_t visualObstructionCount = 0;
-    std::uint32_t simulationUnclearPathCount = 0;
+    Measurement visualObstructionCount;
+    Measurement simulationUnclearPathCount;
+};
+
+enum class RouteSearchState : std::uint8_t { NotRun, Complete, Partial, Unsupported };
+enum class RouteKind : std::uint8_t { Reference, Alternative };
+enum class RouteOutcome : std::uint8_t { Unknown, Completed, Failed, Unsupported };
+enum class DifficultyRelation : std::uint8_t { Unknown, Easier, Equal, Harder };
+
+struct SwagRouteEvidence {
+    std::uint32_t routeId = 0;
+    RouteKind kind = RouteKind::Alternative;
+    RouteOutcome outcome = RouteOutcome::Unknown;
+    DifficultyRelation relationToReference = DifficultyRelation::Unknown;
+    // Fraction of the reference route's difficulty-bearing gameplay bypassed.
+    // This is not geometric distance or elapsed-time fraction.
+    Measurement bypassedDifficultyFraction;
+
+    bool valid() const {
+        if (kind == RouteKind::Reference && relationToReference != DifficultyRelation::Equal)
+            return false;
+        if (!bypassedDifficultyFraction.valid()) return false;
+        if (bypassedDifficultyFraction.present &&
+            (bypassedDifficultyFraction.value < 0.0 || bypassedDifficultyFraction.value > 1.0))
+            return false;
+        if (outcome == RouteOutcome::Completed && relationToReference == DifficultyRelation::Unknown)
+            return false;
+        return true;
+    }
+
+    bool affectsDifficulty() const {
+        return kind == RouteKind::Alternative && outcome == RouteOutcome::Completed &&
+               relationToReference == DifficultyRelation::Easier &&
+               bypassedDifficultyFraction.validatedFrom(EvidenceSource::SwagRouteSearch);
+    }
+};
+
+struct LevelParserSummary {
+    std::uint64_t sourceFrameCount = 0;
+    std::uint64_t processedFrameCount = 0;
+    std::uint64_t unclassifiedFrameCount = 0;
+    std::uint64_t timestampGapCount = 0;
+    ClearanceStatistics clearance;
+    FrameWindowCounts frameWindows;
+    Measurement nerves;
 };
 
 struct LevelEvidence {
     std::uint32_t schemaVersion = kEvidenceSchemaVersion;
     std::string levelName;
-    GameMode primaryMode = GameMode::Unknown;
     bool captureComplete = false;
-    bool simulationComplete = false;
+    bool parserComplete = false;
+    LevelParserSummary parser;
     std::vector<SegmentEvidence> segments;
     std::vector<SkillsetEvidence> skillsets;
     MemoryEvidence memory;
+    RouteSearchState routeSearch = RouteSearchState::NotRun;
+    std::vector<SwagRouteEvidence> routes;
 };
 
-enum class AnalysisReadiness : std::uint8_t {
-    NotReady, InvalidEvidence, Provisional, Measured, CalibrationEligible,
+enum class JudgeStatus : std::uint8_t {
+    Rejected, InsufficientEvidence, ValidatedForCalibration,
 };
 
-inline AnalysisReadiness assessReadiness(const LevelEvidence& level) {
-    if (level.schemaVersion != kEvidenceSchemaVersion ||
-        !level.captureComplete || !level.simulationComplete || level.segments.empty())
-        return AnalysisReadiness::NotReady;
+struct JudgeResult {
+    JudgeStatus status = JudgeStatus::InsufficientEvidence;
+    std::uint32_t activeSegmentCount = 0;
+    std::uint32_t validatedClearanceSegmentCount = 0;
+    std::uint32_t validatedTimingSegmentCount = 0;
+    std::uint32_t validatedNervesSegmentCount = 0;
+    std::uint32_t confirmedEasierRouteCount = 0;
+    std::uint32_t unsupportedEvidenceCount = 0;
+};
 
-    bool sawActiveGameplay = false;
-    bool anyValidated = false;
-    bool allActiveSegmentsHaveBothSources = true;
-
-    for (const auto& segment : level.segments) {
-        if (!segment.valid()) return AnalysisReadiness::InvalidEvidence;
-        if (segment.phase != SegmentPhase::ActiveGameplay) continue;
-        sawActiveGameplay = true;
-        anyValidated = anyValidated || segment.hasValidatedGeometryEvidence() ||
-                       segment.hasValidatedSimulationEvidence();
-        allActiveSegmentsHaveBothSources = allActiveSegmentsHaveBothSources &&
-            segment.unsupportedInteractions == 0 &&
-            segment.hasValidatedGeometryEvidence() &&
-            segment.hasValidatedSimulationEvidence();
+inline bool validClearanceStatistics(const ClearanceStatistics& stats) {
+    const Measurement* values[] = {&stats.meanPx, &stats.medianPx,
+                                   &stats.minimumPx, &stats.percentile10Px};
+    for (const auto* value : values) {
+        if (!value->valid() || (value->present && value->value < 0.0)) return false;
     }
-
-    if (!sawActiveGameplay) return AnalysisReadiness::NotReady;
-
-    for (const auto& skillset : level.skillsets) {
-        if (!skillset.valid()) return AnalysisReadiness::InvalidEvidence;
-    }
-
-    if (allActiveSegmentsHaveBothSources) return AnalysisReadiness::CalibrationEligible;
-    if (anyValidated) return AnalysisReadiness::Measured;
-    return AnalysisReadiness::Provisional;
+    if (stats.minimumPx.present && stats.medianPx.present &&
+        stats.minimumPx.value > stats.medianPx.value) return false;
+    if (stats.minimumPx.present && stats.meanPx.present &&
+        stats.minimumPx.value > stats.meanPx.value) return false;
+    if (stats.percentile10Px.present && stats.medianPx.present &&
+        stats.percentile10Px.value > stats.medianPx.value) return false;
+    return true;
 }
 
-inline bool canAssignDan(const LevelEvidence& level) {
-    return assessReadiness(level) == AnalysisReadiness::CalibrationEligible;
+inline bool validFrameWindows(const FrameWindowCounts& counts) {
+    const Measurement* values[] = {&counts.windows60, &counts.windows120, &counts.windows240};
+    for (const auto* value : values) {
+        if (!value->valid() || (value->present && value->value < 0.0)) return false;
+    }
+    return true;
+}
+
+inline JudgeResult judge(const LevelEvidence& level) {
+    JudgeResult result;
+    if (level.schemaVersion != kEvidenceSchemaVersion || !level.captureComplete ||
+        !level.parserComplete || level.segments.empty() ||
+        level.parser.sourceFrameCount == 0 ||
+        level.parser.processedFrameCount + level.parser.unclassifiedFrameCount !=
+            level.parser.sourceFrameCount ||
+        !validClearanceStatistics(level.parser.clearance) ||
+        !validFrameWindows(level.parser.frameWindows) || !level.parser.nerves.valid()) {
+        result.status = JudgeStatus::Rejected;
+        return result;
+    }
+
+    bool allActiveSegmentsValidated = true;
+    for (const auto& segment : level.segments) {
+        if (!segment.valid()) {
+            result.status = JudgeStatus::Rejected;
+            return result;
+        }
+        if (segment.phase != SegmentPhase::ActiveGameplay) continue;
+        ++result.activeSegmentCount;
+        const bool clearanceOk = segment.clearance.meanPx.validatedFrom(EvidenceSource::ImageParser) &&
+                                 segment.clearance.medianPx.validatedFrom(EvidenceSource::ImageParser) &&
+                                 segment.clearance.minimumPx.validatedFrom(EvidenceSource::ImageParser);
+        const bool timingOk = segment.frameWindows.windows60.validatedFrom(EvidenceSource::ImageParser) &&
+                              segment.frameWindows.windows120.validatedFrom(EvidenceSource::ImageParser) &&
+                              segment.frameWindows.windows240.validatedFrom(EvidenceSource::ImageParser);
+        const bool nervesOk = segment.nerves.validatedFrom(EvidenceSource::ImageParser);
+        if (clearanceOk) ++result.validatedClearanceSegmentCount;
+        if (timingOk) ++result.validatedTimingSegmentCount;
+        if (nervesOk) ++result.validatedNervesSegmentCount;
+        allActiveSegmentsValidated = allActiveSegmentsValidated && clearanceOk && timingOk && nervesOk;
+        result.unsupportedEvidenceCount += segment.unsupportedHitboxCount;
+    }
+    if (result.activeSegmentCount == 0) {
+        result.status = JudgeStatus::Rejected;
+        return result;
+    }
+
+    for (const auto& skillset : level.skillsets) {
+        if (!skillset.valid()) {
+            result.status = JudgeStatus::Rejected;
+            return result;
+        }
+    }
+    if (!level.memory.visualObstructionCount.valid() ||
+        !level.memory.simulationUnclearPathCount.valid()) {
+        result.status = JudgeStatus::Rejected;
+        return result;
+    }
+
+    bool referenceFound = false;
+    for (const auto& route : level.routes) {
+        if (!route.valid()) {
+            result.status = JudgeStatus::Rejected;
+            return result;
+        }
+        if (route.kind == RouteKind::Reference && route.outcome == RouteOutcome::Completed)
+            referenceFound = true;
+        if (route.affectsDifficulty()) ++result.confirmedEasierRouteCount;
+        if (route.outcome == RouteOutcome::Unsupported) ++result.unsupportedEvidenceCount;
+    }
+
+    const bool routeEvidenceReady = level.routeSearch == RouteSearchState::Complete && referenceFound;
+    if (allActiveSegmentsValidated && result.unsupportedEvidenceCount == 0 && routeEvidenceReady) {
+        result.status = JudgeStatus::ValidatedForCalibration;
+    } else {
+        result.status = JudgeStatus::InsufficientEvidence;
+    }
+    return result;
 }
 
 } // namespace geodan::core::dan
