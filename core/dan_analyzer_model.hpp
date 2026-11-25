@@ -16,7 +16,7 @@
 
 namespace geodan::core::dan {
 
-inline constexpr std::uint32_t kEvidenceSchemaVersion = 2;
+inline constexpr std::uint32_t kEvidenceSchemaVersion = 3;
 
 enum class EvidenceState : std::uint8_t { Unknown, Observed, Measured, Validated, Unsupported };
 enum class EvidenceSource : std::uint8_t { Unknown, HitboxGeometry, ImageParser, SwagRouteSearch, GameplayTelemetry, Analyzer };
@@ -322,6 +322,8 @@ struct JudgeResult {
     ConsistencyStatus consistency = ConsistencyStatus::Incomplete;
     LevelFeatureAggregate aggregate;
     RawScoreAggregate rawScore;
+    MainSkillset mainSkillset = MainSkillset::Overall;
+    std::vector<Skillset> subSkillsets;
 };
 
 inline bool validClearanceStatistics(const ClearanceStatistics& stats) {
@@ -679,6 +681,8 @@ inline JudgeResult judge(const LevelEvidence& level) {
     } else {
         result.status = JudgeStatus::InsufficientEvidence;
     }
+    result.mainSkillset = classifyMainSkillset(level.mainSkillsets);
+    result.subSkillsets = classifySubSkillsets(level.skillsets);
     return result;
 }
 
