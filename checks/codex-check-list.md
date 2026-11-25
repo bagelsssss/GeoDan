@@ -193,3 +193,99 @@ _Record exact repository-relative paths and a short description._
 - Claude also found the `level-recorder` tool remains marked Planned in `core/tool_registry.hpp`; it is not enabled in the Tools menu.
 - Claude's open user decision is whether to attempt a synchronous `CCRenderTexture::newCCImage` readback as a first functional fallback (with measured frame drops and no 60 FPS guarantee) or wait for the user's local Geode build/preview validation before selecting a readback path. No readback implementation or tool-registry change was made here.
 - Current next step is blocked on the user's choice of readback strategy. Keep the tool disabled until the capture path is connected and validated.
+
+
+## 2026-11-25 — Codex full self-review (Tools foundation + Recorder library)
+
+**Review status:** Portable test suite passed. Geode Windows build and in-game behaviour are not verified. Candidate remains isolated and is not approved for promotion.
+
+- Reviewed branch: workflow-codex/level-recorder
+- Implementation/test head: 340d62365b00428ad79cdaeddc5da7ec057c357e
+- Branch base: main snapshot 5cfd2dc01f17761f77be4aee6970f8b1998b10f2
+- Commits since branch base: 74. Full ordered commit list and diffs: https://github.com/bagelsssss/GeoDan/compare/5cfd2dc01f17761f77be4aee6970f8b1998b10f2...340d62365b00428ad79cdaeddc5da7ec057c357e
+- Main was read at feb19b3e68e9c1996e673248a7cd006cd630c7a1; this candidate is based on the older recorded base above.
+- No changes to main, ~/main-workflow, Claude-owned branches, or GeoDan-deprecated.
+
+### Files changed relative to the branch base
+
+- .github/workflows/geodan-recorder-model.yml — manual portable Recorder model/session/encoder/worker/geometry checks.
+- .github/workflows/geodan-codex-review-tests.yml — one-time, path-filtered self-review workflow; each test has its own compile-and-run step.
+- checks/codex-check-list.md — Codex implementation log and this review.
+- core/recorder_geometry.hpp — portable frame geometry, capture transform, clipping, validity and CSV sidecar serialization.
+- core/recorder_model.hpp — capture configuration, 60 Hz timeline, missed-interval accounting, bounded queue and reusable pixel-buffer leases.
+- core/recorder_png_encoder.hpp — dependency-free RGBA8 PNG writer using stored DEFLATE blocks, CRC-32 and Adler-32.
+- core/recorder_session.hpp — worker-owned session manifest, frames CSV, hitboxes CSV, PNG persistence and finalize/abort lifecycle.
+- core/recorder_worker.hpp — background queue consumer, PNG encoding, sidecar persistence, queue drain and finalization.
+- core/tool_registry.hpp — review correction: trajectory is Planned because this branch does not include its implementation; Level Recorder remains Planned because live capture is absent.
+- docs/image-parser-session-format.md — Recorder Session v1 and geometry sidecar contract.
+- docs/level-recorder-design.md — capture, performance, output and limitations.
+- schemas/recorder-session-v1.schema.json — manifest schema.
+- tests/test_recorder_geometry.cpp — capture-pixel transforms, clipping and sidecar serialization tests.
+- tests/test_recorder_model.cpp — capture timing, queue and buffer-pool tests.
+- tests/test_recorder_png_encoder.cpp — PNG structure tests.
+- tests/test_recorder_session.cpp — session persistence, sequence and lifecycle tests.
+- tests/test_recorder_worker.cpp — worker queue drain, PNG output and finalization tests.
+- tests/test_tool_registry.cpp — registry invariants and three-Available-tool count.
+- tools/mod.json — false-by-default hitboxes, unclassified, trail and diagnostic portrait preview settings; removed the unavailable trajectory setting.
+- tools/src/main.cpp — pause-menu popup; trajectory is no longer presented as Available in this candidate.
+- tools/src/overlay.cpp — PlayLayer diagnostic overlay and temporary portrait preview; no live Recorder producer.
+- tools/src/overlay_renderer.hpp — shared hitbox and trail rendering routines.
+- tools/src/portrait_capture_target.hpp — retained 360×1080 RGBA8888 offscreen render target with explicit crop transform.
+- tools/src/recorder_geometry.hpp — PlayLayer-to-portable geometry snapshot adapter.
+
+### Geode 5.11.2 / GD 2.2081 Windows binding audit
+
+Checked the actual declaring class blocks in bindings/2.2081/GeometryDash.bro from geode-sdk/bindings revision d14587bf6c08b9114b5605ec6a3c42cc16b02de6 (blob 1d194f26246c69adf609a136d0d8056a4702a739):
+
+| Modify class | Hooked method | Windows binding |
+|---|---|---|
+| PauseLayer | customSetup() | win 0x37c870, not inline |
+| PlayLayer | postUpdate(float) | win 0x3b4ba0, not inline |
+| PlayLayer | resetLevel() | win 0x3b8eb0, not inline |
+
+No Windows-inline hook found in these classes. The tool popup and overlay are still Geode-facing code and have not been compiled against the Windows SDK in this review.
+
+### Test record
+
+All tests below were run separately on GitHub Actions Ubuntu 26.04.1 at implementation/test head 340d62365b00428ad79cdaeddc5da7ec057c357e. The job completed successfully. -I./core -I. is the checkout-root equivalent of -I<dir>/core -I<dir>. Each step's successful conclusion means exit code 0.
+
+| Test | Exact command | Exit | Stdout |
+|---|---|---:|---|
+| test_hitbox_model.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_hitbox_model.cpp -o /tmp/geodan-hitbox_model-review && /tmp/geodan-hitbox_model-review | 0 | hitbox model + trail: all checks passed |
+| test_recorder_geometry.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_geometry.cpp -o /tmp/geodan-recorder_geometry-review && /tmp/geodan-recorder_geometry-review | 0 | recorder geometry: all checks passed |
+| test_recorder_model.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_model.cpp -o /tmp/geodan-recorder_model-review && /tmp/geodan-recorder_model-review | 0 | recorder model: all checks passed |
+| test_recorder_png_encoder.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_png_encoder.cpp -o /tmp/geodan-recorder_png_encoder-review && /tmp/geodan-recorder_png_encoder-review | 0 | recorder PNG encoder: basic structure checks passed |
+| test_recorder_session.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_session.cpp -o /tmp/geodan-recorder_session-review && /tmp/geodan-recorder_session-review | 0 | recorder session: all checks passed |
+| test_recorder_worker.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_worker.cpp -o /tmp/geodan-recorder_worker-review && /tmp/geodan-recorder_worker-review | 0 | recorder worker: queue drain, PNG output and finalization checks passed |
+| test_tool_registry.cpp | g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_tool_registry.cpp -o /tmp/geodan-tool_registry-review && /tmp/geodan-tool_registry-review | 0 | tool registry: all checks passed |
+
+Workflow: https://github.com/bagelsssss/GeoDan/actions/runs/45558618691
+
+### Settings and registry
+
+- Available tools in this candidate: hitboxes, unclassified, hitbox-trail.
+- trajectory, level-recorder, and macro-bot are Planned; their settings are not exposed as enabled toggles.
+- portrait-preview-test is deliberately in mod.json but not core/tool_registry.hpp: it is a temporary diagnostic render-preview setting, not a selectable tool. This is semantically correct, but the current strict check_commit.py settings-match check may still flag the extra setting unless it is explicitly allowlisted or the test setting is removed after the preview is retired.
+- The preview setting is false by default. All user-facing tool settings are false by default.
+
+### What works, what does not, and what remains unverified
+
+- Portable PASS: hitbox/trail data model, Recorder timing and queue model, geometry transforms and sidecar serialization, PNG encoder structure, session writer, worker, and registry tests.
+- Implemented but not runtime-verified: hitbox outlines, unclassified outlines, trail display, Tools popup, portrait offscreen render target and PlayLayer geometry snapshot adapter.
+- Explicitly not implemented: the live Recorder path. No PlayLayer producer reads pixels, queues frames, starts/stops RecorderWorker, or connects the capture target to SessionWriter. This branch cannot record a playable level yet. Do not copy the separate Claude live Recorder path into this branch.
+- Geometry limitation: the sidecar uses provisional AABBs for rotated/circular hazards and a diagnostic inner player rectangle; those are not yet validated as exact engine collision geometry. Lethal slope edges are marked unsupported.
+- PNG limitation: the encoder uses uncompressed/stored DEFLATE blocks. PNG structure test passes; compression ratio, disk throughput, and 60 FPS viability have not been measured.
+- UI limitation: no dedicated unit test validates popup placement, button-row selection or menu interactions.
+- Geode Windows build: NOT RUN / not verified.
+- In-game test of this branch: NOT RUN in this review. No visual proof of hitboxes, trail, popup, portrait target or geometry coordinate alignment is claimed.
+- Performance profile: NOT RUN. No 60 FPS guarantee is made.
+
+### Review commits made
+
+- b0205c273982b625eac17be80260ee898bde678b — mark trajectory Planned until its implementation is present.
+- 333de931919530bd01577b82b39a48960b6d84be — remove unavailable trajectory setting.
+- 1fdb99c5b173e07f8b03031e16efd634df2f10c3 — move unavailable trajectory to the Planned popup section.
+- 2f597b5987bc78bd910b070897e000bcb7c90bcc — align registry test with three implemented tools.
+- 340d62365b00428ad79cdaeddc5da7ec057c357e — add isolated one-time test workflow and run the suite.
+
+Next action: Geode Windows build and in-game validation must be performed by the user on this candidate before anyone wires live capture or promotes it.
