@@ -218,5 +218,84 @@ int main() {
     level.segments.clear();
     assert(dan::judge(level).status == dan::JudgeStatus::Rejected);
 
+
+    // Numeric score bands use the same X.00/X.35/X.65 rule for Dan and Alpha-Iota.
+    auto band = dan::ratingBandForScore(1.34);
+    assert(band.valid && !band.kappa && band.tierIndex == 1 &&
+           band.subdivision == dan::DanSubdivision::LowMid);
+    band = dan::ratingBandForScore(1.35);
+    assert(band.valid && band.tierIndex == 1 && band.subdivision == dan::DanSubdivision::Mid);
+    band = dan::ratingBandForScore(1.65);
+    assert(band.valid && band.tierIndex == 1 && band.subdivision == dan::DanSubdivision::MidHigh);
+    band = dan::ratingBandForScore(6.50);
+    assert(band.valid && band.tierIndex == 6 && band.subdivision == dan::DanSubdivision::Mid);
+    band = dan::ratingBandForScore(10.50);
+    assert(band.valid && band.tierIndex == 10 && band.subdivision == dan::DanSubdivision::Mid);
+    band = dan::ratingBandForScore(11.50);
+    assert(band.valid && band.tierIndex == 11 && band.subdivision == dan::DanSubdivision::Mid);
+    band = dan::ratingBandForScore(19.65);
+    assert(band.valid && band.tierIndex == 19 && band.subdivision == dan::DanSubdivision::MidHigh);
+    band = dan::ratingBandForScore(20.00);
+    assert(band.valid && band.tierIndex == 19 && band.subdivision == dan::DanSubdivision::MidHigh);
+    band = dan::ratingBandForScore(20.01);
+    assert(band.valid && band.kappa);
+    band = dan::ratingBandForScore(50.00);
+    assert(band.valid && band.kappa);
+    assert(!dan::ratingBandForScore(0.99).valid);
+    assert(!dan::ratingBandForScore(50.01).valid);
+
+    // Deadlocked is a designated 6.50 middle anchor, but has no invented raw score.
+    const auto deadlockedAnchor = dan::deadlockedCalibrationAnchor();
+    assert(deadlockedAnchor.valid() && deadlockedAnchor.designated);
+    assert(deadlockedAnchor.levelName == "Deadlocked");
+    assert(deadlockedAnchor.analyzedScore == 6.50);
+    assert(!deadlockedAnchor.rawScore.present);
+    assert(!dan::calibrateRawScore(100.0, {deadlockedAnchor}).valid);
+
+    // A measured monotonic anchor set maps raw scores by interpolation only.
+    std::vector<dan::CalibrationAnchor> anchors{
+        {"anchor low", m(10.0, dan::EvidenceSource::Analyzer), 5.50, false},
+        {"Deadlocked", m(20.0, dan::EvidenceSource::Analyzer), 6.50, true},
+        {"anchor high", m(30.0, dan::EvidenceSource::Analyzer), 7.50, false},
+    };
+    auto calibrated = dan::calibrateRawScore(25.0, anchors);
+    assert(calibrated.valid && calibrated.value == 7.00);
+    assert(!dan::calibrateRawScore(5.0, anchors).valid); // no extrapolation
+    auto nonMonotonic = anchors;
+    nonMonotonic[2].analyzedScore = 6.00;
+    assert(!dan::calibrateRawScore(25.0, nonMonotonic).valid);
+
+    // Section raw contributions are signed and additive; missing evidence is incomplete.
+    level = validLevel();
+    level.segments[0].rawDifficultyContribution =
+        m(3.0, dan::EvidenceSource::Analyzer);
+    auto secondSection = makeSegment(1, 20, 39, 4, 3, 1, 2, 0.2, 3, 2, 1);
+    secondSection.rawDifficultyContribution = m(-0.5, dan::EvidenceSource::Analyzer);
+    level.segments.push_back(secondSection);
+    auto rawAggregate = dan::aggregateRawSectionScores(level);
+    assert(rawAggregate.complete && rawAggregate.scoredSectionCount == 2);
+    assert(rawAggregate.total == 2.5);
+    level.segments[1].rawDifficultyContribution = {};
+    rawAggregate = dan::aggregateRawSectionScores(level);
+    assert(!rawAggregate.complete);
+
+    // Main skillset selection uses explicit evidence; subskillsets exclude Memory for now.
+    std::vector<dan::MainSkillsetEvidence> mainEvidence{
+        {dan::MainSkillset::Learny, 2, 10, dan::EvidenceState::Validated},
+        {dan::MainSkillset::Precision, 8, 10, dan::EvidenceState::Validated},
+        {dan::MainSkillset::HighCps, 4, 10, dan::EvidenceState::Validated},
+    };
+    assert(dan::classifyMainSkillset(mainEvidence) == dan::MainSkillset::Precision);
+    assert(dan::classifyMainSkillset({}) == dan::MainSkillset::Overall);
+    const auto subskills = dan::classifySubSkillsets({
+        {dan::Skillset::Circles, 4, 5, dan::EvidenceState::Validated},
+        {dan::Skillset::Memory, 5, 5, dan::EvidenceState::Validated},
+        {dan::Skillset::Overall, 5, 5, dan::EvidenceState::Validated},
+        {dan::Skillset::Wave, 2, 5, dan::EvidenceState::Validated},
+    });
+    assert(subskills.size() == 2);
+    assert(subskills[0] == dan::Skillset::Circles);
+    assert(subskills[1] == dan::Skillset::Wave);
+
     std::cout << "Dan analyzer aggregation and verification: all checks passed\n";
 }
