@@ -1,18 +1,20 @@
 # GeoDan
 
-Ranks Geometry Dash levels on the osu!mania dan scale.
+Ranks Classic Geometry Dash levels on the osu!mania dan scale.
 
 ## Pipeline
 
 | Part | Job | Status |
 |---|---|---|
 | Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory) | Candidate mostly implemented; not built or runtime-tested |
-| Level recorder | Records the level on a blank background with the tools on | Candidate mostly implemented; not built or runtime-tested |
-| Image parser | Turns the recorder's video into per-frame images the analyzer can read | Session contract documented; integration unverified |
-| Simulator | Plays the level by trial and error with no user input | Trajectory candidate exists; unbuilt and unvalidated |
-| Analyzer | Measures level difficulty and assigns a calibrated dan | Evidence model foundation in progress; no scoring formula |
+| Level recorder | Records Classic gameplay on a blank background with physical hitboxes/tools available | Candidate mostly implemented; not built or runtime-tested |
+| Image parser | Groups recorded images into sections and measures player-to-hazard clearance, frame windows, and Nerves | Not implemented |
+| Swag route detection | Searches and validates alternative completable paths | Not implemented; simulation is reserved for route exploration |
+| Dan analyzer | Judges parser and route evidence, then assigns a calibrated Dan | Portable judge foundation implemented on candidate branch; no Dan formula |
 
-The old repo, `GeoDan-deprecated`, is archived. Some of its code is being ported as each part is started.
+**Scope:** Classic Geometry Dash only. Platformer implementation and support are cancelled.
+
+The Image Parser uses physical collision hitboxes as its geometry source. Decorative artwork is not treated as collision geometry. The recorded successful run is measured directly; simulation is not needed to replay it. Simulation remains relevant to discovering alternative swag routes.
 
 ## Tools (`tools/`)
 
@@ -24,13 +26,10 @@ Contract tests: `g++ -std=c++20 -Wall -Wextra -Werror -Ishared tests/test_tools_
 
 ## Status
 
-Nothing here has been run in game yet.
-
+No end-to-end in-game parser/analyzer or swag-route test has been run.
 
 ## Agent branches and implementation workflow
 
-Agent implementation work is done on separate Git branches, not directly on `main`. For the current trajectory rebuild, Codex has a candidate branch named `workflow-codex/trajectory-rebuild`, created from the current `main` commit. Claude should use a separate candidate branch for its own trajectory work if/when that work begins.
+Agent implementation work is done on separate Git branches, not directly on `main`. The current trajectory and analyzer candidates are isolated. These remote branches are separate from local working directories; creating a remote branch does not create or modify a directory on the user's computer.
 
-These remote branches are separate from the local working directories described below. Creating a remote branch does not create or modify a directory on the user's computer.
-
-The `main` branch is the shared project baseline and documentation record; it is not the place for experimental agent implementation. The user-approved integration checkout is `~/main-workflow`. Agent candidates must remain isolated until the user reviews and explicitly approves promotion into `~/main-workflow`. A candidate branch is not automatically accepted or part of the actual mod.
+The `main` branch is the shared project baseline and documentation branch. The user-approved integration checkout is `~/main-workflow`. Agent candidates must remain isolated until the user reviews and explicitly approves promotion into `~/main-workflow`. A candidate branch is not automatically accepted or part of the actual mod.
