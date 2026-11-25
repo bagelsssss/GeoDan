@@ -8,7 +8,7 @@
 
 - **Status:** Active — isolated Level Recorder candidate; not approved for promotion.
 - **Active task:** Implement a 360 × 1080 portrait level recorder with black background, diagnostic overlays, parser-ready session output, and a 60 FPS performance target.
-- **Current stage:** Portable recorder model and implementation contract added; game capture path not yet implemented.
+- **Current stage:** Portable recorder model added; shared hitbox/trail drawing extracted for reuse; game capture path not yet implemented.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Latest verified candidate HEAD before checklist update:** `4e258bfe560501d658fe9cce476f58e242fea53b`.
@@ -35,7 +35,7 @@
 - **Base SHA:** `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Promotion status:** Experimental only. User has not approved promotion.
 - **Main-workflow changed:** No.
-- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate (skips extra renders above 60 Hz and detects accumulated cadence drift), reusable preallocated RGBA buffer pool, bounded non-blocking queue, unit tests, recorder design contract, and manually triggered test workflow. No Cocos/GPU capture, image encoder, session writer, UI, or parser handoff has been implemented yet.
+- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate, reusable preallocated RGBA buffer pool, bounded non-blocking queue, model tests, recorder design contract, and manually triggered test workflow. Extracted hitbox geometry and trail drawing into `tools/src/overlay_renderer.hpp`, with the live `PlayLayer` overlay now calling the shared renderer. No offscreen capture target, GPU readback, image encoder, session writer, UI, or parser handoff has been implemented yet.
 - **Trajectory candidate:** Separate branch `workflow-codex/trajectory-rebuild`; not merged or modified.
 
 ## Decisions and findings
@@ -57,7 +57,7 @@ _Record exact repository-relative paths and a short description._
 - **Last updated:** 2026-11-25.
 - **Completed:** Isolated recorder branch created; portable capture config/timing/backpressure model, bounded queue, reusable pixel buffer pool, tests, design contract, and manual-only test workflow committed.
 - **Remaining:** Implement the actual Cocos capture target and stable portrait camera framing; refactor overlay drawing for shared use; implement verified GPU readback and background PNG/session writer; add recorder controls and parser handoff; build, test, and profile.
-- **Exact stopping point:** Portable model only. No game-facing recorder code has been written.
+- **Exact stopping point:** Shared overlay renderer extraction is committed; no offscreen capture target or game-facing recorder capture path has been written.
 - **Next action:** Continue Codex work in `~/workflow-codex` only after verifying that workspace and its branch/HEAD; otherwise continue through this isolated remote branch without claiming local workspace access.
 - **Blockers / risks:** Synchronous `CCRenderTexture::newCCImage` is unsuitable as an assumed 60 FPS hot path; cross-platform asynchronous GPU readback support is unverified. No test/build/Actions/in-game run has occurred.
 - **Promotion:** Not approved; `~/main-workflow` unchanged.
@@ -85,3 +85,14 @@ _Record exact repository-relative paths and a short description._
 - Expanded tests for 120 Hz render pacing, accumulated cadence drift, and buffer reuse. These tests remain unexecuted.
 - Inspected the Geode 2.2081 `CCRenderTexture` binding and Geode `CCImage` implementation. The inspected `newCCImage` implementation performs synchronous `glReadPixels` and allocates full-frame buffers; raw `CCImage::initWithImageData` copies supplied pixels. The design therefore explicitly avoids treating those convenience APIs as an optimized per-frame path.
 - Latest source commit before this checklist update: `4e258bfe560501d658fe9cce476f58e242fea53b`.
+
+
+### 2026-11-25 — shared overlay renderer extraction
+- Verified current candidate HEAD was `e4411d17aace2cdc76683f741cdd759005a8c656`; branch remains isolated and is 18 commits ahead of main with no behind commits.
+- Read the shared checklist guide, both agent checklists, candidate README, recorder design contract, tool menu, build configuration, mod settings, and full gameplay overlay source.
+- Added `tools/src/overlay_renderer.hpp` to centralize hitbox geometry/color rendering and trail drawing. Updated `tools/src/overlay.cpp` so the live overlay calls the shared routines; this is intended to let a future recorder target render the same diagnostics without a second implementation.
+- Updated the recorder design contract to describe the extraction and its limits.
+- No Cocos render target, camera framing, GPU readback, image encoding, session writer, controls, or parser handoff was added.
+- No tests, Geode build, in-game visual check, or performance measurement was run. The new Cocos-facing header therefore remains uncompiled/unverified.
+- Changed files: `tools/src/overlay_renderer.hpp` (added), `tools/src/overlay.cpp`, `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
+- Next: validate the extraction in the user's local Geode build; then investigate a supported offscreen render-target/camera path and platform-specific readback before writing capture code. Keep all work on this candidate branch; do not promote.

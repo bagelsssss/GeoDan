@@ -80,6 +80,10 @@ The image parser should consume a completed manifest, not scan an arbitrary fold
 - If the queue fills, drop the incoming frame without waiting and record the drop.
 - If GPU readback itself stalls, the CPU queue cannot solve it. Profile it separately and only add platform-specific asynchronous readback where the supported backend provides a correct implementation.
 
+## Shared overlay renderer checkpoint
+
+The current gameplay overlay has been split so the hitbox geometry and trail drawing routines live in `tools/src/overlay_renderer.hpp`. The live `PlayLayer` overlay calls the shared hitbox renderer and shared trail drawing routine. A future offscreen recorder target can call those same functions rather than duplicating parser-visible colors, geometry, and trail styling. This is a rendering-code extraction only: no offscreen target, camera transform, or capture path is implemented yet. The extraction has not been built or visually validated.
+
 ## Implementation sequence
 
 1. Portable timing, queue and configuration model — **started**.
