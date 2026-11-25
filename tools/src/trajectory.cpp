@@ -331,6 +331,17 @@ class $modify(GeoDanTrajectoryBaseLayer, GJBaseGameLayer) {
         GJBaseGameLayer::playerTouchedRing(player, ring);
     }
 
+    void gameEventTriggered(GJGameEvent event, int material, int playerID) {
+        if (trajectory::SimulationContext::active()) return;
+        GJBaseGameLayer::gameEventTriggered(event, material, playerID);
+    }
+
+    CCParticleSystemQuad* spawnParticle(const char* plist, int zOrder,
+                                        tCCPositionType positionType, CCPoint position) {
+        if (trajectory::SimulationContext::active()) return nullptr;
+        return GJBaseGameLayer::spawnParticle(plist, zOrder, positionType, position);
+    }
+
     void collisionCheckObjects(PlayerObject* player, gd::vector<GameObject*>* objects,
                                int objectCount, float dt) {
         if (!trajectory::SimulationContext::active() || !s_runtime ||
