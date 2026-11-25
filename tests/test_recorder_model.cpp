@@ -98,6 +98,33 @@ int main() {
     CHECK(!zeroCapacity.tryPush(1));
     CHECK(zeroCapacity.dropped() == 1);
 
+
+    // Pixel buffers are preallocated, leased without blocking, and recycled.
+    rec::PixelBufferPool pool(2, 128);
+    CHECK(pool.bufferCount() == 2);
+    CHECK(pool.bytesPerBuffer() == 128);
+    CHECK(pool.available() == 2);
+    auto buffer0 = pool.tryAcquire();
+    auto buffer1 = pool.tryAcquire();
+    CHECK(buffer0.has_value() && static_cast<bool>(*buffer0));
+    CHECK(buffer1.has_value() && static_cast<bool>(*buffer1));
+    CHECK(pool.available() == 0);
+    CHECK(!pool.tryAcquire().has_value());
+    CHECK(buffer0->size() == 128);
+    buffer0->data()[0] = 0x5a;
+    const auto reusedIndex = buffer0->index();
+    rec::PixelBufferPool::Lease movedBuffer = std::move(*buffer0);
+    CHECK(!static_cast<bool>(*buffer0));
+    CHECK(movedBuffer.data()[0] == 0x5a);
+    movedBuffer.reset();
+    CHECK(pool.available() == 1);
+    auto reused = pool.tryAcquire();
+    CHECK(reused.has_value());
+    CHECK(reused->index() == reusedIndex);
+    reused.reset();
+    buffer1.reset();
+    CHECK(pool.available() == 2);
+
     if (failures == 0) std::puts("recorder model: all checks passed");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
