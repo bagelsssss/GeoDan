@@ -6,8 +6,8 @@ Ranks Geometry Dash levels on the osu!mania dan scale.
 
 | Part | Job | Status |
 |---|---|---|
-| Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory, later the macro bot) | `tools/`: debug menu in progress |
-| Level recorder | Records the level on a blank background with the tools on | planned |
+| Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory) | Mostly implemented candidate; not built or in-game tested (isolated branch) |
+| Level recorder | Records the level on a blank background with the tools on | Mostly implemented candidate; not built or in-game tested (isolated branch) |
 | Image parser | Turns the recorder's video into per-frame images the analyzer can read | planned |
 | Simulator | Plays the level by trial and error with no user input | planned |
 | Analyzer | Calculates the dan from a fixed dan list. The main mod | planned |
@@ -16,8 +16,7 @@ The old repo, `GeoDan-deprecated`, is archived. Some of its code is being ported
 
 ## Tools (`tools/`)
 
-Geode mod `local.geodan-tools`. A TOOLS button on the pause menu opens a popup where each tool can be switched on or off.
-Planned tools are listed but cannot be turned on yet.
+Tools is being developed as a companion Geode mod. Its current implementation is a candidate on workflow-codex/trajectory-rebuild; the separate Level Recorder candidate is on workflow-codex/level-recorder. Neither candidate has been built and runtime-validated together or promoted into the user's main integration workspace.
 
 Build (from `tools/`): `GEODE_SDK=<path to Geode SDK> geode build --platform windows --config RelWithDebInfo --ninja`
 
