@@ -188,6 +188,16 @@ int main() {
     assert(dan::judge(level).status == dan::JudgeStatus::Rejected);
 
     level = validLevel();
+    level.parser.frameWindows.windows60.value = 3.0;
+    assert(dan::judge(level).status == dan::JudgeStatus::Rejected);
+
+    level = validLevel();
+    level.parser.sourceFrameCount = 26;
+    level.parser.processedFrameCount = 26;
+    level.segments.push_back(makeSegment(1, 19, 25, 4, 3, 1, 2, 0.2, 3, 2, 1));
+    assert(dan::judge(level).status == dan::JudgeStatus::Rejected); // overlapping section ranges
+
+    level = validLevel();
     level.segments[0].clearance.minimumPx = m(12, dan::EvidenceSource::ImageParser);
     assert(dan::judge(level).status == dan::JudgeStatus::Rejected);
 
