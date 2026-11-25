@@ -124,7 +124,6 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
     const float scaleMod = state.scale == 1.f ? 1.f : 0.8f;
     const float modifiedGravity = state.gravity * state.gravityMultiplier;
     const float horizontalSpeed = state.playerSpeed * state.speedMultiplier;
-    bool jumpEdge = holdJump && !state.holdingJump;
 
     out.samples.reserve(request.maxSteps + 1);
     out.samples.push_back({state.position, 0.f});
@@ -139,7 +138,7 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
             case Mode::Ball: {
                 const float gravityScale = state.mode == Mode::Robot ? 0.9f :
                                            state.mode == Mode::Ball ? 0.6f : 1.f;
-                if (jumpEdge && state.canJump && state.grounded) {
+                if (holdJump && state.canJump && state.grounded) {
                     float jump = state.jumpVelocity;
                     if (state.mode == Mode::Robot) jump *= 0.5f;
                     state.velocityY = jump * gravityFlip * scaleMod;
@@ -160,17 +159,17 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
                 break;
             }
             case Mode::Ship: {
-                const float gravity = modifiedGravity;
                 const bool falling = state.upsideDown ? state.velocityY > 0.f : state.velocityY < 0.f;
                 float shipMod = holdJump ? -1.f : (falling ? 1.2f : 0.8f);
                 const float boostMod = holdJump && falling ? 0.5f : 0.4f;
+                const float gravity = shipMod >= 0.f ? modifiedGravity : 0.958199f;
                 state.velocityY -= gravity * scaledDt * gravityFlip * shipMod * boostMod / scaleMod;
                 const float cap = 8.f / scaleMod;
                 state.velocityY = std::clamp(state.velocityY, -cap, cap);
                 break;
             }
             case Mode::Ufo: {
-                if (jumpEdge && state.jumpUnused) {
+                if (holdJump && state.jumpUnused) {
                     state.velocityY = 7.f * gravityFlip * scaleMod;
                     state.jumpUnused = false;
                 }
@@ -187,7 +186,7 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
                 break;
             }
             case Mode::Swing: {
-                if (jumpEdge && state.jumpUnused) {
+                if (holdJump && state.jumpUnused) {
                     state.upsideDown = !state.upsideDown;
                     state.velocityY *= 0.8f;
                     state.jumpUnused = false;
@@ -209,7 +208,6 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
             : state.velocityY * scaledDt;
         state.position.x += dx;
         state.position.y += dy;
-        jumpEdge = false;
         state.holdingJump = holdJump;
 
         const Bounds player = playerBounds(state);
