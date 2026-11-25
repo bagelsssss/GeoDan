@@ -23,7 +23,7 @@ inline constexpr ToolDef kTools[] = {
     {"hitboxes", "Hitboxes", "Outline each object's own hitbox in gameplay.", Status::Available, false},
     {"unclassified", "Unclassified", "Also outline objects GeoDan cannot classify, in magenta.", Status::Available, false},
     {"hitbox-trail", "Hitbox trail", "Faded grey trail of the player's recent hitboxes.", Status::Available, false},
-    {"trajectory", "Trajectory", "Predicted path ahead for hold and release.", Status::Available, false},
+    {"trajectory", "Trajectory", "Predicted path ahead for hold and release. Not implemented in this candidate.", Status::Planned, false},
     {"level-recorder", "Level recorder", "Records the level with the tools on. Next.", Status::Planned, false},
     {"macro-bot", "Macro bot", "Plays a recorded input sequence. Later.", Status::Planned, false},
 };
