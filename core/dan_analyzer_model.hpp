@@ -68,6 +68,24 @@ inline RatingBand ratingBandForScore(double score) {
     return {true, false, tier, subdivision};
 }
 
+struct Measurement {
+    double value = 0.0;
+    std::uint32_t sampleCount = 0;
+    EvidenceState state = EvidenceState::Unknown;
+    EvidenceSource source = EvidenceSource::Unknown;
+    bool present = false;
+
+    bool valid() const {
+        if (!present) return true;
+        return std::isfinite(value) && sampleCount > 0 &&
+               state != EvidenceState::Unknown && source != EvidenceSource::Unknown;
+    }
+
+    bool validatedFrom(EvidenceSource expected) const {
+        return present && valid() && state == EvidenceState::Validated && source == expected;
+    }
+};
+
 struct CalibrationAnchor {
     std::string levelName;
     Measurement rawScore;
@@ -120,24 +138,6 @@ inline CalibratedScore calibrateRawScore(
 inline CalibrationAnchor deadlockedCalibrationAnchor() {
     return {"Deadlocked", {}, 6.50, true};
 }
-
-struct Measurement {
-    double value = 0.0;
-    std::uint32_t sampleCount = 0;
-    EvidenceState state = EvidenceState::Unknown;
-    EvidenceSource source = EvidenceSource::Unknown;
-    bool present = false;
-
-    bool valid() const {
-        if (!present) return true;
-        return std::isfinite(value) && sampleCount > 0 &&
-               state != EvidenceState::Unknown && source != EvidenceSource::Unknown;
-    }
-
-    bool validatedFrom(EvidenceSource expected) const {
-        return present && valid() && state == EvidenceState::Validated && source == expected;
-    }
-};
 
 struct FrameWindowCounts {
     Measurement windows60;
