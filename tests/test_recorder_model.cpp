@@ -64,6 +64,17 @@ int main() {
     CHECK(timeline.missedIntervals() == 0);
     CHECK(timeline.capture(42).has_value());
 
+
+    // When the game renders faster than the requested cadence, intermediate
+    // renders are skipped instead of accidentally producing 120 FPS footage.
+    rec::FrameTimeline pacedTimeline(60);
+    CHECK(pacedTimeline.capture(0).has_value());
+    CHECK(!pacedTimeline.capture(8'333'333).has_value());
+    auto paced = pacedTimeline.capture(16'666'666);
+    CHECK(paced.has_value());
+    CHECK(paced->sequence == 1);
+    CHECK(paced->missedIntervals == 0);
+
     rec::FrameTimeline invalidTimeline(0);
     CHECK(!invalidTimeline.valid());
     CHECK(!invalidTimeline.capture(1).has_value());
