@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <memory>
 
 #include "core/trajectory_model.hpp"
 
@@ -126,13 +125,6 @@ bool isSimulationPlayer(PlayerObject* player) {
     if (!s_runtime || !player) return false;
     return player == s_runtime->simulationPlayers[0] ||
            player == s_runtime->simulationPlayers[1];
-}
-
-bool liveJumpHeld(PlayerObject* player) {
-    if (!player) return false;
-    const auto key = static_cast<int>(PlayerButton::Jump);
-    const auto it = player->m_holdingButtons.find(key);
-    return it != player->m_holdingButtons.end() && it->second;
 }
 
 void prepareSimulationPlayer(PlayerObject* simulation, PlayerObject* live, bool holdJump) {
@@ -379,6 +371,16 @@ class $modify(GeoDanTrajectoryPlayerObject, PlayerObject) {
     void playSpiderDashEffect(CCPoint from, CCPoint to) {
         if (trajectory::SimulationContext::active()) return;
         PlayerObject::playSpiderDashEffect(from, to);
+    }
+
+    void playBumpEffect(int objectType, GameObject* object) {
+        if (trajectory::SimulationContext::active()) return;
+        PlayerObject::playBumpEffect(objectType, object);
+    }
+
+    void playBurstEffect() {
+        if (trajectory::SimulationContext::active()) return;
+        PlayerObject::playBurstEffect();
     }
 
     void playDeathEffect() {
