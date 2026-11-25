@@ -34,7 +34,7 @@ core/dan_analyzer_model.hpp defines:
 - Game modes: classic and platformer.
 - Provenance: geometry, simulation, visual, and gameplay telemetry.
 - Evidence states: unknown, observed, measured, validated, unsupported.
-- Segment measurements for minimum clearance, hazard density, timing windows, required/peak input rate, success rate and attempts to complete.
+- Segment measurements keyed by sample-index ranges (not assumed world-X spans), with minimum clearance, hazard density, timing windows, required/peak input rate, success rate and attempts to complete. Segment mode is explicit so classic and platformer evidence cannot be mixed silently.
 - All 26 user-requested skillset labels.
 - Initial 1st–10th Dan tier names, without mapping measurements to tiers.
 - A readiness gate that refuses dan assignment unless every segment has validated geometry and simulation evidence and no unsupported interactions.
@@ -45,7 +45,7 @@ The readiness gate is deliberately conservative. It is a safety boundary, not a 
 
 Circles, Clicksync, Fast-Paced, Timings, Chokepoints, Unbalanced, Learny, Memory, High CPS, Gimmicky, Flow, Slow-Paced, Bossfight, Mirror, Nerve Control, Cube, Ship, Ball, UFO, Wave, Robot, Spider, Old Swing, New Swing, Duals, Overall.
 
-The model stores evidence counts/status for each label. It does not yet invent weights or infer a skillset from object counts alone. Circles remains the user's Nine Circles / wave-focused category, not a generic circular-object detector.
+The model stores evidence counts/status for each label. It does not yet invent weights or infer a skillset from object counts alone. Segment sample-index ranges are independent of world X so the same contract can represent platformer movement, reversals, and non-horizontal paths. Numeric validation rejects impossible rates (for example, a success rate outside 0–1) while preserving explicitly unsupported measurements. Circles remains the user's Nine Circles / wave-focused category, not a generic circular-object detector.
 
 ## Locked decisions to preserve
 
@@ -62,6 +62,8 @@ The uploaded geodan-log(2).txt is a rotated-slope contact run. It records:
 - A flat-floor grounded transition around frame 312.
 - Slope/direction hook calls for object ID 1743 around frames 552–576.
 - support_match=0 on the slope hook records, followed by an airborne transition around frame 577.
+
+The uploaded geodan-log(1).txt is a separate Future Candy MEGER ship-mode run. Its header also says noclip=unverified. The player state remains stationary for the first 240 logged frames despite nonzero reported X velocity, then begins moving; around frame 246 the recorded mode changes from ship to cube, the player Y position changes sharply, and upside changes to 1. This is a useful transition/telemetry test case, but without verified noclip state and an explicit trigger/event correlation it must not be used as a validated physics measurement.
 
 This is useful diagnostic evidence for the simulator's collision adapter and for defining what the Analyzer should record. It does not by itself establish the correct slope collision shape or whether the run is a valid no-noclip physics reference.
 
