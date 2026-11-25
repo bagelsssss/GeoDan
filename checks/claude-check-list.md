@@ -198,3 +198,11 @@
 - Created `workflow-claude/master` at `e5937fc` (same as workflow-codex/master).
 - Not mine: `alpha-branch` at `f80478a` appeared on the remote; not touched.
 - Next: Windows build of `workflow-claude/master` (user runs), then Claude's build-the-rest work, then the recorder.
+
+### 2026-11-25 — workflow-claude/master Windows build
+- First Windows build of `workflow-claude/master` at `e5937fc` failed: `tools/src/main.cpp:114` called `Section::Recorder`, a leftover after Codex's RECORDER removal. Portable tests and the macOS type-check did not catch it; only the Windows build does.
+- Fixed in `2177a04` (removed the stale call; Level recorder stays under COMING NEXT).
+- Rebuilt `2177a04` on user's PC (Windows target, RelWithDebInfo, Ninja): exit 0, packaged and installed.
+- Portable tests at `2177a04`: all 10 PASS (per-file, -Werror).
+- Not verified in game: menu contents, trajectory behaviour, the spawnParticle nullptr risk (crash candidate when trajectory simulation spawns particles).
+- Next: user in-game checks on this build, then fix trajectory risks found in review.
