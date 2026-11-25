@@ -34,7 +34,7 @@ For \`valid\` geometry, at least one player rectangle is required. Zero hazards 
 
 The parser rejects sessions with an unsupported manifest schema/status, malformed CSV, row-count mismatch, non-monotonic sequence/timestamps, inconsistent \`delta_ns\`, missing or unexpected geometry frames, missing PNGs, wrong PNG dimensions, invalid rectangles, duplicate entity IDs, or missing frame sentinels.
 
-PNG validation currently checks the PNG signature, the required 13-byte IHDR header, and IHDR dimensions. It does not fully decompress or checksum image pixel data. Actual collision measurements come from the hitbox sidecar, not image recognition.
+PNG validation currently checks the PNG signature, the required 13-byte IHDR header, and IHDR dimensions. It does not fully decompress or checksum image pixel data. Clearance measurements come from the hitbox sidecar, not image recognition; the accuracy is bounded by the geometry quality and support status supplied by the Recorder.
 
 Recorder sequence gaps, per-row missed intervals, manifest \`missed_capture_intervals\`, and \`writer_queue_drops\` remain distinct. \`timestampGapCount\` counts persisted-frame rows that indicate a discontinuity (sequence gap or missed intervals), not the number of missing frames. Original sequence numbers and monotonic timestamps are preserved; no frames are synthesized.
 
