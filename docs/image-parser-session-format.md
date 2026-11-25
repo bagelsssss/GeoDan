@@ -8,6 +8,7 @@
 <session>/
 ├── manifest.json
 ├── frames.csv
+├── hitboxes.csv
 └── frames/
     ├── frame_000000.png
     ├── frame_000001.png
@@ -43,6 +44,26 @@ sequence,timestamp_ns,delta_ns,missed_intervals,write_status
 - `delta_ns`: time since the previous captured frame; the first written frame has delta 0.
 - `missed_intervals`: capture-cadence intervals missed before this captured frame.
 - `write_status`: currently `written` for every row; failed writes do not get a CSV row.
+
+## Hitbox geometry sidecar
+
+The recorder writes `hitboxes.csv` with one frame sentinel row and zero or more entity rows for every persisted PNG. Its exact header is:
+
+```csv
+sequence,phase,geometry_status,entity_type,entity_id,left,top,right,bottom
+```
+
+- `sequence` is the same original capture sequence used by `frames.csv` and the PNG filename.
+- `phase` is `start_idle`, `active_gameplay`, `paused`, `respawn`, `transition`, or `unknown`.
+- `geometry_status` is `valid` only when the adapter could enumerate the supported player/hazard geometry for that frame; otherwise it is `unsupported`.
+- Each frame has exactly one `entity_type=frame` sentinel with blank entity fields.
+- Entity rows use `player` or `hazard`, a per-frame unique numeric ID, and finite capture-pixel bounds.
+- Coordinates use the PNG coordinate system: origin at top-left, x rightward, y downward. Bounds are clipped to the capture rectangle; fully off-capture hazards are omitted.
+- Unsupported frames may retain partial entity rows for diagnostics, but parsers must not treat them as complete geometry or calculate clearance from them.
+
+The current game-facing adapter uses the same diagnostic geometry helpers as the live hitbox overlay. It records the player's inner `getObjectRect(0.3, 0.3)` box and hazard shape envelopes transformed into capture pixels. Rotated and circular hazard shapes are represented by conservative axis-aligned bounding envelopes; lethal slope edges and unclassified interactive objects mark the frame unsupported. These are provisional geometry proxies, not yet verified exact engine collision shapes. The player box and hazard envelopes must be compared against the game's actual collision routines before calling the data authoritative.
+
+The adapter is not yet connected to a live frame-capture producer. The portable SessionWriter and worker now carry and persist geometry with each frame, but the full GPU capture/worker producer integration remains pending.
 
 ## Frame naming and consistency checks
 
