@@ -137,3 +137,18 @@ Each agent's checklist entry for active work must identify:
 - Whether `~/main-workflow` was changed (it must not be changed before user approval).
 
 The user owns the final selection and promotion decision. If approval is unclear, leave the candidate in its isolated workspace and ask before promoting it.
+
+
+## Branching policy and current trajectory candidate
+
+Agent implementation must happen on isolated candidate branches, never directly on `main`. Each agent uses its own branch and its own local workspace; do not share a candidate branch between agents.
+
+- `main` is the shared baseline and documentation branch.
+- Codex's current trajectory candidate branch is `workflow-codex/trajectory-rebuild`.
+- Claude must use a separate branch for any independent trajectory candidate.
+- Candidate branches are not the integration branch and do not automatically become the active mod.
+- The user-approved integration/build source remains `~/main-workflow`. Only explicitly approved changes may be promoted there.
+- A remote branch does not create a local directory. Local checkout setup must be verified separately.
+- Keep project workflow documentation and checklists on `main` so both agents can read the same rules, while keeping experimental implementation commits on their respective candidate branches.
+
+The Codex trajectory branch was created from `main` at `6a2d5a1ffd2905911ac4f26c8a3829bcfb4b9bfd`. Its checklist kickoff commit is `b381803c0bddf021cb7754f556a57fbd58d96d45`. At this point, it contains workflow documentation only; no trajectory implementation code has been written.
