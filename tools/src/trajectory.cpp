@@ -265,7 +265,9 @@ void updateGeoDanTrajectory(PlayLayer* layer, float dt) {
         return;
     }
 
-    const float frameDt = dt / timeWarp;
+    // Fixed physics step, not frame time: the prediction length must not depend on FPS.
+    // timeWarp is still checked above, but does not change the step length.
+    constexpr float frameDt = 1.f / 240.f;
     auto* live1 = layer->m_player1;
     auto* live2 = layer->m_player2;
 
@@ -432,4 +434,4 @@ class $modify(GeoDanTrajectoryHardStreak, HardStreak) {
         if (trajectory::SimulationContext::active()) return;
         HardStreak::addPoint(point);
     }
-}
+};
