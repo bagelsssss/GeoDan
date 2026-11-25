@@ -25,7 +25,7 @@ The Tools and Level Recorder work remains on separate isolated branches. Their s
 3. Visual evidence: obstruction/visibility and possible memory indicators. Visual evidence alone must not prove a path is impossible.
 4. Gameplay telemetry: mode, position, velocity, input edges and timing only when read accurately.
 
-Each measurement carries a source, evidence state and sample count. Unknown is distinct from zero. Unsupported interactions remain explicit; they are never silently treated as safe empty space.
+Each measurement carries a source, evidence state and sample count. Unknown is distinct from zero. Unsupported measurements and interactions remain explicit; they are never silently treated as safe empty space. An unsupported metric may be preserved in the record, but it does not count as validated evidence.
 
 ## First evidence model
 
@@ -39,7 +39,7 @@ core/dan_analyzer_model.hpp defines:
 - Initial 1st–10th Dan tier names, without mapping measurements to tiers.
 - A readiness gate that refuses dan assignment unless every segment has validated geometry and simulation evidence and no unsupported interactions.
 
-The readiness gate is deliberately conservative. It is a safety boundary, not a difficulty score. A future calibration module may only assign a tier after its measurement features and thresholds are validated against the calibration set.
+The readiness gate is deliberately conservative. It is a safety boundary, not a difficulty score. Its current requirement for validated geometry and simulation evidence in every segment is a proposed minimum-evidence rule, not a finalized scoring policy. A future calibration module may only assign a tier after its measurement features and thresholds are validated against the calibration set.
 
 ## Skillset labels
 
