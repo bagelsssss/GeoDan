@@ -230,7 +230,11 @@ inline bool validClearanceStatistics(const ClearanceStatistics& stats) {
 inline bool validFrameWindows(const FrameWindowCounts& counts) {
     const Measurement* values[] = {&counts.windows60, &counts.windows120, &counts.windows240};
     for (const auto* value : values) {
-        if (!value->valid() || (value->present && value->value < 0.0)) return false;
+        if (!value->valid()) return false;
+        if (value->present &&
+            (value->value < 0.0 || std::floor(value->value) != value->value ||
+             value->value > static_cast<double>(std::numeric_limits<std::uint64_t>::max())))
+            return false;
     }
     return true;
 }
@@ -386,8 +390,9 @@ inline JudgeResult judge(const LevelEvidence& level) {
     if (level.schemaVersion != kEvidenceSchemaVersion || !level.captureComplete ||
         !level.parserComplete || level.segments.empty() ||
         level.parser.sourceFrameCount == 0 ||
-        level.parser.processedFrameCount + level.parser.unclassifiedFrameCount !=
-            level.parser.sourceFrameCount ||
+        level.parser.processedFrameCount > level.parser.sourceFrameCount ||
+        level.parser.unclassifiedFrameCount !=
+            level.parser.sourceFrameCount - level.parser.processedFrameCount ||
         !validClearanceStatistics(level.parser.clearance) ||
         !validFrameWindows(level.parser.frameWindows) || !level.parser.nerves.valid()) {
         result.status = JudgeStatus::Rejected;
@@ -395,11 +400,19 @@ inline JudgeResult judge(const LevelEvidence& level) {
     }
 
     bool allActiveSegmentsValidated = true;
+    std::uint64_t previousLastSample = 0;
+    std::uint32_t previousSegmentIndex = 0;
+    bool firstSegment = true;
     for (const auto& segment : level.segments) {
-        if (!segment.valid()) {
+        if (!segment.valid() || segment.lastSampleIndex >= level.parser.sourceFrameCount ||
+            (!firstSegment && (segment.firstSampleIndex <= previousLastSample ||
+                               segment.index <= previousSegmentIndex))) {
             result.status = JudgeStatus::Rejected;
             return result;
         }
+        firstSegment = false;
+        previousLastSample = segment.lastSampleIndex;
+        previousSegmentIndex = segment.index;
         if (segment.phase != SegmentPhase::ActiveGameplay) continue;
         ++result.activeSegmentCount;
         const bool clearanceOk = segment.clearance.meanPx.validatedFrom(EvidenceSource::ImageParser) &&
@@ -433,15 +446,30 @@ inline JudgeResult judge(const LevelEvidence& level) {
     }
 
     bool referenceFound = false;
-    for (const auto& route : level.routes) {
+    std::uint32_t referenceRouteCount = 0;
+    for (std::size_t i = 0; i < level.routes.size(); ++i) {
+        const auto& route = level.routes[i];
+        for (std::size_t j = 0; j < i; ++j) {
+            if (level.routes[j].routeId == route.routeId) {
+                result.status = JudgeStatus::Rejected;
+                return result;
+            }
+        }
         if (!route.valid()) {
             result.status = JudgeStatus::Rejected;
             return result;
         }
-        if (route.kind == RouteKind::Reference && route.outcome == RouteOutcome::Completed)
-            referenceFound = true;
+        if (route.kind == RouteKind::Reference) {
+            ++referenceRouteCount;
+            if (route.outcome == RouteOutcome::Completed) referenceFound = true;
+        }
         if (route.affectsDifficulty()) ++result.confirmedEasierRouteCount;
         if (route.outcome == RouteOutcome::Unsupported) ++result.unsupportedEvidenceCount;
+    }
+
+    if (referenceRouteCount != 1) {
+        result.status = JudgeStatus::Rejected;
+        return result;
     }
 
     result.aggregate = aggregateActiveSections(level);
