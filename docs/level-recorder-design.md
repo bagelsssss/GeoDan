@@ -66,7 +66,7 @@ The exact readback path must be selected at runtime from verified graphics capab
 A recording session is a directory containing:
 - `manifest.json`: schema version, capture dimensions, target FPS, actual captured count, missed cadence intervals, queue drops, start/end timestamps, and completion/error status.
 - `frames/frame_000000.png`, etc.: one image for each successfully encoded capture. Sequence numbers must not be renumbered to hide gaps.
-- `frames.csv`: sequence, presentation timestamp in nanoseconds, delta from prior capture, missed intervals, and writer result. The portable writer currently emits `written` rows only; queue drops are counted in the manifest.
+- `frames.csv`: sequence, presentation timestamp in nanoseconds, delta from the immediately prior captured frame (which may have been dropped), missed intervals, and writer result. The portable writer currently emits `written` rows only; queue drops are counted in the manifest. For contiguous persisted sequences, delta equals the difference between persisted timestamps. Across a sequence gap, delta remains the interval since the immediately preceding captured frame and can be smaller than the timestamp difference between persisted rows.
 - Optional geometry sidecars may be added later, but they must use the same sequence number as the corresponding image.
 
 The image parser should consume a completed manifest, not scan an arbitrary folder while the recorder is still writing. A session is marked complete only after the writer drains and all files are closed. Interrupted sessions must be marked incomplete and retain enough metadata to diagnose the stop.

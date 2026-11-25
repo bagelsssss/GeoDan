@@ -35,7 +35,7 @@ UTF-8-compatible, comma-separated text with one header row and one row per succe
 ```csv
 sequence,timestamp_ns,delta_ns,missed_intervals,write_status
 0,0,0,0,written
-2,33333333,33333333,1,written
+2,33333333,16666666,1,written
 ```
 
 - `sequence`: original capture sequence number. Gaps are valid and must be preserved.
@@ -52,7 +52,7 @@ A parser should verify:
 1. Manifest schema version is supported and status is eligible for parsing.
 2. CSV header matches exactly and every data row parses.
 3. CSV row count equals `frames_written`.
-4. Sequence numbers and timestamps are strictly increasing; first delta is zero and later deltas match timestamp differences.
+4. Sequence numbers and timestamps are strictly increasing. If the first sequence is 0, its delta is zero; otherwise its delta is positive. For contiguous persisted sequences, delta equals the timestamp difference. Across sequence gaps, delta is positive and no greater than the persisted timestamp difference because intervening captures may have been dropped.
 5. Every CSV sequence has exactly one matching PNG file; no missing file is silently skipped.
 6. Every decoded PNG has the manifest dimensions.
 7. The first/last CSV sequence agrees with manifest first/last sequence, or both are null for an empty session.

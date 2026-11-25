@@ -67,10 +67,20 @@ public:
     // Sequence gaps are preserved in filenames; frames are never renumbered.
     bool writeFrame(const FrameStamp& stamp, std::span<const std::uint8_t> pngBytes) {
         if (m_state != State::Recording || !hasPngSignature(pngBytes)) return false;
-        if ((!m_hasLastFrame && stamp.deltaNs != 0) ||
-            (m_hasLastFrame && (stamp.sequence <= m_lastSequence ||
-             stamp.timestampNs <= m_lastTimestampNs ||
-             stamp.deltaNs != stamp.timestampNs - m_lastTimestampNs))) return false;
+        if (!m_hasLastFrame) {
+            // The first persisted frame may follow one or more captured frames
+            // dropped before reaching the writer. Only sequence zero must have
+            // a zero delta; later first-persisted frames retain their real delta.
+            if ((stamp.sequence == 0 && stamp.deltaNs != 0) ||
+                (stamp.sequence > 0 && stamp.deltaNs == 0)) return false;
+        } else {
+            if (stamp.sequence <= m_lastSequence || stamp.timestampNs <= m_lastTimestampNs)
+                return false;
+            const auto persistedGapNs = stamp.timestampNs - m_lastTimestampNs;
+            if (stamp.deltaNs == 0 || stamp.deltaNs > persistedGapNs) return false;
+            if (stamp.sequence - m_lastSequence == 1 && stamp.deltaNs != persistedGapNs)
+                return false;
+        }
 
         const auto finalPath = m_framesDirectory / frameFilename(stamp.sequence);
         auto temporaryPath = finalPath;
@@ -233,9 +243,15 @@ private:
         return !ec;
     }
     bool fail(const std::string& message) {
+        const bool wasRecording = m_state == State::Recording;
         m_error = message;
+        if (m_csv.is_open()) {
+            m_csv.flush();
+            m_csv.close();
+        }
+        if (wasRecording && !m_sessionDirectory.empty())
+            (void)writeManifest("error", nowUnixNs(), message);
         m_state = State::Failed;
-        if (m_csv.is_open()) m_csv.close();
         return false;
     }
 

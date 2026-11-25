@@ -38,9 +38,9 @@ int main() {
         CHECK(std::filesystem::exists(completeDir / "frames.csv"));
         CHECK(std::filesystem::is_directory(completeDir / "frames"));
         CHECK(readText(completeDir / "manifest.json").find("\"status\": \"recording\"") != std::string::npos);
-        CHECK(writer.writeFrame({10, 0, 0, 0}, pngBytes));
-        CHECK(writer.writeFrame({12, 33'333'333, 33'333'333, 1}, pngBytes));
-        CHECK(!writer.writeFrame({12, 33'333'333, 33'333'333, 1}, pngBytes));
+        CHECK(writer.writeFrame({10, 16'666'666, 16'666'666, 0}, pngBytes));
+        CHECK(writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes));
+        CHECK(!writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes));
         CHECK(writer.framesWritten() == 2);
         CHECK(writer.missedIntervals() == 1);
         writer.recordQueueDrops(2);
@@ -66,7 +66,7 @@ int main() {
         const auto csv = readText(completeDir / "frames.csv");
         CHECK(csv.find("sequence,timestamp_ns,delta_ns,missed_intervals,write_status") == 0);
         CHECK(csv.find("10,0,0,0,written") != std::string::npos);
-        CHECK(csv.find("12,33333333,33333333,1,written") != std::string::npos);
+        CHECK(csv.find("12,50000000,16666667,1,written") != std::string::npos);
     }
     {
         rec::SessionWriter writer;

@@ -141,3 +141,5 @@ _Record exact repository-relative paths and a short description._
 - Updated the existing `workflow_dispatch`-only portable test workflow to compile and run the session-writer test alongside the recorder model test. No automatic per-commit trigger was added, and the workflow has not been dispatched.
 
 - Added the explicit v1 Image Parser handoff document and JSON Schema. It defines manifest status handling, Unix-vs-monotonic timestamp semantics, CSV columns, frame naming, sequence gaps, parser consistency checks, and incomplete-session behavior. No parser code or compatibility run is claimed.
+
+- Corrected frame-delta validation for writer-queue drops: a persisted sequence gap means `delta_ns` is measured from the immediately prior captured frame, not the prior persisted frame. Contiguous rows must match timestamp difference; gap rows retain their real capture delta. Writer I/O failures now make a best-effort `error` manifest update.
