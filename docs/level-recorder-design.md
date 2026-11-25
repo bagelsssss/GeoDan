@@ -57,6 +57,8 @@ Do not call `CCRenderTexture::newCCImage` or `CCRenderTexture::saveToFile` once 
 - a non-blocking fallback that measures the readback cost and records skipped captures rather than stalling gameplay;
 - background PNG encoding and file writes after CPU ownership of a completed buffer is established.
 
+The inspected 2.2081 inline implementation is here: [CCRenderTexture.cpp](https://github.com/geode-sdk/bindings/blob/975068022f6164c483907274909ad2f700c6d646/bindings/2.2081/inline/CCRenderTexture.cpp). The common `CCImage::initWithImageData(kFmtRawData)` implementation also copies the supplied pixel bytes into a second allocation: [CCImageCommon_cpp.h](https://github.com/geode-sdk/geode/blob/8fe3b2db0656462483ab89c05a4f469233616b1c/loader/include/Geode/cocos/platform/CCImageCommon_cpp.h). Avoid adding that extra copy to every frame if a direct worker-side PNG encoder can consume the pooled RGBA buffer safely.
+
 The exact readback path must be selected at runtime from verified graphics capabilities. Do not assume desktop OpenGL PBO support exists on every Android/iOS backend. If a platform has no viable asynchronous readback path, report that limitation rather than claiming 60 FPS capture is guaranteed.
 
 ## Session output contract
