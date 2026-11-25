@@ -93,7 +93,7 @@ The recorded successful route is currently a reference route, not proof of creat
 
 Only a completed, validated easier alternative with a validated bypass fraction is counted as affecting difficulty. Harder alternatives never increase the level's difficulty. Geometric distance or elapsed time alone is not a valid bypass measure.
 
-The aggregation reports the number of confirmed easier alternatives and the largest validated bypass fraction. It does not convert that fraction into a Dan-score adjustment yet: a calibrated rule is still needed to map bypassed difficulty-bearing gameplay to effective difficulty. The easiest confirmed route is relevant; harder routes cannot inflate the rating.
+The aggregation reports the number of confirmed easier alternatives and the largest validated bypass fraction. A completed easier alternative without a validated bypass fraction makes route evidence incomplete and blocks calibration; it is not silently ignored. The aggregate does not convert the fraction into a Dan-score adjustment yet: a calibrated rule is still needed to map bypassed difficulty-bearing gameplay to effective difficulty. The easiest confirmed route is relevant; harder routes cannot inflate the rating.
 
 A complete route search and a completed reference route are required before the judge marks the evidence ready for calibration. Partial or unsupported searches remain insufficient evidence, not proof that no easier route exists.
 
@@ -125,7 +125,7 @@ The portable test covers:
 - 60/120/240 timing-window totals and Nerves aggregation.
 - Parser-to-section consistency and rejection of mismatched summaries.
 - Missing aggregate data, fractional frame-window counts, invalid section ranges, and invalid numeric values.
-- Easier versus harder alternative routes, maximum bypass fraction, and exclusion of unvalidated bypass estimates.
+- Easier versus harder alternative routes, maximum bypass fraction, exclusion of unvalidated bypass estimates, and incomplete status when an easier route's bypass is unquantified.
 - Incomplete route search, duplicate route IDs, and unsupported hitboxes.
 
 The exact committed files are compiled by the manual GitHub Actions workflow when explicitly run. No Geode build, in-game parser integration, route-search runtime, or Dan calibration is claimed.
