@@ -13,6 +13,7 @@
 #include <mutex>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace geodan::core::recorder {
 
@@ -209,52 +210,23 @@ public:
         Lease() = default;
         Lease(const Lease&) = delete;
         Lease& operator=(const Lease&) = delete;
-
-        Lease(Lease&& other) noexcept
-          : m_owner(std::exchange(other.m_owner, nullptr)),
-            m_index(std::exchange(other.m_index, kInvalidIndex)) {}
-
-        Lease& operator=(Lease&& other) noexcept {
-            if (this == &other) return *this;
-            reset();
-            m_owner = std::exchange(other.m_owner, nullptr);
-            m_index = std::exchange(other.m_index, kInvalidIndex);
-            return *this;
-        }
-
-        ~Lease() { reset(); }
+        Lease(Lease&& other) noexcept;
+        Lease& operator=(Lease&& other) noexcept;
+        ~Lease();
 
         explicit operator bool() const { return m_owner != nullptr; }
-
-        std::uint8_t* data() {
-            return *this ? m_owner->m_buffers[m_index].data() : nullptr;
-        }
-
-        const std::uint8_t* data() const {
-            return *this ? m_owner->m_buffers[m_index].data() : nullptr;
-        }
-
-        std::size_t size() const {
-            return *this ? m_owner->m_buffers[m_index].size() : 0;
-        }
-
+        std::uint8_t* data();
+        const std::uint8_t* data() const;
+        std::size_t size() const;
         std::size_t index() const { return m_index; }
-
-        void reset() {
-            if (!m_owner) return;
-            auto* owner = std::exchange(m_owner, nullptr);
-            const auto index = std::exchange(m_index, kInvalidIndex);
-            owner->release(index);
-        }
+        void reset();
 
     private:
         friend class PixelBufferPool;
         static constexpr std::size_t kInvalidIndex =
             std::numeric_limits<std::size_t>::max();
-
         Lease(PixelBufferPool* owner, std::size_t index)
           : m_owner(owner), m_index(index) {}
-
         PixelBufferPool* m_owner = nullptr;
         std::size_t m_index = kInvalidIndex;
     };
@@ -296,5 +268,39 @@ private:
     std::vector<std::vector<std::uint8_t>> m_buffers;
     std::vector<std::size_t> m_free;
 };
+
+// Lease methods are defined after PixelBufferPool is complete.
+inline PixelBufferPool::Lease::Lease(Lease&& other) noexcept
+  : m_owner(std::exchange(other.m_owner, nullptr)),
+    m_index(std::exchange(other.m_index, kInvalidIndex)) {}
+
+inline PixelBufferPool::Lease& PixelBufferPool::Lease::operator=(Lease&& other) noexcept {
+    if (this == &other) return *this;
+    reset();
+    m_owner = std::exchange(other.m_owner, nullptr);
+    m_index = std::exchange(other.m_index, kInvalidIndex);
+    return *this;
+}
+
+inline PixelBufferPool::Lease::~Lease() { reset(); }
+
+inline std::uint8_t* PixelBufferPool::Lease::data() {
+    return *this ? m_owner->m_buffers[m_index].data() : nullptr;
+}
+
+inline const std::uint8_t* PixelBufferPool::Lease::data() const {
+    return *this ? m_owner->m_buffers[m_index].data() : nullptr;
+}
+
+inline std::size_t PixelBufferPool::Lease::size() const {
+    return *this ? m_owner->m_buffers[m_index].size() : 0;
+}
+
+inline void PixelBufferPool::Lease::reset() {
+    if (!m_owner) return;
+    auto* owner = std::exchange(m_owner, nullptr);
+    const auto index = std::exchange(m_index, kInvalidIndex);
+    owner->release(index);
+}
 
 } // namespace geodan::core::recorder
