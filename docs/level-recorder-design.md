@@ -102,10 +102,10 @@ The current gameplay overlay has been split so the hitbox geometry and trail dra
 2. Unit tests for cadence, timestamp monotonicity, queue bounds and drops — **added; execution still required**.
 3. Cocos capture target and portrait camera transform — target primitive added; layer selection and crop/scale validation remain.
 4. Refactor existing overlay draw code to render into the recorder target without changing normal gameplay appearance.
-5. Reusable pixel-buffer pool and background PNG encoder/writer — buffer pool added; encoder/thread integration remains.
+5. Reusable pixel-buffer pool and background PNG encoder/writer — portable encoder and worker added; test execution and runtime integration remain.
 6. Portable session manifest and CSV writer — worker-owned sink implemented; synthetic tests added, execution still required.
-7. Recorder worker lifecycle, queue drain/join, start/stop controls and error propagation.
-8. Validate parser handoff against real encoded frames, then profile at 60 FPS on target hardware.
+7. Recorder worker lifecycle, queue drain/join and error propagation — portable worker added; gameplay start/stop controls remain.
+8. Validate parser handoff against decoder-verified PNGs, then implement capability-gated GPU readback and profile at 60 FPS on target hardware.
 
 ## Explicit non-claims
 
@@ -121,3 +121,18 @@ Frame files are written to temporary paths and renamed into place. The manifest 
 
 The writer is deliberately synchronous and single-owner: it is a worker-side sink, not yet a thread manager. The future recorder lifecycle must close the producer queue, drain accepted frames, call `finalize`, then join the worker. If destroyed while active, it attempts to leave an incomplete manifest. Process crashes or power loss can still interrupt filesystem operations; this is not a transactional filesystem.
 
+
+
+## PNG encoder and background worker checkpoint
+
+Added `core/recorder_png_encoder.hpp`, a portable RGBA8-to-PNG encoder. It writes standard PNG signature/IHDR/IDAT/IEND chunks, computes PNG CRC-32 and zlib Adler-32 checksums, and uses valid DEFLATE stored blocks. It has no external compression-library dependency and performs no Cocos/OpenGL calls. The trade-off is intentionally low CPU complexity rather than a small file: stored DEFLATE blocks do not compress image data, so session size and disk throughput will be substantially higher than with a tuned compressor. Replacing it with a faster compression-level PNG backend is a later measured optimization, not a reason to block the first end-to-end test.
+
+Added `core/recorder_worker.hpp`. The worker owns `SessionWriter` on its background thread, waits on the bounded queue, encodes RGBA leases, writes frames in queue order, aggregates missed-cadence and queue-drop counts, drains accepted frames after close, and joins before reporting completion. Queued pixel leases are released on success and on error while the worker drains remaining queue items. The caller must stop producing before calling `stop()`; the queue is then closed, drained, and the session is finalized. The pool and queue must outlive the worker and every queued lease.
+
+Added synthetic PNG encoder and worker tests and included them in the existing manual-only portable test workflow. They have not been compiled or run in this environment. The PNG test currently checks basic structure/signature/dimensions; a real decoder validation should be added before treating the encoder as production-ready.
+
+## GPU readback remains gated
+
+The GPU readback backend is deliberately not wired yet. The existing portrait preview has not been built or visually checked, so the target's orientation, exact pixel dimensions, and content are not yet confirmed. More importantly, the repository targets Windows, Android, macOS, and iOS; PBO/map/fence entry points and extensions differ across those graphics backends. A guessed cross-platform GL call path would risk breaking builds or silently falling back to a synchronous stall. The next readback step is to validate the preview on the user's device/build, inspect the actual GL/GLES version and extensions, then add a capability-gated asynchronous readback backend with a measured non-blocking fallback. Do not use `CCRenderTexture::newCCImage` as the presumed 60 FPS path.
+
+The new encoder and worker are portable components only. They are not yet connected to `PlayLayer`, the render target, or GPU readback; no recording controls or 60 FPS result are claimed.
