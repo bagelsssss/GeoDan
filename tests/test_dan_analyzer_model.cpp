@@ -287,6 +287,11 @@ int main() {
     };
     assert(dan::classifyMainSkillset(mainEvidence) == dan::MainSkillset::Precision);
     assert(dan::classifyMainSkillset({}) == dan::MainSkillset::Overall);
+    // Unsupported evidence must never win a skillset classification.
+    assert(dan::classifyMainSkillset({
+        {dan::MainSkillset::Learny, 2, 10, dan::EvidenceState::Validated},
+        {dan::MainSkillset::Precision, 9, 10, dan::EvidenceState::Unsupported},
+    }) == dan::MainSkillset::Learny);
     const auto subskills = dan::classifySubSkillsets({
         {dan::Skillset::Circles, 4, 5, dan::EvidenceState::Validated},
         {dan::Skillset::Memory, 5, 5, dan::EvidenceState::Validated},
@@ -296,6 +301,12 @@ int main() {
     assert(subskills.size() == 2);
     assert(subskills[0] == dan::Skillset::Circles);
     assert(subskills[1] == dan::Skillset::Wave);
+    const auto supportedOnlySubskills = dan::classifySubSkillsets({
+        {dan::Skillset::Circles, 4, 5, dan::EvidenceState::Validated},
+        {dan::Skillset::Wave, 5, 5, dan::EvidenceState::Unsupported},
+    });
+    assert(supportedOnlySubskills.size() == 1);
+    assert(supportedOnlySubskills[0] == dan::Skillset::Circles);
 
     level = validLevel();
     level.mainSkillsets = mainEvidence;
