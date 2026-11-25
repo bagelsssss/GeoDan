@@ -18,6 +18,16 @@ static std::string readText(const std::filesystem::path& path) {
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
+static rec::FrameGeometry geometry(std::uint64_t sequence) {
+    rec::FrameGeometry frame;
+    frame.sequence = sequence;
+    frame.phase = rec::CapturePhase::ActiveGameplay;
+    frame.status = rec::GeometryStatus::Valid;
+    frame.entities.push_back({rec::GeometryEntityKind::Player, 1, {100.0, 500.0, 110.0, 510.0}});
+    frame.entities.push_back({rec::GeometryEntityKind::Hazard, 42, {125.0, 500.0, 135.0, 510.0}});
+    return frame;
+}
+
 int main() {
     const auto unique = std::chrono::steady_clock::now().time_since_epoch().count();
     const auto root = std::filesystem::temp_directory_path() /
@@ -37,9 +47,10 @@ int main() {
         CHECK(std::filesystem::exists(completeDir / "manifest.json"));
         CHECK(std::filesystem::exists(completeDir / "frames.csv"));
         CHECK(std::filesystem::is_directory(completeDir / "frames"));
+        CHECK(std::filesystem::exists(completeDir / "hitboxes.csv"));
         CHECK(readText(completeDir / "manifest.json").find("\"status\": \"recording\"") != std::string::npos);
-        CHECK(writer.writeFrame({10, 16'666'666, 16'666'666, 0}, pngBytes));
-        CHECK(writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes));
+        CHECK(writer.writeFrame({10, 16'666'666, 16'666'666, 0}, pngBytes, geometry(10)));
+        CHECK(writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes, geometry(12)));
         CHECK(!writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes));
         CHECK(writer.framesWritten() == 2);
         CHECK(writer.missedIntervals() == 0);
@@ -52,7 +63,7 @@ int main() {
         CHECK(!std::filesystem::exists(completeDir / "frames" / "frame_000011.png"));
         CHECK(writer.finalize(1'700'000'001'000'000'000ull, "level_exit"));
         CHECK(writer.state() == rec::SessionWriter::State::Complete);
-        CHECK(!writer.writeFrame({3, 50'000'000, 16'666'667, 0}, pngBytes));
+        CHECK(!writer.writeFrame({3, 50'000'000, 16'666'667, 0}, pngBytes, geometry(3)));
 
         const auto manifest = readText(completeDir / "manifest.json");
         CHECK(manifest.find("\"status\": \"complete\"") != std::string::npos);
@@ -69,11 +80,16 @@ int main() {
         CHECK(csv.find("sequence,timestamp_ns,delta_ns,missed_intervals,write_status") == 0);
         CHECK(csv.find("10,0,0,0,written") != std::string::npos);
         CHECK(csv.find("12,50000000,16666667,1,written") != std::string::npos);
+        const auto hitboxes = readText(completeDir / "hitboxes.csv");
+        CHECK(hitboxes.find("sequence,phase,geometry_status,entity_type,entity_id,left,top,right,bottom") == 0);
+        CHECK(hitboxes.find("10,active_gameplay,valid,frame,,,,,") != std::string::npos);
+        CHECK(hitboxes.find("10,active_gameplay,valid,player,1,100,500,110,510") != std::string::npos);
+        CHECK(hitboxes.find("12,active_gameplay,valid,hazard,42,125,500,135,510") != std::string::npos);
     }
     {
         rec::SessionWriter writer;
         CHECK(writer.start(incompleteDir, {360, 1080, 60}, 1234));
-        CHECK(writer.writeFrame({0, 0, 0, 0}, pngBytes));
+        CHECK(writer.writeFrame({0, 0, 0, 0}, pngBytes, geometry(0)));
         CHECK(writer.abort("game_closed", 5678));
         CHECK(writer.state() == rec::SessionWriter::State::Incomplete);
         const auto manifest = readText(incompleteDir / "manifest.json");
