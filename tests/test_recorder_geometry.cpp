@@ -47,7 +47,9 @@ int main() {
     frame.entities.back().id = 43;
     frame.entities.back().bounds = {10, 10, 10, 20};
     if (frame.valid()) return 12; // zero-width rectangle
-    if (rec::CaptureTransform{0, 1080, 1.0, 2.0, {0,0}}.valid()) return 13;
+    frame.entities.clear();
+    if (frame.valid()) return 13; // valid geometry requires a player
+    if (rec::CaptureTransform{0, 1080, 1.0, 2.0, {0,0}}.valid()) return 14;
 
     std::cout << "recorder geometry: all checks passed\n";
     return 0;
