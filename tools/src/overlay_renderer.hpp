@@ -11,6 +11,8 @@
 #include "core/hitbox_model.hpp"
 #include "core/hitbox_trail.hpp"
 
+using namespace geode::prelude;
+
 namespace geodan::tools::overlay {
 namespace hb = geodan::core::hitbox;
 namespace tr = geodan::core::trail;
