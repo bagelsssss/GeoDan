@@ -34,7 +34,7 @@ For \`valid\` geometry, at least one player rectangle is required. Zero hazards 
 
 The parser rejects sessions with an unsupported manifest schema/status, malformed CSV, row-count mismatch, non-monotonic sequence/timestamps, inconsistent \`delta_ns\`, missing or unexpected geometry frames, missing PNGs, wrong PNG dimensions, invalid rectangles, duplicate entity IDs, or missing frame sentinels.
 
-PNG validation currently checks the PNG signature and IHDR dimensions. It does not fully decompress or checksum image pixel data. Actual collision measurements come from the hitbox sidecar, not image recognition.
+PNG validation currently checks the PNG signature, the required 13-byte IHDR header, and IHDR dimensions. It does not fully decompress or checksum image pixel data. Actual collision measurements come from the hitbox sidecar, not image recognition.
 
 Recorder sequence gaps, per-row missed intervals, manifest \`missed_capture_intervals\`, and \`writer_queue_drops\` remain distinct. \`timestampGapCount\` counts persisted-frame rows that indicate a discontinuity (sequence gap or missed intervals), not the number of missing frames. Original sequence numbers and monotonic timestamps are preserved; no frames are synthesized.
 
@@ -42,7 +42,7 @@ Recorder sequence gaps, per-row missed intervals, manifest \`missed_capture_inte
 
 Frames are consumed in CSV chronology. Sections contain at most ten persisted images and are split at phase boundaries so idle/pause/respawn/transition evidence cannot be blended with active gameplay. Section sample indexes refer to zero-based persisted-frame ordinals; original capture sequence numbers remain in frame metadata.
 
-For each active frame with valid player and hazard geometry, the parser calculates the minimum Euclidean gap between any player rectangle and any hazard rectangle. Overlapping/touching rectangles have zero clearance. The minimum pairwise gap for that frame is one clearance sample, preventing a frame with many hazards from receiving extra statistical weight. Section and level reports include arithmetic mean, nearest-rank median, minimum, and nearest-rank 10th percentile in capture pixels.
+For each active frame with valid player and hazard geometry, the parser calculates the minimum Euclidean gap between any player rectangle and any hazard rectangle. Overlapping/touching rectangles have zero clearance. The minimum pairwise gap for that frame is one clearance sample, preventing a frame with many hazards from receiving extra statistical weight. Section and level reports include arithmetic mean, nearest-rank median, minimum, and nearest-rank 10th percentile in normalized pixels. Coordinates arrive in capture pixels and all distances are scaled uniformly to a 360-pixel reference width (360 / manifest width), so equivalent captures at different widths use the same measurement scale.
 
 Frames with valid geometry but no hazard rectangle do not produce a clearance sample. This is missing measurement, not evidence of safety. Unsupported geometry increments the section's unsupported-hitbox count and the level's unclassified-frame count.
 
