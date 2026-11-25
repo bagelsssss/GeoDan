@@ -1,0 +1,36 @@
+name: GeoDan Codex self-review tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [workflow-codex/level-recorder]
+    paths: [.github/workflows/geodan-codex-review-tests.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  portable-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: test_hitbox_model (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_hitbox_model.cpp -o /tmp/geodan-hitbox_model-review && /tmp/geodan-hitbox_model-review
+      - name: test_recorder_geometry (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_geometry.cpp -o /tmp/geodan-recorder_geometry-review && /tmp/geodan-recorder_geometry-review
+      - name: test_recorder_model (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_model.cpp -o /tmp/geodan-recorder_model-review && /tmp/geodan-recorder_model-review
+      - name: test_recorder_png_encoder (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_png_encoder.cpp -o /tmp/geodan-recorder_png_encoder-review && /tmp/geodan-recorder_png_encoder-review
+      - name: test_recorder_session (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_session.cpp -o /tmp/geodan-recorder_session-review && /tmp/geodan-recorder_session-review
+      - name: test_recorder_worker (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_recorder_worker.cpp -o /tmp/geodan-recorder_worker-review && /tmp/geodan-recorder_worker-review
+      - name: test_tool_registry (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_tool_registry.cpp -o /tmp/geodan-tool_registry-review && /tmp/geodan-tool_registry-review
