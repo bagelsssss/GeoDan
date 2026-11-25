@@ -44,7 +44,7 @@
 | Date | Command / test | Result | Notes |
 |---|---|---|---|
 | 2026-11-25 | Source/repository inspection | Completed | Re-read shared guide and both checklists; verified branch HEAD and source tree. No local checkout/runtime available. |
-| 2026-11-25 | C++ trajectory model test | Not run | Test source added; no local compiler workspace available in this session. |
+| 2026-11-25 | `g++ -std=c++20 -Wall -Wextra -Werror` trajectory model test | Passed | Compiled and ran a temporary local copy of the committed header/test source; output: `trajectory model: all checks passed`. This validates only the pure data model, not Geode integration. |
 | 2026-11-25 | Geode build / in-game test | Not run | Must be done later in the user's local environment. |
 
 ## Files changed
@@ -60,7 +60,7 @@
 - **Exact stopping point:** Core model and test source committed on isolated remote branch; no game-facing simulation code added.
 - **Next action:** Continue with the side-effect guard and hidden-player lifecycle only after confirming all exact hook signatures and game call paths.
 - **Blockers / risks:** Binding files expose only part of the game implementation; internal GD behavior requires careful in-game validation. Local Codex workspace and local build are unavailable in this session.
-- **Relevant commit:** To be filled after the commit is created.
+- **Relevant commits:** `f356d04c8f4f427080e7a95832656aa6aa2faf36` (trajectory model + test); `97ff42c7f181c299c3d9576bcef71353f40a3d44` (manual-only Actions trigger).
 
 ## Session log
 
@@ -68,5 +68,6 @@
 - Re-read `checks/README.md`, both agent checklists, trajectory research notes, current overlay, settings, and CMake integration.
 - Verified remote candidate branch HEAD was `80fc253d386d515f4fb51bea0dfc280927368d2f`.
 - Added pure data structures for two independent prediction paths, bounded sample count, terminal reasons, and reset behavior.
-- Added a standalone C++ test source. It has not been compiled or run.
-- No Geode build, GitHub Actions run, or in-game test was performed.
+- Added a standalone C++ test source and compiled/ran it with `g++ -std=c++20 -Wall -Wextra -Werror`; all checks passed.
+- Changed the candidate workflow to `workflow_dispatch` only, so pushes no longer automatically consume Actions minutes. The workflow itself was not run.
+- No Geode build or in-game test was performed.
