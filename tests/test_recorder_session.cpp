@@ -78,7 +78,7 @@ int main() {
         CHECK(manifest.find("\"stop_reason\": \"level_exit\"") != std::string::npos);
         const auto csv = readText(completeDir / "frames.csv");
         CHECK(csv.find("sequence,timestamp_ns,delta_ns,missed_intervals,write_status") == 0);
-        CHECK(csv.find("10,0,0,0,written") != std::string::npos);
+        CHECK(csv.find("10,16666666,16666666,0,written") != std::string::npos);
         CHECK(csv.find("12,50000000,16666667,1,written") != std::string::npos);
         const auto hitboxes = readText(completeDir / "hitboxes.csv");
         CHECK(hitboxes.find("sequence,phase,geometry_status,entity_type,entity_id,left,top,right,bottom") == 0);
