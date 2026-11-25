@@ -10,7 +10,7 @@
 - **Active task:** Prepare the portable judge for Image Parser integration.
 - **Current stage:** Section aggregation, level-summary consistency, and swag-route adjustment evidence.
 - **Current branch:** workflow-codex/dan-analyzer.
-- **Latest implementation commit before this checklist update:** 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design documentation update).
+- **Latest implementation commit before this checklist update:** 109139b73fe743d61a6b3f18836251a4ce5fa13f (additional timing-total and overlapping-section tests).
 
 ## Project constraints
 
@@ -72,12 +72,12 @@
 ## Handoff / next action
 
 - **Last updated:** 2026-11-25.
-- **Completed:** Added weighted section aggregates for clearance and Nerves, section-level weighted median/p10 distributions, min/max, timing-window totals and coverage, maximum validated easier-route bypass fraction, and consistency checks against parser-level mean/minimum/timing/Nerves summaries. Added chronological non-overlap/range checks, fractional timing rejection, overflow guards, unique route IDs, exactly one reference route, and an insufficient-evidence gate for completed easier routes without validated bypass fractions. Expanded tests and documented which statistics cannot be reconstructed exactly from section summaries.
+- **Completed:** Added weighted section aggregates for clearance and Nerves, section-level weighted median/p10 distributions, min/max, timing-window totals and coverage, maximum validated easier-route bypass fraction, and consistency checks against parser-level mean/minimum/timing/Nerves summaries. Added chronological non-overlap/range checks, fractional timing rejection, overflow guards, unique route IDs, exactly one reference route, and an insufficient-evidence gate for completed easier routes without validated bypass fractions. Expanded tests for two-section aggregation, weighted distributions, timing totals, Nerves, idle exclusion, parser-summary mismatch, incomplete evidence, fractional windows, mismatched timing totals, overlapping sections, easier/harder route comparison, and unquantified easier routes. Documented which statistics cannot be reconstructed exactly from section summaries.
 - **Remaining:** Run the exact branch test suite. Add integration with the future Image Parser and Swag Route Detection. Define Nerves semantics and route-search coverage/termination evidence with the user. Calibrate the eventual Dan formula only on a held-out Classic dataset.
 - **Exact stopping point:** Code, tests, and documentation committed to the isolated remote branch. The new test suite was authored but NOT compiled or run in this session. No GitHub Actions run, Geode build, parser integration, route simulation, or Dan calibration.
 - **Next action:** Run `g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_dan_analyzer_model.cpp -o /tmp/geodan-dan-analyzer-tests && /tmp/geodan-dan-analyzer-tests` in the Codex checkout or manually dispatch the existing portable test workflow; fix any failures before extending the model.
 - **Blockers / risks:** Image Parser and Swag Route Detection do not yet exist. Frame-window validity depends on actual recorder timestamp/frame precision. The simulator candidate is not validated. Nerves and bypass-fraction measurement definitions still need calibration. Whole-level frame median/p10 cannot be exactly reconstructed from section summary percentiles; the model deliberately reports section-level distributions separately.
-- **Relevant commits:** 8582cf6e751f87db2be3e9c646dcbcbd5a4b7f88 (aggregation); e72f0f84236b9ea9e9e696346d5b5a7650d0ae33 (validation hardening); d620f39adcd7de5f9555a579408463c9cb973343 (tests); 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design docs).
+- **Relevant commits:** 8582cf6e751f87db2be3e9c646dcbcbd5a4b7f88 (aggregation); e72f0f84236b9ea9e9e696346d5b5a7650d0ae33 (validation hardening); d620f39adcd7de5f9555a579408463c9cb973343 (tests); 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design docs); 109139b73fe743d61a6b3f18836251a4ce5fa13f (additional verification tests).
 
 ## Session log
 
@@ -103,3 +103,6 @@
 - Expanded portable tests for two-section aggregation, weighted distributions, timing totals, Nerves, idle exclusion, parser-summary mismatch, incomplete evidence, fractional windows, easier/harder route comparison, and unquantified easier routes.
 - Updated design documentation. The test suite was authored but was NOT compiled or run in this session; no GitHub Actions dispatch action was available.
 - No main branch, main-workflow, local user workspace, Geode runtime, Image Parser, or Swag Route simulator was changed.
+
+
+- Additional tests: parser-level timing-window total mismatch and overlapping section sample ranges are explicitly rejected. These tests are authored but still unrun.
