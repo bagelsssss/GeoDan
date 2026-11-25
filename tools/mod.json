@@ -10,6 +10,8 @@
     "hitboxes": { "type": "bool", "name": "Hitboxes", "description": "Outline each object's own hitbox in gameplay.", "default": false },
     "unclassified": { "type": "bool", "name": "Unclassified", "description": "Also outline objects GeoDan cannot classify, in magenta.", "default": false },
     "hitbox-trail": { "type": "bool", "name": "Hitbox trail", "description": "Faded grey trail of the player's recent hitboxes.", "default": false },
-    "trajectory": { "type": "bool", "name": "Trajectory", "description": "Predicted path ahead for hold and release.", "default": false }
+    "trajectory": { "type": "bool", "name": "Trajectory", "description": "Predicted path ahead for hold and release.", "default": false },
+    "portrait-preview-test": { "type": "bool", "name": "Portrait capture preview (TEST)", "description": "Temporary diagnostic: continuously renders the gameplay object layer into a 360x1080 black portrait target and previews it on-screen. No frames are saved. Disable after testing; may reduce performance.", "default": false },
+    "level-recorder": { "type": "bool", "name": "Level recorder", "description": "Records the level with the tools on, to a session folder. Off by default.", "default": false }
   }
 }

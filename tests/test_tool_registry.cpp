@@ -24,7 +24,7 @@ int main() {
     auto nothingSaved = [](std::string_view, bool fallback) { return fallback; };
     auto everythingOn = [](std::string_view, bool) { return true; };
     CHECK(countOn(nothingSaved) == 0);
-    CHECK(countOn(everythingOn) == 4);   // the four available tools, not the two planned ones
+    CHECK(countOn(everythingOn) == 5);   // the five available tools, not the one planned one
     for (const auto& t : kTools)
         if (t.status == Status::Planned) CHECK(!isOn(t, everythingOn));
 
