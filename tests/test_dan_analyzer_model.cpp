@@ -297,5 +297,18 @@ int main() {
     assert(subskills[0] == dan::Skillset::Circles);
     assert(subskills[1] == dan::Skillset::Wave);
 
+    level = validLevel();
+    level.mainSkillsets = mainEvidence;
+    level.skillsets = {
+        {dan::Skillset::Circles, 4, 5, dan::EvidenceState::Validated},
+        {dan::Skillset::Memory, 5, 5, dan::EvidenceState::Validated},
+        {dan::Skillset::Wave, 2, 5, dan::EvidenceState::Validated},
+    };
+    judged = dan::judge(level);
+    assert(judged.mainSkillset == dan::MainSkillset::Precision);
+    assert(judged.subSkillsets.size() == 2);
+    assert(judged.subSkillsets[0] == dan::Skillset::Circles);
+    assert(judged.subSkillsets[1] == dan::Skillset::Wave);
+
     std::cout << "Dan analyzer aggregation and verification: all checks passed\n";
 }
