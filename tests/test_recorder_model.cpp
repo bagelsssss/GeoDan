@@ -31,9 +31,11 @@ int main() {
 
     // Real captures retain timestamps; no fake/duplicated frames are created.
     rec::FrameTimeline timeline(60);
-    CHECK(!timeline.capture(0).has_value() == false);
     auto first = timeline.capture(0);
-    CHECK(!first.has_value()); // timestamp must be strictly increasing
+    CHECK(first.has_value());
+    CHECK(first->sequence == 0);
+    CHECK(first->timestampNs == 0);
+    CHECK(!timeline.capture(0).has_value()); // timestamps must be strictly increasing
     timeline.reset();
     first = timeline.capture(1'000'000);
     CHECK(first.has_value());
