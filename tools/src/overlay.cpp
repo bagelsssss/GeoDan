@@ -14,6 +14,7 @@
 #include "overlay_renderer.hpp"
 #include "portrait_capture_target.hpp"
 #include "recorder_live.hpp"
+#include "trajectory.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
@@ -83,6 +84,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             overlay::drawTrail(f.trailNode, f.tracker.trail(1));
         }
         // Level recorder: runs after the overlays so recordings include them.
+        updateGeoDanTrajectory(this, dt);
         f.recorder.update(this, mod->getSettingValue<bool>("level-recorder"));
 
         // Temporary visual validation only: one extra render pass, no readback or files.
@@ -121,14 +123,16 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
     }
 
     void resetLevel() {
-        // A restart ends the current recording attempt; the next frame starts a new one.
+        // Finish the current attempt before resetting per-attempt state.
         m_fields->recorder.stop("level_restart");
         PlayLayer::resetLevel();
+        resetGeoDanTrajectory(this);
         m_fields->tracker.reset();
     }
 
     void onQuit() {
         m_fields->recorder.stop("user_quit");
+        cleanupGeoDanTrajectory(this);
         PlayLayer::onQuit();
     }
 };

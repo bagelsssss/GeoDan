@@ -10,6 +10,11 @@ static int g_fail = 0;
 
 int main() {
     CHECK(kToolCount == 6);
+    std::size_t availableCount = 0;
+    for (const auto& tool : kTools)
+        if (canEnable(tool)) ++availableCount;
+    CHECK(availableCount == 5);
+
     for (std::size_t i = 0; i < kToolCount; ++i) {
         const auto& t = kTools[i];
         CHECK(!t.id.empty() && !t.title.empty() && !t.blurb.empty());
