@@ -93,9 +93,9 @@ int main() {
         auto manifest = path / "manifest.json";
         std::ifstream in(manifest);
         std::string json((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-        const auto widthAt = json.find("\\"width\\":360");
+        const auto widthAt = json.find("\"width\":360");
         assert(widthAt != std::string::npos);
-        json.replace(widthAt, std::string("\\"width\\":360").size(), "\\"width\\":720");
+        json.replace(widthAt, std::string("\"width\":360").size(), "\"width\":720");
         std::ofstream out(manifest); out << json; out.close();
         for (std::uint32_t i = 0; i < 2; ++i) {
             char name[16]; std::snprintf(name, sizeof(name), "%06u", i);
