@@ -8,7 +8,7 @@
 
 - **Status:** Active — isolated Level Recorder candidate; not approved for promotion.
 - **Active task:** Implement a 360 × 1080 portrait level recorder with black background, diagnostic overlays, parser-ready session output, and a 60 FPS performance target.
-- **Current stage:** Portable recorder model added; shared hitbox/trail drawing extracted for reuse; game capture path not yet implemented.
+- **Current stage:** Portable recorder model and shared overlay renderer added; portrait offscreen target primitive added; not yet integrated into gameplay or read back.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Latest verified candidate HEAD before checklist update:** `4e258bfe560501d658fe9cce476f58e242fea53b`.
@@ -56,8 +56,8 @@ _Record exact repository-relative paths and a short description._
 
 - **Last updated:** 2026-11-25.
 - **Completed:** Isolated recorder branch created; portable capture config/timing/backpressure model, bounded queue, reusable pixel buffer pool, tests, design contract, and manual-only test workflow committed.
-- **Remaining:** Implement the actual Cocos capture target and stable portrait camera framing; refactor overlay drawing for shared use; implement verified GPU readback and background PNG/session writer; add recorder controls and parser handoff; build, test, and profile.
-- **Exact stopping point:** Shared overlay renderer extraction is committed; no offscreen capture target or game-facing recorder capture path has been written.
+- **Remaining:** Integrate the capture target with a verified gameplay-only subtree; choose/visually validate portrait focus and scale; implement verified GPU readback and background PNG/session writer; add recorder controls and parser handoff; build, test, and profile.
+- **Exact stopping point:** Shared overlay renderer and offscreen target primitive are committed; no gameplay integration, pixel readback, encoder, or recording lifecycle exists.
 - **Next action:** Continue Codex work in `~/workflow-codex` only after verifying that workspace and its branch/HEAD; otherwise continue through this isolated remote branch without claiming local workspace access.
 - **Blockers / risks:** Synchronous `CCRenderTexture::newCCImage` is unsuitable as an assumed 60 FPS hot path; cross-platform asynchronous GPU readback support is unverified. No test/build/Actions/in-game run has occurred.
 - **Promotion:** Not approved; `~/main-workflow` unchanged.
@@ -101,3 +101,14 @@ _Record exact repository-relative paths and a short description._
 ### 2026-11-25 — renderer include audit
 - Follow-up source inspection found the extracted header uses `std::abs`; added its direct `<cmath>` dependency rather than relying on transitive Geode includes.
 - This is a source-level correction only. No compiler/build result is claimed.
+
+
+### 2026-11-25 — portrait offscreen target primitive
+- Verified candidate HEAD before edits: `2cfd0c5d55d3c7e7367875f6875065f4705591ec`; current main baseline remains `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`.
+- Inspected the pinned Geode 2.2081 Cocos headers for `CCRenderTexture`, `CCNode::transformAncestors/visit`, `CCCamera`, `CCDirector`, and Kazmath matrix stack APIs. Confirmed render texture dimensions are specified in points, `beginWithClear` exists, `CCNode::transformAncestors()` is public, and `kmGLPushMatrix/PopMatrix/Translatef/Scalef` are available.
+- Added `tools/src/portrait_capture_target.hpp`: owns a retained 360×1080-pixel RGBA8888 render texture (accounts for content scale factor and checks actual texture dimensions), clears to opaque black, and renders a supplied world subtree with an explicit world-space focus and scale while applying its live ancestor transforms. It does not change the live camera or reparent nodes.
+- Added a helper to obtain a node's Cocos world position.
+- Updated design contract and this checklist. No gameplay hook/integration was added because the exact target subtree and desired portrait crop must be verified visually; the likely object-layer target is still a proposal, not a confirmed fact.
+- No build, test, in-game capture, pixel readback, PNG encoding, session writer, or performance measurement was run. The new header is uncompiled and unverified.
+- Changed files: `tools/src/portrait_capture_target.hpp` (added), `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
+- Next: local Geode build and visual test to confirm transform stack correctness, actual output dimensions, and whether `m_objectLayer` contains the desired level/player/overlay content without HUD. Only after that integrate into PlayLayer and choose the crop scale.

@@ -80,6 +80,12 @@ The image parser should consume a completed manifest, not scan an arbitrary fold
 - If the queue fills, drop the incoming frame without waiting and record the drop.
 - If GPU readback itself stalls, the CPU queue cannot solve it. Profile it separately and only add platform-specific asynchronous readback where the supported backend provides a correct implementation.
 
+## Portrait offscreen target checkpoint
+
+Added `tools/src/portrait_capture_target.hpp`, a small Cocos render-target owner for exact pixel dimensions. It converts requested output pixels to Cocos points using the active content scale factor, verifies the resulting texture dimensions, retains/releases the render texture, clears each frame to opaque black, and visits a caller-supplied world subtree under an explicit focus point and scale. It uses `CCNode::transformAncestors()` so the subtree retains its live scene-graph transforms, while applying the portrait framing outside those transforms. The live game camera and scene graph are not reparented or modified.
+
+The caller must pass a world subtree that contains the desired level/player/overlay content but excludes HUD and pause UI, plus a focus point in Cocos world coordinates. The class deliberately does not choose the scale or crop policy. A likely first integration is the gameplay object layer focused on the active player, but the actual 2.2081 layer composition and visual result still need in-game verification. This target does not read pixels back, encode frames, or start a recording session. No build or in-game test has been run.
+
 ## Shared overlay renderer checkpoint
 
 The current gameplay overlay has been split so the hitbox geometry and trail drawing routines live in `tools/src/overlay_renderer.hpp`. The live `PlayLayer` overlay calls the shared hitbox renderer and shared trail drawing routine. A future offscreen recorder target can call those same functions rather than duplicating parser-visible colors, geometry, and trail styling. This is a rendering-code extraction only: no offscreen target, camera transform, or capture path is implemented yet. The extraction has not been built or visually validated.
@@ -88,7 +94,7 @@ The current gameplay overlay has been split so the hitbox geometry and trail dra
 
 1. Portable timing, queue and configuration model — **started**.
 2. Unit tests for cadence, timestamp monotonicity, queue bounds and drops — **added; execution still required**.
-3. Cocos capture target and portrait camera transform.
+3. Cocos capture target and portrait camera transform — target primitive added; layer selection and crop/scale validation remain.
 4. Refactor existing overlay draw code to render into the recorder target without changing normal gameplay appearance.
 5. Reusable pixel-buffer pool and background image writer.
 6. Session manifest and CSV writer, finalized only after worker drain.
