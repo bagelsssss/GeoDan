@@ -181,3 +181,10 @@
 4. Run the portable tests per file and the Windows build; report results to the user. No in-game claims until the user confirms.
 
 **Not verified:** in-game trajectory behaviour; in-game recorder behaviour; any Codex branch built on Windows except `recorder-live-from-codex` (`860be16`) and `combined-progress` (`a9f2856`).
+
+### 2026-11-25 — alpha prototype decisions (user)
+- User decision: build the alpha from Codex's reviewed code. Wait for Codex's self-review report before writing any alpha code.
+- User decision: the alpha stays on a repo candidate branch. Promotion into ~/main-workflow needs a separate, explicit user approval after testing.
+- Scope proposed by Claude and not yet confirmed by user: hitboxes, unclassified outlines, hitbox trail, working trajectory, level recorder writing frames the image parser accepts. Dan analyzer out of scope (test failing).
+- Estimate given: about 3–5 hours of Claude work, plus game sessions from the user. Start after Codex's review report.
+- Status: waiting on Codex's review. No alpha code written yet.
