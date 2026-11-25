@@ -6,9 +6,9 @@
 
 ## Current status
 
-- **Status:** Active — Classic-only Dan Analyzer now includes section aggregation and parser/route consistency verification; no calibrated Dan formula.
-- **Active task:** Prepare the portable judge for Image Parser integration.
-- **Current stage:** Section aggregation, level-summary consistency, and swag-route adjustment evidence.
+- **Status:** Active — Classic-only Analyzer includes evidence aggregation plus score-scale, raw-section aggregation, calibration, and skillset primitives. Feature weights and a measured calibration curve remain pending.
+- **Active task:** Define and validate the section scoring formula using actual Image Parser evidence and calibration levels.
+- **Current stage:** Portable scoring/calibration foundation added; tests authored but not yet run.
 - **Current branch:** workflow-codex/dan-analyzer.
 - **Latest implementation commit before this checklist update:** 109139b73fe743d61a6b3f18836251a4ce5fa13f (additional timing-total and overlapping-section tests).
 
@@ -21,7 +21,7 @@
 - Keep this candidate isolated; do not modify main-workflow or promote without explicit user approval.
 - Keep GitHub Actions manual-only and use them sparingly.
 - Prioritize measurement accuracy over tuning Dan labels.
-- Do not calibrate alpha–kappa in the initial analyzer pass.
+- The score scale and label bands cover 1st–10th Dan, Alpha–Iota, and Kappa. Do not invent calibration anchors or feature weights.
 - Unknown evidence is not zero; unsupported interactions are not safe/empty space.
 - **User decision (2026-11-25): Platformer implementation and support are cancelled entirely. GeoDan is Classic-only.** Remove Platformer fields, paths, and tests rather than leaving dormant support.
 - The Image Parser measures the successful recorded run from physical hitboxes; do not replay that run merely to remeasure its physics.
@@ -44,6 +44,11 @@
 - **User decision:** Memory threshold policy remains both. Exact semantics and numeric threshold are not guessed; visual obstruction and simulation unclear-path evidence are kept separate.
 - **User decision:** Final Dan measurement policy remains both. Exact combination semantics are not guessed.
 - **User decision:** Platformer is cancelled. The Analyzer schema is Classic-only.
+- **User decision (2026-11-25):** The analyzed score itself is on a 0.00–50.00 scale. For every numbered Dan tier and Alpha–Iota: X.00–X.35 Low/Mid, X.35–X.65 Mid, X.65–next whole tier Mid/High. Kappa is 20.01–50.00; 20.00 remains Iota Mid/High.
+- **User decision (2026-11-25):** Deadlocked is a designated middle anchor at 6.50 (6th Dan Mid). Its raw score is not known yet; the earlier example 120.43 was explicitly made up and must never be stored as data.
+- **User decision (2026-11-25):** Main skillset categories are Overall, Learny, Precision, and High CPS. Sub-skillsets use the existing taxonomy; do not implement Memory classification yet.
+- **Design decision:** Section raw-score contributions are signed and additive. A missing section contribution makes the raw level total incomplete. Feature weights and contribution-generation formula remain undefined until grounded in measured data.
+- **Design decision:** Calibration uses monotonic piecewise-linear interpolation between at least two measured raw/analyzed anchor pairs, with no extrapolation. A single Deadlocked anchor cannot define the curve.
 - **User decision:** Preserve the requested skillset taxonomy: Circles, Clicksync, Fast-Paced, Timings, Chokepoints, Unbalanced, Learny, Memory, High CPS, Gimmicky, Flow, Slow-Paced, Bossfight, Mirror, Nerve Control, Cube, Ship, Ball, UFO, Wave, Robot, Spider, Old Swing, New Swing, Duals, Overall.
 - **User decision:** Image Parser groups about ten chronological images per section, measures physical hitbox clearances, retains section evidence, calculates 60/120/240 FPS windows and Nerves, and sends structured output to the Analyzer.
 - **User decision:** Swag routes are alternative completable paths. Harder alternatives do not affect Dan; easier alternatives lower effective difficulty in proportion to difficulty-bearing gameplay bypassed.
