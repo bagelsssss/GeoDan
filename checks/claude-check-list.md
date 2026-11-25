@@ -26,7 +26,7 @@
 - **Task:** Trajectory rebuild, as Claude's independent candidate.
 - **Duplicates Codex work:** `workflow-codex/trajectory-rebuild` (head `bd4498f`) already has a 435-line `tools/src/trajectory.cpp`, a rules model with tests, and `docs/trajectory-eclipse-reference.md`. Claude's version would overlap it.
 - **Workspace:** `/home/claude/GeoDan-new` (sandbox). Not `~/workflow-claude`.
-- **Branch:** `workflow-claude/trajectory-candidate` at `11ea778` (pushed 2026-11-25). Experimental, does not compile yet (see Decisions). Not on `main`.
+- **Branch:** `workflow-claude/trajectory-from-codex` at `6a8741b` (pushed 2026-11-25). Built on Codex's `9bfee12`: adds the missing `;` and a fixed 1/240 s step. Type-checked only; not built or in-game tested. `workflow-claude/trajectory-candidate` (`11ea778`) is superseded and left in place pending the user's decision.
 - **Promotion status:** None. `~/main-workflow` not changed. Not approved for promotion.
 
 ## Decisions and findings
@@ -67,6 +67,14 @@
 - **Relevant commit:** `f5835c3` (`main`, verified 2026-11-25).
 
 ## Session log
+
+### 2026-11-25 — trajectory built on Codex's branch
+- Branch `workflow-claude/trajectory-from-codex` from `workflow-codex/trajectory-rebuild` at `9bfee12`.
+- Commit `6a8741b`: added the missing `;`; replaced `dt / timeWarp` with a fixed `1.f / 240.f` step.
+- Tests run: `tests/test_trajectory_model.cpp`, `tests/test_hitbox_model.cpp`, `tests/test_tool_registry.cpp` all PASS (g++ -std=c++20 -Wall -Wextra -Werror).
+- Type-check `tools/src/trajectory.cpp` with cc.sh: no errors beyond the known header noise. Not built with the Geode SDK.
+- Not verified: in-game behaviour; whether fixed step matches game timing under time warp; spawnParticle nullptr callers; object-layer placement.
+- Not promoted. `~/main-workflow` not changed.
 
 ### 2026-11-25 — review of Codex's trajectory branch (`workflow-codex/trajectory-rebuild` at `9bfee12`)
 - Read both checklists and the branch's `core/trajectory_model.hpp`, `tools/src/trajectory.cpp`, `tools/src/overlay.cpp`, `tools/mod.json`.
