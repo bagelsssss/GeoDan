@@ -11,6 +11,7 @@
 
 #include "core/hitbox_model.hpp"
 #include "core/hitbox_trail.hpp"
+#include "trajectory.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
@@ -192,6 +193,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         // Trail: one sample per tick, recorded even while the overlay is hidden
         // so switching it on shows history straight away.
         f.tracker.observeTick(dt, snapshotOf(m_player1), snapshotOf(m_player2));
+        updateGeoDanTrajectory(this, dt);
 
         const bool showTrail = mod->getSettingValue<bool>("hitbox-trail");
         const bool showHitboxes = mod->getSettingValue<bool>("hitboxes");
@@ -240,5 +242,11 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
     void resetLevel() {
         PlayLayer::resetLevel();
         m_fields->tracker.reset();
+        resetGeoDanTrajectory(this);
+    }
+
+    void onQuit() {
+        PlayLayer::onQuit();
+        cleanupGeoDanTrajectory(this);
     }
 };
