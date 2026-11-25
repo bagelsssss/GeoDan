@@ -22,6 +22,7 @@ namespace geodan::core::recorder {
 struct QueuedFrame {
     FrameStamp stamp;
     PixelBufferPool::Lease pixels;
+    FrameGeometry geometry;
 };
 
 class RecorderWorker final {
@@ -95,7 +96,7 @@ private:
                     m_error = "png_encode_failed";
                     continue;
                 }
-                if (!m_writer.writeFrame(frame->stamp, encoded)) {
+                if (!m_writer.writeFrame(frame->stamp, encoded, frame->geometry)) {
                     m_error = m_writer.error().empty() ? "session_frame_write_failed"
                                                        : m_writer.error();
                 }
