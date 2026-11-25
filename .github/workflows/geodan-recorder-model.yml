@@ -27,3 +27,7 @@ jobs:
         run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -Icore tests/test_recorder_worker.cpp -o /tmp/geodan-recorder-worker-tests
       - name: Run recorder worker tests
         run: /tmp/geodan-recorder-worker-tests
+      - name: Compile recorder geometry tests
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -Icore tests/test_recorder_geometry.cpp -o /tmp/geodan-recorder-geometry-tests
+      - name: Run recorder geometry tests
+        run: /tmp/geodan-recorder-geometry-tests
