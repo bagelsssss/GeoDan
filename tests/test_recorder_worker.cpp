@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -5,6 +6,8 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <string>
+#include <utility>
 #include <vector>
 #include "recorder_worker.hpp"
 
