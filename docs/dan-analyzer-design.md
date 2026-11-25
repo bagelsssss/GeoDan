@@ -10,7 +10,7 @@ The Dan Analyzer is the judge. It consumes:
 
 The Analyzer does not replay the recorded run to measure its physics. The recording already contains the player's actual successful gameplay. Simulation is retained only where exploration is needed to discover and validate alternative routes.
 
-The Analyzer validates evidence and eventually assigns the level's calculated Dan. This candidate implements the judge/readiness foundation, not the calibrated Dan scoring formula.
+The Analyzer validates evidence and assigns a score on the 0.00–50.00 scale once the section scorer and calibration anchors are ready. This candidate now contains score aggregation, rating-band, calibration, and skillset-classification primitives; it does not yet define feature weights or produce section contributions from parser measurements.
 
 ## Current implementation
 
@@ -112,9 +112,34 @@ ValidatedForCalibration means the evidence is structurally suitable for a later 
 
 ## Dan scoring and calibration
 
-No score formula is included yet. A ranking formula must be calibrated against measured Classic levels and evaluated on a held-out set. Do not tune thresholds to force named levels into expected Dan ranks. Initial rating scope remains 1st–10th Dan; alpha–kappa tuning remains out of scope.
+### Score scale and tier labels
 
-The eventual score should use the measured clearance distribution, timing-window burden, Nerves, and the easiest confirmed valid route. A harder swag route must never inflate the score; an easier route should reduce effective difficulty according to the difficulty-bearing gameplay it bypasses.
+The analyzed score is itself the Dan scale, from 0.00 to 50.00. It is not a separate score that is divided or converted into a Dan afterward.
+
+For every numbered Dan tier X (1st through 10th) and every Greek tier from Alpha through Iota, use the same subdivisions:
+- X.00 up to but excluding X.35: Low/Mid.
+- X.35 up to but excluding X.65: Mid.
+- X.65 up to the next whole tier: Mid/High.
+
+The displayed score is rounded to two decimal places before assigning its label. Thus 6.50 is 6th Dan Mid, 10.50 is 10th Dan Mid, 11.50 is Alpha Mid, and 19.50 is Iota Mid. Iota Mid/High includes 20.00; Kappa begins at 20.01 and continues through 50.00. Scores below 1.00 remain valid numeric scores but do not receive a Dan label under the currently specified bands.
+
+### Section contributions and raw level score
+
+Each active gameplay section will eventually receive a signed raw difficulty contribution from the Analyzer. Contributions are additive: positive values add difficulty and negative values represent below-baseline/easier sections. The portable model now validates Analyzer-sourced contributions and sums them across active sections. If any active section lacks a validated contribution, the raw level total is marked incomplete. Idle, paused, respawn, and transition sections are excluded.
+
+This is an aggregation contract, not the final section-scoring formula. The weights and transformations for clearance, timing-window burden, Nerves, input demand, consistency, and easier-route bypass are intentionally not invented yet. The Image Parser must supply measured features; the future section scorer must convert those features into contributions using a calibrated, documented formula.
+
+### Calibration anchors
+
+Calibration maps the raw level total to the analyzed 0.00–50.00 score. The implementation accepts measured raw/analyzed anchor pairs and uses monotonic piecewise-linear interpolation between them. It rejects duplicate/non-monotonic anchor relationships and does not extrapolate beyond the measured anchor range. At least two measured anchors are required to produce a calibrated score.
+
+Deadlocked is a user-designated middle anchor at **6.50 (6th Dan Mid)**. Its raw score is deliberately unknown until Deadlocked is processed by the section scorer. The placeholder cannot calibrate a level by itself, and no hypothetical raw value is stored. Additional verified anchors are needed to define the curve. Calibration must be evaluated on held-out Classic levels; do not force named levels into expected ranks.
+
+### Skillset classification
+
+Main skillset categories are Overall, Learny, Precision, and High CPS. The portable model selects the strongest explicit main-skillset evidence by positive-observation ratio; when no evidence is present, it reports Overall as the fallback. Sub-skillsets use the existing taxonomy (for example Circles/Wave, modes, timings, and other tags). Memory is intentionally excluded from sub-skillset output for this implementation phase. These classifiers consume evidence; they do not infer tags from unimplemented parser logic.
+
+The eventual score should use measured clearance distribution, timing-window burden, Nerves, input demand, and the easiest confirmed valid route. A harder swag route must never inflate the score; an easier route should reduce effective difficulty according to the difficulty-bearing gameplay it bypasses.
 
 ## Tests and limitations
 
@@ -128,4 +153,4 @@ The portable test covers:
 - Easier versus harder alternative routes, maximum bypass fraction, exclusion of unvalidated bypass estimates, and incomplete status when an easier route's bypass is unquantified.
 - Incomplete route search, duplicate route IDs, and unsupported hitboxes.
 
-The exact committed files are compiled by the manual GitHub Actions workflow when explicitly run. No Geode build, in-game parser integration, route-search runtime, or Dan calibration is claimed.
+The portable tests cover score-band boundaries, Deadlocked's unmeasured 6.50 anchor, interpolation requirements, signed section aggregation, and skillset classification. The updated tests have not yet been compiled or run. No Geode build, in-game parser integration, route-search runtime, feature-weight formula, or fully calibrated Dan curve is claimed.
