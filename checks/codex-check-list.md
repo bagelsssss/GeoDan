@@ -6,16 +6,11 @@
 
 ## Current status
 
-- **Status:** Active — isolated Level Recorder candidate; not approved for promotion.
-- **Active task:** Implement a 360 × 1080 portrait level recorder with black background, diagnostic overlays, parser-ready session output, and a 60 FPS performance target.
-- **Current stage:** Portable PNG encoder and background queue-draining worker added with synthetic tests; tests/build still pending. Portrait preview remains unvalidated. GPU readback is gated on preview validation and graphics-backend capability inspection.
-- **Candidate branch:** `workflow-codex/level-recorder`
-- **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
-- **Latest verified candidate HEAD before this checklist update:** `8ae9271c1b76b1c817f24855052515fe1724fb90`.
-- **Local workspace:** `~/workflow-codex` has not been verified in this session. Remote GitHub branch is the candidate source.
-- **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
-- **Main-workflow changed:** No.
-- **Other candidate:** `workflow-codex/trajectory-rebuild` is separate and untouched by this recorder task.
+- **Status:** Active — first game-facing hold/release simulator and renderer are implemented in the isolated candidate; Geode build and in-game validation remain outstanding.
+- **Active task:** Implement a safe, GeoDan-owned trajectory simulator using verified Geometry Dash 2.2081 behavior.
+- **Current stage:** Game-facing simulator, collision safety filters, lifecycle ownership, and renderer added; validation pending.
+- **Current branch:** `workflow-codex/trajectory-rebuild`.
+- **Latest verified HEAD:** `9bfee125b1a0c8a413522fe0025ae0a195c78de8`.
 
 ## Project constraints
 
@@ -23,136 +18,72 @@
 - The old trajectory implementation is known to be broken. Do not consult, copy, port, or reuse it as a reference.
 - Do not claim tests, builds, or in-game verification that were not actually performed.
 - Read both agent checklists before project work and commit reviews.
-- Update this file with concrete progress and a precise handoff before stopping.
+- Keep this candidate isolated; do not modify `main-workflow` or promote without user approval.
+- Use GitHub Actions sparingly: do not build every commit. Prefer deliberate validation checkpoints after a coherent milestone.
 
 ## Active work
 
-- **Status:** Active — isolated Level Recorder candidate; implementation is incomplete.
-- **Task:** Build the new continuous level recorder, replacing screenshot-at-a-time behavior with a parser-oriented recording session.
-- **User decisions:** Initial configurable capture resolution is 360 × 1080. The target is 60 FPS footage. Frames use a black background with enabled diagnostic tools composited into the image. Output is handed to the image parser.
-- **Performance requirements:** No blocking disk I/O or image compression on the game/render thread; bounded queue; explicit timestamps and dropped-frame accounting; no fabricated duplicate frames.
-- **Remote branch:** `workflow-codex/level-recorder`
-- **Base SHA:** `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
-- **Promotion status:** Experimental only. User has not approved promotion.
-- **Main-workflow changed:** No.
-- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate, reusable preallocated RGBA buffer pool, bounded non-blocking queue and model tests. Shared hitbox/trail renderer is used by live PlayLayer. Added portrait target and disabled-by-default preview harness. Added `core/recorder_session.hpp`, a worker-owned portable sink for encoded PNG frames, versioned manifest, ordered frame files and CSV metadata, plus synthetic session tests. Added `core/recorder_png_encoder.hpp` (RGBA8 PNG with stored DEFLATE blocks) and `core/recorder_worker.hpp` (background queue drain, encode, session write, finalization and join), with synthetic tests. No GPU readback or gameplay start/stop controls yet.
-- **Trajectory candidate:** Separate branch `workflow-codex/trajectory-rebuild`; not merged or modified.
+- **Status:** Active — isolated candidate, not approved for promotion.
+- **Workspace:** `~/workflow-codex` (local checkout not verified; remote branch is the source edited in this session).
+- **Branch:** `workflow-codex/trajectory-rebuild`.
+- **Promotion state:** Experimental; not approved for `~/main-workflow`.
+- **Main workflow changed:** No.
 
 ## Decisions and findings
 
-_Add dated, evidence-backed entries. Label each as a user decision, verified finding, or proposal._
+- **User decision:** Keep Codex and Claude implementations isolated; only user-selected changes may be promoted.
+- **Verified repository finding:** `tools/mod.json` already contains a disabled-by-default trajectory setting.
+- **Verified repository finding:** Gameplay overlay integration point is `tools/src/overlay.cpp`; source files are globbed by `tools/CMakeLists.txt`.
+- **User-approved reference:** Eclipse Menu's public `ShowTrajectory.cpp` may be studied as technical reference. GeoDan must own its implementation; no wholesale copying.
+- **Safety requirement:** The data model must not implement substitute physics. The future adapter must feed it positions from Geometry Dash's real update/collision routines only after side-effect isolation is audited.
+- **Safety requirement:** Stop a branch on unsafe/unknown interactions rather than drawing a misleading continuation.
+- **User-approved implementation direction:** Use Eclipse Menu Show Trajectory as an architectural/technical reference, but keep all GeoDan implementation code original and independently reviewed.
+- **CI policy:** GitHub Actions must be reserved for meaningful candidate checkpoints, not every commit.
 
 ## Test and build record
 
 | Date | Command / test | Result | Notes |
 |---|---|---|---|
-| — | — | Not recorded | Do not infer test results. |
+| 2026-11-25 | Source/repository inspection | Completed | Re-read shared guide and both checklists; verified branch HEAD and source tree. No local checkout/runtime available. |
+| 2026-11-25 | `g++ -std=c++20 -Wall -Wextra -Werror` trajectory model + guard test | Passed | Compiled and ran a temporary local copy of the committed header/test source; output: `trajectory model + simulation guard: all checks passed`. This validates only the pure data model, not Geode integration. |
+| 2026-11-25 | Geode build / in-game test | Not run | The current session has no verified local checkout or Geode SDK/runtime. Must be done in the user's local environment. |
+| 2026-11-25 | 2.2081 binding audit | Inspected | Checked GeometryDash.bro declarations for player creation/update/collision, button state, PlayLayer lifecycle, collision filtering, trigger, particle, event, and side-effect hook signatures. This does not reveal all binary-internal side effects. |
+| 2026-11-25 | Candidate source/config review | Partial pass | Confirmed CMake globs `tools/src/*.cpp`; validated `tools/mod.json` parses as JSON. No Geode compilation was possible. |
+| 2026-11-25 | GitHub Actions | Not run | Workflow remains `workflow_dispatch` only; no automatic builds were triggered. |
 
 ## Files changed
 
-_Record exact repository-relative paths and a short description._
+- `core/trajectory_model.hpp` — independent hold/release path state, bounded sample storage, stop reasons, reset semantics, and nested thread-local RAII simulation guard.
+- `tests/test_trajectory_model.cpp` — pure C++ checks for branch isolation, stopping, reset, and bounds.
+- `tools/src/trajectory.hpp` / `tools/src/trajectory.cpp` — hidden simulation-player lifecycle, live-state copying, hold/release stepping through real GD collision/update calls, dual-player predictions, conservative unsupported-interaction/moving-object stops, side-effect hooks, and path drawing.
+- `tools/src/overlay.cpp` — updates trajectory after PlayLayer post-update; resets on restart and cleans up before quit.
+- `tools/mod.json` — clarifies the hidden-copy behavior and conservative stop policy.
+- `docs/trajectory-eclipse-reference.md` — updated implementation status and remaining validation risks.
 
 ## Handoff / next action
 
 - **Last updated:** 2026-11-25.
-- **Completed:** Isolated recorder branch created; portable capture config/timing/backpressure model, bounded queue, reusable pixel buffer pool, tests, design contract, and manual-only test workflow committed.
-- **Remaining:** User must build and visually validate the portrait preview. Independently, run the portable model and session tests; implement PNG encoding and worker lifecycle that drains the bounded queue into SessionWriter; define/verify parser handoff; later validate GPU readback and profile on target hardware.
-- **Exact stopping point:** Portable PNG encoder and background worker are committed with synthetic tests and manual workflow steps, but no tests/build have been executed here. Worker is not connected to PlayLayer. GPU readback remains intentionally unimplemented until preview and backend validation.
-- **Next action:** Continue Codex work in `~/workflow-codex` only after verifying that workspace and its branch/HEAD; otherwise continue through this isolated remote branch without claiming local workspace access.
-- **Blockers / risks:** Synchronous `CCRenderTexture::newCCImage` is unsuitable as an assumed 60 FPS hot path; cross-platform asynchronous GPU readback support is unverified. No test/build/Actions/in-game run has occurred.
-- **Promotion:** Not approved; `~/main-workflow` unchanged.
-- **Relevant commit before checklist update:** `4e258bfe560501d658fe9cce476f58e242fea53b`.
+- **Completed:** Added the pure model and a first game-facing implementation: two hidden simulation players are reused for hold/release branches and both live players in dual mode; the game collision/update routines feed bounded paths; the overlay draws those paths; lifecycle cleanup is wired to reset/quit.
+- **Remaining:** Build against Geode 5.11.2 / GD 2.2081; resolve any compiler/API mismatches; test side-effect isolation in-game; validate cube/ship/wave/ball/UFO/robot/spider/swing, slopes, portals, triggers, dual, timewarp, death/restart/quit; profile the cost; inspect whether rotating/moving geometry or other shared effects require additional guards.
+- **Exact stopping point:** Remote candidate branch `workflow-codex/trajectory-rebuild`, HEAD `9bfee125b1a0c8a413522fe0025ae0a195c78de8`. No Geode build, GitHub Actions run, or in-game test has been performed.
+- **Next action:** User should fetch this branch into `~/workflow-codex` and build with the configured Geode SDK; return compiler output for correction. Keep `~/main-workflow` untouched pending user selection.
+- **Blockers / risks:** The bindings confirm signatures but do not expose every binary-internal side effect. Hooks block known deaths, triggers, gravity flips, rings, game events, particles, and selected effects. The collision candidate list is filtered and restored, and known moving objects terminate the branch. This is not yet proof of complete isolation; audio, rotation, object mutations, and mode-specific behavior still require in-game audit. Local Codex workspace and Geode runtime are unavailable in this session.
+- **Relevant commits:** `f356d04c8f4f427080e7a95832656aa6aa2faf36` (trajectory model + test); `97ff42c7f181c299c3d9576bcef71353f40a3d44` (manual-only Actions trigger); `63b70def0fc7e22a1c7656f0fc001466fe3e1a5d` (nested simulation guard); `5ed93339ca7238c60864b508d5b451fe87afd970` / `88136d0eada41db6000a1af9e044f9a6a60ee4b3` (runtime interface/implementation); `9bf6a3df0e506e8a765b6aab72ed75f0d7f4cab0` (overlay integration); `9bfee125b1a0c8a413522fe0025ae0a195c78de8` (latest docs/config/checklist state).
 
 ## Session log
 
-### 2026-11-25 — Level Recorder candidate kickoff and portable foundation
-- Created isolated branch `workflow-codex/level-recorder` from `main` SHA `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`.
-- Read root README, shared checklist guide, both agent checklists, current main tree, tools CMake, tool registry, mod settings and gameplay overlay.
-- Added `core/recorder_model.hpp`: configurable capture dimensions/FPS/queue capacity, RGBA byte-budget helpers, fixed-rate capture gate, monotonic frame timestamps, missed-cadence accounting, bounded non-blocking producer queue, and a preallocated reusable pixel-buffer pool.
-- Added `tests/test_recorder_model.cpp` covering config, 60 Hz pacing, timestamps, missed intervals, bounded queue, drops, close/drain behavior, and buffer-pool reuse. Test execution is not yet recorded.
-- Added `docs/level-recorder-design.md` with capture/rendering, 60 FPS, queue, session format, lifecycle, failure and profiling contracts.
-- Added `.github/workflows/geodan-recorder-model.yml`, triggered only by `workflow_dispatch`; no per-commit build/test trigger was added and no workflow was run.
-- User-selected resolution: 360 × 1080. Target cadence: 60 FPS. No guarantee is claimed before profiling.
-- No Geode capture code, Cocos render target, pixel readback, PNG encoder, session writer, recorder controls, or image-parser integration has been implemented.
-- No build, unit test, Actions run, in-game test, or performance benchmark has been executed in this session.
-- `~/main-workflow` and `main` were not changed. The trajectory candidate branch was not touched.
-- Next: implement and validate capture target/camera framing, share overlay draw logic, then bounded pixel-buffer pool + background encoder/writer and parser session handoff. Profile GPU readback separately; do not claim 60 FPS until measured.
+### 2026-11-25 — first game-facing trajectory implementation
+- Re-read the shared guide and both checklists; Claude's checklist still records no active work.
+- Verified the isolated candidate branch and audited Geometry Dash 2.2081 binding declarations for the methods/fields used by the simulator.
+- Added `tools/src/trajectory.cpp` and `.hpp`: hidden simulation players, live-state copy, two branches, real collision and player updates, dual-player support, collision candidate filtering/restoration, conservative stops for unsupported and known moving objects, selected side-effect suppression, and rendering.
+- Connected the helper to `PlayLayer::postUpdate`, `resetLevel`, and `onQuit` in `tools/src/overlay.cpp`.
+- Updated tool descriptions and research status. `tools/mod.json` parses as valid JSON.
+- No Geode build, Actions run, or in-game validation was performed. The candidate must be treated as experimental until those checks are completed.
 
-
-### 2026-11-25 — recorder performance refinement
-- Added a fixed-rate gate anchored to the initial 60 Hz timeline. It skips extra renders when the game renders faster than target and accumulates small delays so sustained sub-60 cadence is eventually counted as missed intervals.
-- Added a preallocated reusable RGBA pixel-buffer pool with non-blocking leases. The capture thread can skip instead of allocating or waiting when all buffers are in use.
-- Expanded tests for 120 Hz render pacing, accumulated cadence drift, and buffer reuse. These tests remain unexecuted.
-- Inspected the Geode 2.2081 `CCRenderTexture` binding and Geode `CCImage` implementation. The inspected `newCCImage` implementation performs synchronous `glReadPixels` and allocates full-frame buffers; raw `CCImage::initWithImageData` copies supplied pixels. The design therefore explicitly avoids treating those convenience APIs as an optimized per-frame path.
-- Latest source commit before this checklist update: `4e258bfe560501d658fe9cce476f58e242fea53b`.
-
-
-### 2026-11-25 — shared overlay renderer extraction
-- Verified current candidate HEAD was `e4411d17aace2cdc76683f741cdd759005a8c656`; branch remains isolated and is 18 commits ahead of main with no behind commits.
-- Read the shared checklist guide, both agent checklists, candidate README, recorder design contract, tool menu, build configuration, mod settings, and full gameplay overlay source.
-- Added `tools/src/overlay_renderer.hpp` to centralize hitbox geometry/color rendering and trail drawing. Updated `tools/src/overlay.cpp` so the live overlay calls the shared routines; this is intended to let a future recorder target render the same diagnostics without a second implementation.
-- Updated the recorder design contract to describe the extraction and its limits.
-- No Cocos render target, camera framing, GPU readback, image encoding, session writer, controls, or parser handoff was added.
-- No tests, Geode build, in-game visual check, or performance measurement was run. The new Cocos-facing header therefore remains uncompiled/unverified.
-- Changed files: `tools/src/overlay_renderer.hpp` (added), `tools/src/overlay.cpp`, `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
-- Next: validate the extraction in the user's local Geode build; then investigate a supported offscreen render-target/camera path and platform-specific readback before writing capture code. Keep all work on this candidate branch; do not promote.
-
-
-### 2026-11-25 — renderer include audit
-- Follow-up source inspection found the extracted header uses `std::abs`; added its direct `<cmath>` dependency rather than relying on transitive Geode includes.
-- This is a source-level correction only. No compiler/build result is claimed.
-
-
-### 2026-11-25 — portrait offscreen target primitive
-- Verified candidate HEAD before edits: `2cfd0c5d55d3c7e7367875f6875065f4705591ec`; current main baseline remains `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`.
-- Inspected the pinned Geode 2.2081 Cocos headers for `CCRenderTexture`, `CCNode::transformAncestors/visit`, `CCCamera`, `CCDirector`, and Kazmath matrix stack APIs. Confirmed render texture dimensions are specified in points, `beginWithClear` exists, `CCNode::transformAncestors()` is public, and `kmGLPushMatrix/PopMatrix/Translatef/Scalef` are available.
-- Added `tools/src/portrait_capture_target.hpp`: owns a retained 360×1080-pixel RGBA8888 render texture (accounts for content scale factor and checks actual texture dimensions), clears to opaque black, and renders a supplied world subtree with an explicit world-space focus and scale while applying its live ancestor transforms. It does not change the live camera or reparent nodes.
-- Added a helper to obtain a node's Cocos world position.
-- Updated design contract and this checklist. No gameplay hook/integration was added because the exact target subtree and desired portrait crop must be verified visually; the likely object-layer target is still a proposal, not a confirmed fact.
-- No build, test, in-game capture, pixel readback, PNG encoding, session writer, or performance measurement was run. The new header is uncompiled and unverified.
-- Changed files: `tools/src/portrait_capture_target.hpp` (added), `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
-- Next: local Geode build and visual test to confirm transform stack correctness, actual output dimensions, and whether `m_objectLayer` contains the desired level/player/overlay content without HUD. Only after that integrate into PlayLayer and choose the crop scale.
-
-### 2026-11-25 — temporary in-game portrait preview harness
-- Verified candidate HEAD before edit: c48dbb0660b835fbf1bb6c3a68d2b119dcce6cde; no local workspace access or build is claimed.
-- Added disabled-by-default Geode setting `portrait-preview-test`.
-- When enabled, PlayLayer::postUpdate initializes the 360×1080 render target once, renders m_objectLayer centered on player 1 using current game-window height as the initial crop reference, and displays the render texture as a small top-right preview.
-- The preview is outside m_objectLayer, so it is not recursively captured. It hides when the setting is disabled. No pixel readback, files, encoder, or session writer are involved.
-- The test renders an additional pass every gameplay update while enabled; this is deliberately temporary and may affect performance. Disable it after a short visual check.
-- Added documentation describing the test and its limitations.
-- No build, runtime, visual, or performance test has been executed here. User must build/install the candidate and inspect the preview in-game.
-- Changed: tools/src/overlay.cpp, tools/mod.json, docs/level-recorder-design.md, checks/codex-check-list.md.
-- Next: build candidate, enable Portrait capture preview (TEST) in Geode mod settings, enter a level, and report visual results/build errors. Do not proceed to GPU readback until this passes.
-- Follow-up source review added the missing `capture` namespace alias used by the temporary preview hook; this is a source-level correction, not a build result.
-
-### 2026-11-25 — portable recording session writer
-- Verified branch HEAD before work: `0f197adc547ced7dabb2b47757bd3a6653970c52`; main baseline remains `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`.
-- User approved continuing with work that does not require the portrait preview test.
-- Added `core/recorder_session.hpp`, a portable worker-owned sink for already-encoded PNG bytes. It creates a new session directory, writes a recording manifest, sequence-named frame files and CSV metadata, and finalizes complete/incomplete/error state.
-- Frame files and manifest use temporary files followed by rename. Existing session directories are not overwritten. Sequence gaps remain visible; duplicate/out-of-order sequences, non-monotonic timestamps, inconsistent deltas and non-PNG signatures are rejected.
-- Queue drops are separately recorded in the manifest; cadence misses are summed from written frame stamps. Writer has no internal thread: future lifecycle must own it on the background worker, drain the queue, finalize, and join.
-- Added `tests/test_recorder_session.cpp` using synthetic PNG-signature payloads. These tests exercise filesystem layout/metadata, finalization, abort, duplicate rejection and no-overwrite behavior. They have NOT been compiled or run here; the synthetic payload does not validate a real PNG encoder.
-- Updated the design contract and this checklist. No image parser integration, PNG encoder, GPU readback, recorder controls, or worker thread was added.
-- Changed: `core/recorder_session.hpp` (new), `tests/test_recorder_session.cpp` (new), `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
-- No local workspace, build, test, in-game run, or benchmark is claimed. `main` and `~/main-workflow` remain unchanged; candidate is experimental.
-- Next: run both portable recorder tests in the user's environment; then implement a worker lifecycle and connect an encoder interface. Do not start real capture until the portrait preview test passes.
-- Source audit follow-up: manifest now records the actual first frame sequence (not an assumed zero); synthetic test uses sequence 10 then 12 to exercise a gap.
-
-- Updated the existing `workflow_dispatch`-only portable test workflow to compile and run the session-writer test alongside the recorder model test. No automatic per-commit trigger was added, and the workflow has not been dispatched.
-
-- Added the explicit v1 Image Parser handoff document and JSON Schema. It defines manifest status handling, Unix-vs-monotonic timestamp semantics, CSV columns, frame naming, sequence gaps, parser consistency checks, and incomplete-session behavior. No parser code or compatibility run is claimed.
-
-- Corrected frame-delta validation for writer-queue drops: a persisted sequence gap means `delta_ns` is measured from the immediately prior captured frame, not the prior persisted frame. Contiguous rows must match timestamp difference; gap rows retain their real capture delta. Writer I/O failures now make a best-effort `error` manifest update.
-
-- Aggregate capture misses are now supplied independently from persisted CSV rows, alongside queue-drop totals after worker queue drain. This preserves cadence misses associated with frames that were subsequently dropped before disk write.
-
-
-### 2026-11-25 — portable PNG encoder and background worker
-- Verified the recorder branch files and the session-writer contract at commit `b904b683a2a84f506dbc96f22470a964662fe429`; all work remains isolated on `workflow-codex/level-recorder`.
-- Added `core/recorder_png_encoder.hpp`: a dependency-free RGBA8 PNG encoder using valid zlib DEFLATE stored blocks, PNG CRC-32 and Adler-32 checksums. This avoids a third-party library but prioritizes predictable low CPU complexity over compression ratio; output size/disk throughput must be measured.
-- Added `core/recorder_worker.hpp`: a background worker that owns SessionWriter, consumes the bounded queue, encodes RGBA pixel leases, writes frames in order, aggregates queue drops/cadence misses, drains accepted frames on stop, finalizes, and joins. The queue and pixel pool must outlive the worker and producer must stop before worker stop.
-- Added `tests/test_recorder_png_encoder.cpp` and `tests/test_recorder_worker.cpp`; extended the manual-only workflow to compile/run both tests. No test, build, or workflow dispatch was run here.
-- Updated `docs/level-recorder-design.md` with the encoder/worker contracts and explicit GPU-readback gate.
-- GPU readback is not implemented yet: preview orientation/content is unvalidated, and the project targets Windows, Android, macOS and iOS with different GL/GLES extension availability. Do not guess PBO/map/fence APIs or substitute synchronous `newCCImage` as a 60 FPS path. Next: run portable tests and validate the portrait preview; then inspect the active graphics backend/extensions and implement a capability-gated asynchronous readback path.
-- Exact changed files: `core/recorder_png_encoder.hpp`, `core/recorder_worker.hpp`, `tests/test_recorder_png_encoder.cpp`, `tests/test_recorder_worker.cpp`, `.github/workflows/geodan-recorder-model.yml`, `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
-- No local workspace, Geode build, test execution, Actions run, in-game test, GPU readback, performance benchmark, or promotion is claimed. `main` and `~/main-workflow` remain unchanged.
+### 2026-11-25 — trajectory model foundation
+- Re-read `checks/README.md`, both agent checklists, trajectory research notes, current overlay, settings, and CMake integration.
+- Verified remote candidate branch HEAD was `80fc253d386d515f4fb51bea0dfc280927368d2f`.
+- Added pure data structures for two independent prediction paths, bounded sample count, terminal reasons, and reset behavior.
+- Added a standalone C++ test source and compiled/ran it with `g++ -std=c++20 -Wall -Wextra -Werror`; all checks passed.
+- Changed the candidate workflow to `workflow_dispatch` only, so pushes no longer automatically consume Actions minutes. The workflow itself was not run.
+- Added a nested RAII simulation context using thread-local nesting depth. Compiled and ran the full equivalent pure-C++ assertion set with `g++ -std=c++20 -Wall -Wextra -Werror`; all checks passed. No Geode build or in-game test was performed.

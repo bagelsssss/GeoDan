@@ -14,6 +14,7 @@
 #include "overlay_renderer.hpp"
 #include "portrait_capture_target.hpp"
 #include "recorder_live.hpp"
+#include "trajectory.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
@@ -55,6 +56,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         // Trail: one sample per tick, recorded even while the overlay is hidden
         // so switching it on shows history straight away.
         f.tracker.observeTick(dt, snapshotOf(m_player1), snapshotOf(m_player2));
+        updateGeoDanTrajectory(this, dt);
 
         const bool showTrail = mod->getSettingValue<bool>("hitbox-trail");
         const bool showHitboxes = mod->getSettingValue<bool>("hitboxes");
@@ -125,10 +127,13 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         m_fields->recorder.stop("level_restart");
         PlayLayer::resetLevel();
         m_fields->tracker.reset();
+        resetGeoDanTrajectory(this);
     }
 
     void onQuit() {
+        // Stop the recording first so the session is saved, then clear trajectory state.
         m_fields->recorder.stop("user_quit");
+        cleanupGeoDanTrajectory(this);
         PlayLayer::onQuit();
     }
 };
