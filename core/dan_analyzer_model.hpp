@@ -19,7 +19,7 @@ namespace geodan::core::dan {
 inline constexpr std::uint32_t kEvidenceSchemaVersion = 2;
 
 enum class EvidenceState : std::uint8_t { Unknown, Observed, Measured, Validated, Unsupported };
-enum class EvidenceSource : std::uint8_t { Unknown, HitboxGeometry, ImageParser, SwagRouteSearch, GameplayTelemetry };
+enum class EvidenceSource : std::uint8_t { Unknown, HitboxGeometry, ImageParser, SwagRouteSearch, GameplayTelemetry, Analyzer };
 enum class SegmentPhase : std::uint8_t { Unknown, StartIdle, ActiveGameplay, Paused, Respawn, Transition };
 enum class Skillset : std::uint8_t {
     Circles, Clicksync, FastPaced, Timings, Chokepoints, Unbalanced, Learny,
@@ -32,6 +32,94 @@ inline constexpr std::size_t kSkillsetCount = 26;
 enum class DanTier : std::uint8_t {
     First = 1, Second, Third, Fourth, Fifth, Sixth, Seventh, Eighth, Ninth, Tenth,
 };
+
+enum class MainSkillset : std::uint8_t { Overall, Learny, Precision, HighCps };
+
+struct MainSkillsetEvidence {
+    MainSkillset skillset = MainSkillset::Overall;
+    std::uint32_t positiveObservations = 0;
+    std::uint32_t totalObservations = 0;
+    EvidenceState state = EvidenceState::Unknown;
+
+    bool valid() const {
+        return positiveObservations <= totalObservations &&
+               (totalObservations == 0 || state != EvidenceState::Unknown);
+    }
+};
+enum class DanSubdivision : std::uint8_t { LowMid, Mid, MidHigh };
+
+struct RatingBand {
+    bool valid = false;
+    bool kappa = false;
+    std::uint8_t tierIndex = 0; // 1-10 = numbered Dan; 11-19 = Alpha-Iota.
+    DanSubdivision subdivision = DanSubdivision::Mid;
+};
+
+inline RatingBand ratingBandForScore(double score) {
+    if (!std::isfinite(score) || score < 1.0 || score > 50.0) return {};
+    const double displayed = std::round(score * 100.0) / 100.0;
+    if (displayed < 1.0 || displayed > 50.0) return {};
+    if (displayed >= 20.01) return {true, true, 20, DanSubdivision::Mid};
+    const auto tier = static_cast<std::uint8_t>(std::floor(displayed));
+    if (tier < 1 || tier > 19) return {};
+    const double fraction = displayed - static_cast<double>(tier);
+    const auto subdivision = fraction < 0.35 ? DanSubdivision::LowMid
+        : fraction < 0.65 ? DanSubdivision::Mid : DanSubdivision::MidHigh;
+    return {true, false, tier, subdivision};
+}
+
+struct CalibrationAnchor {
+    std::string levelName;
+    Measurement rawScore;
+    double analyzedScore = 0.0;
+    bool designated = false;
+
+    bool valid() const {
+        return !levelName.empty() && std::isfinite(analyzedScore) &&
+               analyzedScore >= 1.0 && analyzedScore <= 50.0 &&
+               rawScore.valid() &&
+               (!rawScore.present ||
+                (rawScore.source == EvidenceSource::Analyzer &&
+                 rawScore.state == EvidenceState::Validated));
+    }
+};
+
+struct CalibratedScore {
+    bool valid = false;
+    double value = 0.0;
+};
+
+inline CalibratedScore calibrateRawScore(
+    double rawScore, const std::vector<CalibrationAnchor>& anchors) {
+    if (!std::isfinite(rawScore) || anchors.size() < 2) return {};
+    std::vector<std::pair<double, double>> points;
+    points.reserve(anchors.size());
+    for (const auto& anchor : anchors) {
+        if (!anchor.valid() || !anchor.rawScore.present) return {};
+        points.emplace_back(anchor.rawScore.value, anchor.analyzedScore);
+    }
+    std::sort(points.begin(), points.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+    for (std::size_t i = 1; i < points.size(); ++i) {
+        if (!(points[i].first > points[i - 1].first) ||
+            !(points[i].second > points[i - 1].second)) return {};
+    }
+    if (rawScore < points.front().first || rawScore > points.back().first) return {};
+    for (std::size_t i = 1; i < points.size(); ++i) {
+        if (rawScore <= points[i].first) {
+            const auto& left = points[i - 1];
+            const auto& right = points[i];
+            const double ratio = (rawScore - left.first) / (right.first - left.first);
+            const double value = left.second + ratio * (right.second - left.second);
+            return {true, std::round(value * 100.0) / 100.0};
+        }
+    }
+    return {true, std::round(points.back().second * 100.0) / 100.0};
+}
+
+inline CalibrationAnchor deadlockedCalibrationAnchor() {
+    return {"Deadlocked", {}, 6.50, true};
+}
 
 struct Measurement {
     double value = 0.0;
@@ -73,6 +161,7 @@ struct SegmentEvidence {
     FrameWindowCounts frameWindows;
     Measurement nerves;
     std::uint32_t unsupportedHitboxCount = 0;
+    Measurement rawDifficultyContribution;
 
     bool valid() const {
         if (phase == SegmentPhase::Unknown || lastSampleIndex < firstSampleIndex) return false;
@@ -85,6 +174,10 @@ struct SegmentEvidence {
             if (!value->valid()) return false;
             if (value->present && value->value < 0.0) return false;
         }
+        if (!rawDifficultyContribution.valid()) return false;
+        if (rawDifficultyContribution.present &&
+            (rawDifficultyContribution.source != EvidenceSource::Analyzer ||
+             rawDifficultyContribution.state != EvidenceState::Validated)) return false;
         const Measurement* windows[] = {
             &frameWindows.windows60, &frameWindows.windows120, &frameWindows.windows240
         };
@@ -172,6 +265,7 @@ struct LevelEvidence {
     LevelParserSummary parser;
     std::vector<SegmentEvidence> segments;
     std::vector<SkillsetEvidence> skillsets;
+    std::vector<MainSkillsetEvidence> mainSkillsets;
     MemoryEvidence memory;
     RouteSearchState routeSearch = RouteSearchState::NotRun;
     std::vector<SwagRouteEvidence> routes;
@@ -185,6 +279,13 @@ struct DistributionAggregate {
     Measurement maximumOfSections;
     std::uint32_t sectionCount = 0;
     std::uint64_t representedSamples = 0;
+};
+
+struct RawScoreAggregate {
+    double total = 0.0;
+    std::uint32_t scoredSectionCount = 0;
+    bool complete = false;
+    bool overflow = false;
 };
 
 struct LevelFeatureAggregate {
@@ -220,6 +321,7 @@ struct JudgeResult {
     std::uint32_t unsupportedEvidenceCount = 0;
     ConsistencyStatus consistency = ConsistencyStatus::Incomplete;
     LevelFeatureAggregate aggregate;
+    RawScoreAggregate rawScore;
 };
 
 inline bool validClearanceStatistics(const ClearanceStatistics& stats) {
@@ -408,6 +510,58 @@ inline ConsistencyStatus validateAggregateConsistency(
     return ConsistencyStatus::Consistent;
 }
 
+
+inline RawScoreAggregate aggregateRawSectionScores(const LevelEvidence& level) {
+    RawScoreAggregate result;
+    long double total = 0.0L;
+    for (const auto& section : level.segments) {
+        if (section.phase != SegmentPhase::ActiveGameplay) continue;
+        if (!section.rawDifficultyContribution.validatedFrom(EvidenceSource::Analyzer)) {
+            return result;
+        }
+        total += static_cast<long double>(section.rawDifficultyContribution.value);
+        ++result.scoredSectionCount;
+    }
+    if (result.scoredSectionCount == 0 ||
+        !std::isfinite(static_cast<double>(total)) ||
+        total > std::numeric_limits<double>::max() ||
+        total < -std::numeric_limits<double>::max()) {
+        result.overflow = true;
+        return result;
+    }
+    result.total = static_cast<double>(total);
+    result.complete = true;
+    return result;
+}
+
+inline MainSkillset classifyMainSkillset(const std::vector<MainSkillsetEvidence>& evidence) {
+    const MainSkillsetEvidence* best = nullptr;
+    long double bestRatio = -1.0L;
+    for (const auto& item : evidence) {
+        if (!item.valid() || item.totalObservations == 0 || item.positiveObservations == 0)
+            continue;
+        const long double ratio = static_cast<long double>(item.positiveObservations) /
+                                  item.totalObservations;
+        if (!best || ratio > bestRatio) {
+            best = &item;
+            bestRatio = ratio;
+        }
+    }
+    return best ? best->skillset : MainSkillset::Overall;
+}
+
+inline std::vector<Skillset> classifySubSkillsets(
+    const std::vector<SkillsetEvidence>& evidence) {
+    std::vector<Skillset> result;
+    for (const auto& item : evidence) {
+        if (item.positiveObservations == 0 || item.skillset == Skillset::Overall ||
+            item.skillset == Skillset::Memory) continue;
+        if (std::find(result.begin(), result.end(), item.skillset) == result.end())
+            result.push_back(item.skillset);
+    }
+    return result;
+}
+
 inline JudgeResult judge(const LevelEvidence& level) {
     JudgeResult result;
     if (level.schemaVersion != kEvidenceSchemaVersion || !level.captureComplete ||
@@ -456,6 +610,12 @@ inline JudgeResult judge(const LevelEvidence& level) {
         return result;
     }
 
+    for (const auto& mainSkillset : level.mainSkillsets) {
+        if (!mainSkillset.valid()) {
+            result.status = JudgeStatus::Rejected;
+            return result;
+        }
+    }
     for (const auto& skillset : level.skillsets) {
         if (!skillset.valid()) {
             result.status = JudgeStatus::Rejected;
@@ -502,6 +662,7 @@ inline JudgeResult judge(const LevelEvidence& level) {
     }
 
     result.aggregate = aggregateActiveSections(level);
+    result.rawScore = aggregateRawSectionScores(level);
     result.consistency = validateAggregateConsistency(level, result.aggregate);
     result.confirmedEasierRouteCount = result.aggregate.confirmedEasierRouteCount;
 
