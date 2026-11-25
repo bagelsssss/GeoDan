@@ -94,7 +94,7 @@ struct CalibrationAnchor {
 
     bool valid() const {
         return !levelName.empty() && std::isfinite(analyzedScore) &&
-               analyzedScore >= 1.0 && analyzedScore <= 50.0 &&
+               analyzedScore >= 0.0 && analyzedScore <= 50.0 &&
                rawScore.valid() &&
                (!rawScore.present ||
                 (rawScore.source == EvidenceSource::Analyzer &&
@@ -554,8 +554,8 @@ inline std::vector<Skillset> classifySubSkillsets(
     const std::vector<SkillsetEvidence>& evidence) {
     std::vector<Skillset> result;
     for (const auto& item : evidence) {
-        if (item.positiveObservations == 0 || item.skillset == Skillset::Overall ||
-            item.skillset == Skillset::Memory) continue;
+        if (!item.valid() || item.positiveObservations == 0 ||
+            item.skillset == Skillset::Overall || item.skillset == Skillset::Memory) continue;
         if (std::find(result.begin(), result.end(), item.skillset) == result.end())
             result.push_back(item.skillset);
     }
