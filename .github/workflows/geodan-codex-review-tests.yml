@@ -1,0 +1,24 @@
+name: GeoDan Codex self-review tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [workflow-codex/image-parser]
+    paths: [.github/workflows/geodan-codex-review-tests.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  portable-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: test_hitbox_model (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_hitbox_model.cpp -o /tmp/geodan-hitbox_model-review && /tmp/geodan-hitbox_model-review
+      - name: test_image_parser (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_image_parser.cpp -o /tmp/geodan-image_parser-review && /tmp/geodan-image_parser-review
+      - name: test_tool_registry (compile and run)
+        run: >-
+          g++ -std=c++20 -Wall -Wextra -Werror -I./core -I. tests/test_tool_registry.cpp -o /tmp/geodan-tool_registry-review && /tmp/geodan-tool_registry-review
