@@ -306,6 +306,7 @@ inline std::optional<std::vector<GeometryFrame>> readGeometryCsv(
         error = "invalid_hitboxes_csv_header"; return {};
     }
     std::map<std::uint64_t, GeometryFrame> frames;
+    std::map<std::uint64_t, bool> metadataSeen;
     std::map<std::uint64_t, bool> sentinelSeen;
     while (std::getline(input, line)) {
         if (trim(line).empty()) continue;
@@ -320,12 +321,13 @@ inline std::optional<std::vector<GeometryFrame>> readGeometryCsv(
         else if (f[2] == "unsupported") status = GeometryStatus::Unsupported;
         else { error = "invalid_geometry_status"; return {}; }
         auto& frame = frames[sequence];
-        if (frame.phase != Phase::Unknown && (frame.phase != *phase || frame.status != status)) {
+        if (metadataSeen[sequence] && (frame.phase != *phase || frame.status != status)) {
             error = "conflicting_frame_geometry_metadata"; return {};
         }
         frame.sequence = sequence;
         frame.phase = *phase;
         frame.status = status;
+        metadataSeen[sequence] = true;
         if (f[3] == "frame") {
             if (sentinelSeen[sequence] || !f[4].empty() || !f[5].empty() ||
                 !f[6].empty() || !f[7].empty() || !f[8].empty()) {
