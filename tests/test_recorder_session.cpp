@@ -38,16 +38,16 @@ int main() {
         CHECK(std::filesystem::exists(completeDir / "frames.csv"));
         CHECK(std::filesystem::is_directory(completeDir / "frames"));
         CHECK(readText(completeDir / "manifest.json").find("\"status\": \"recording\"") != std::string::npos);
-        CHECK(writer.writeFrame({0, 0, 0, 0}, pngBytes));
-        CHECK(writer.writeFrame({2, 33'333'333, 33'333'333, 1}, pngBytes));
-        CHECK(!writer.writeFrame({2, 33'333'333, 33'333'333, 1}, pngBytes));
+        CHECK(writer.writeFrame({10, 0, 0, 0}, pngBytes));
+        CHECK(writer.writeFrame({12, 33'333'333, 33'333'333, 1}, pngBytes));
+        CHECK(!writer.writeFrame({12, 33'333'333, 33'333'333, 1}, pngBytes));
         CHECK(writer.framesWritten() == 2);
         CHECK(writer.missedIntervals() == 1);
         writer.recordQueueDrops(2);
         CHECK(writer.queueDrops() == 2);
-        CHECK(std::filesystem::exists(completeDir / "frames" / "frame_000000.png"));
-        CHECK(std::filesystem::exists(completeDir / "frames" / "frame_000002.png"));
-        CHECK(!std::filesystem::exists(completeDir / "frames" / "frame_000001.png"));
+        CHECK(std::filesystem::exists(completeDir / "frames" / "frame_000010.png"));
+        CHECK(std::filesystem::exists(completeDir / "frames" / "frame_000012.png"));
+        CHECK(!std::filesystem::exists(completeDir / "frames" / "frame_000011.png"));
         CHECK(writer.finalize(1'700'000'001'000'000'000ull, "level_exit"));
         CHECK(writer.state() == rec::SessionWriter::State::Complete);
         CHECK(!writer.writeFrame({3, 50'000'000, 16'666'667, 0}, pngBytes));
@@ -64,8 +64,8 @@ int main() {
         CHECK(manifest.find("\"stop_reason\": \"level_exit\"") != std::string::npos);
         const auto csv = readText(completeDir / "frames.csv");
         CHECK(csv.find("sequence,timestamp_ns,delta_ns,missed_intervals,write_status") == 0);
-        CHECK(csv.find("0,0,0,0,written") != std::string::npos);
-        CHECK(csv.find("2,33333333,33333333,1,written") != std::string::npos);
+        CHECK(csv.find("10,0,0,0,written") != std::string::npos);
+        CHECK(csv.find("12,33333333,33333333,1,written") != std::string::npos);
     }
     {
         rec::SessionWriter writer;

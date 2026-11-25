@@ -110,4 +110,14 @@ The current gameplay overlay has been split so the hitbox geometry and trail dra
 ## Explicit non-claims
 
 No 60 FPS result, Geode build, image output, parser compatibility, or in-game behavior is claimed until measured. A successful pure-C++ model test does not establish GPU capture performance.
-\n## Portable session writer checkpoint\n\n`core/recorder_session.hpp` adds a Geode-free `SessionWriter` for the parser-facing directory contract. It is owned and called by the future encoder/writer worker (never the render thread) and accepts already-encoded PNG bytes; it deliberately does not implement PNG compression or GPU readback.\n\nA new session directory contains a manifest initially marked `recording`, then finalized as `complete`, `incomplete`, or `error`; sequence-named PNG files under `frames/`; and `frames.csv` with sequence, monotonic timestamp, delta, missed cadence intervals and write result.\n\nFrame files are written to temporary paths and renamed into place. The manifest is staged through a temporary file. Existing session directories are never overwritten. Sequence gaps remain visible. Duplicate/out-of-order sequences, non-monotonic timestamps, inconsistent deltas and payloads without the PNG signature are rejected. Queue drops are counted separately from cadence misses.\n\nThe writer is deliberately synchronous and single-owner: it is a worker-side sink, not yet a thread manager. The future recorder lifecycle must close the producer queue, drain accepted frames, call `finalize`, then join the worker. If destroyed while active, it attempts to leave an incomplete manifest. Process crashes or power loss can still interrupt filesystem operations; this is not a transactional filesystem.\n\n
+
+## Portable session writer checkpoint
+
+`core/recorder_session.hpp` adds a Geode-free `SessionWriter` for the parser-facing directory contract. It is owned and called by the future encoder/writer worker (never the render thread) and accepts already-encoded PNG bytes; it deliberately does not implement PNG compression or GPU readback.
+
+A new session directory contains a manifest initially marked `recording`, then finalized as `complete`, `incomplete`, or `error`; sequence-named PNG files under `frames/`; and `frames.csv` with sequence, monotonic timestamp, delta, missed cadence intervals and write result.
+
+Frame files are written to temporary paths and renamed into place. The manifest is staged through a temporary file. Existing session directories are never overwritten. Sequence gaps remain visible. Duplicate/out-of-order sequences, non-monotonic timestamps, inconsistent deltas and payloads without the PNG signature are rejected. Queue drops are counted separately from cadence misses.
+
+The writer is deliberately synchronous and single-owner: it is a worker-side sink, not yet a thread manager. The future recorder lifecycle must close the producer queue, drain accepted frames, call `finalize`, then join the worker. If destroyed while active, it attempts to leave an incomplete manifest. Process crashes or power loss can still interrupt filesystem operations; this is not a transactional filesystem.
+

@@ -67,9 +67,10 @@ public:
     // Sequence gaps are preserved in filenames; frames are never renumbered.
     bool writeFrame(const FrameStamp& stamp, std::span<const std::uint8_t> pngBytes) {
         if (m_state != State::Recording || !hasPngSignature(pngBytes)) return false;
-        if (m_hasLastFrame && (stamp.sequence <= m_lastSequence ||
-            stamp.timestampNs <= m_lastTimestampNs ||
-            stamp.deltaNs != stamp.timestampNs - m_lastTimestampNs)) return false;
+        if ((!m_hasLastFrame && stamp.deltaNs != 0) ||
+            (m_hasLastFrame && (stamp.sequence <= m_lastSequence ||
+             stamp.timestampNs <= m_lastTimestampNs ||
+             stamp.deltaNs != stamp.timestampNs - m_lastTimestampNs))) return false;
 
         const auto finalPath = m_framesDirectory / frameFilename(stamp.sequence);
         auto temporaryPath = finalPath;
@@ -90,7 +91,8 @@ public:
         std::error_code ec;
         std::filesystem::rename(temporaryPath, finalPath, ec);
         if (ec) {
-            std::filesystem::remove(temporaryPath);
+            std::error_code ignored;
+            std::filesystem::remove(temporaryPath, ignored);
             return fail("cannot_finalize_frame_file: " + ec.message());
         }
 
@@ -101,6 +103,7 @@ public:
             std::filesystem::remove(finalPath, ec);
             return fail("cannot_write_frame_metadata");
         }
+        if (!m_hasLastFrame) m_firstSequence = stamp.sequence;
         m_hasLastFrame = true;
         m_lastSequence = stamp.sequence;
         m_lastTimestampNs = stamp.timestampNs;
@@ -202,7 +205,7 @@ private:
              << "  \"end_unix_ns\": ";
         if (endUnixNs == 0) json << "null"; else json << endUnixNs;
         json << ",\n  \"first_sequence\": ";
-        if (!m_hasLastFrame) json << "null"; else json << 0;
+        if (!m_hasLastFrame) json << "null"; else json << m_firstSequence;
         json << ",\n  \"last_sequence\": ";
         if (!m_hasLastFrame) json << "null"; else json << m_lastSequence;
         json << ",\n  \"stop_reason\": \"" << jsonEscape(stopReason) << "\",\n"
@@ -243,7 +246,7 @@ private:
     std::ofstream m_csv;
     std::uint64_t m_startUnixNs = 0, m_framesWritten = 0;
     std::uint64_t m_missedIntervals = 0, m_queueDrops = 0;
-    std::uint64_t m_lastSequence = 0, m_lastTimestampNs = 0;
+    std::uint64_t m_firstSequence = 0, m_lastSequence = 0, m_lastTimestampNs = 0;
     bool m_hasLastFrame = false;
     std::string m_error;
 };
