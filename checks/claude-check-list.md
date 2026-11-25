@@ -68,8 +68,16 @@
 
 ## Session log
 
+### 2026-11-25 — level recorder built on Codex's branch
+- Branch `workflow-claude/level-recorder-from-codex` from `workflow-codex/level-recorder` at `92e6fb0`. Commit `47f3cb5`: `tools/src/overlay_renderer.hpp` adds `using namespace geode::prelude;` above its namespace.
+- Tests on the branch (g++ -std=c++20 -Wall -Wextra -Werror): PASS test_hitbox_model, test_recorder_geometry, test_recorder_model, test_recorder_png_encoder, test_recorder_session, test_recorder_worker, test_tool_registry.
+- Type-check `tools/src/overlay.cpp` with cc.sh: no errors beyond known header noise. Not built with the Geode SDK. Not in-game tested.
+- Not promoted. `~/main-workflow` not changed.
+- Still open from Codex's checklist: synchronous screenshot path vs 60 FPS target; GPU readback support unverified.
+
 ### 2026-11-25 — review of Codex's level recorder branch (`workflow-codex/level-recorder` at `7f782b2`)
 - Read the branch's diff stat (20 files, +2364/-194), its checklist, and the design doc `docs/level-recorder-design.md`.
+- **Correction:** this review was of `7f782b2`. Codex has since pushed `676c212` (fixes the first-frame timestamp assertion, i.e. the failure below) and `92e6fb0`. The failure below is no longer current.
 - Verified by running tests on an archive of the branch (g++ -std=c++20 -Wall -Wextra -Werror):
   - PASS: test_hitbox_model, test_recorder_geometry, test_recorder_model, test_recorder_png_encoder, test_recorder_worker, test_tool_registry.
   - FAIL (run): test_recorder_session at tests/test_recorder_session.cpp:81, `csv.find("10,0,0,0,written")`. The writer writes the frame's own timestamp and delta, and the test passes timestamp 16,666,666 for sequence 10. My reading: the expected string is wrong, not the writer. Not confirmed by running the writer on its own.
