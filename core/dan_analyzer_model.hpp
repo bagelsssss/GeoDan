@@ -200,6 +200,7 @@ struct LevelFeatureAggregate {
     std::uint32_t timingSections240 = 0;
     std::uint32_t activeSectionCount = 0;
     std::uint32_t confirmedEasierRouteCount = 0;
+    bool countOverflow = false;
     Measurement maximumDifficultyBypassFraction;
 };
 
@@ -242,7 +243,7 @@ inline bool validFrameWindows(const FrameWindowCounts& counts) {
         if (!value->valid()) return false;
         if (value->present &&
             (value->value < 0.0 || std::floor(value->value) != value->value ||
-             value->value > static_cast<double>(std::numeric_limits<std::uint64_t>::max())))
+             value->value >= static_cast<double>(std::numeric_limits<std::uint64_t>::max())))
             return false;
     }
     return true;
@@ -312,6 +313,12 @@ inline DistributionAggregate aggregateSectionMetric(
     return result;
 }
 
+inline bool checkedAdd(std::uint64_t& total, std::uint64_t value) {
+    if (value > std::numeric_limits<std::uint64_t>::max() - total) return false;
+    total += value;
+    return true;
+}
+
 inline LevelFeatureAggregate aggregateActiveSections(const LevelEvidence& level) {
     LevelFeatureAggregate result;
     std::vector<const Measurement*> means, medians, minimums, nerves;
@@ -325,19 +332,25 @@ inline LevelFeatureAggregate aggregateActiveSections(const LevelEvidence& level)
         if (segment.frameWindows.windows60.present &&
             segment.frameWindows.windows60.valid() &&
             segment.frameWindows.windows60.state != EvidenceState::Unsupported) {
-            result.totalWindows60 += static_cast<std::uint64_t>(segment.frameWindows.windows60.value);
+            if (!checkedAdd(result.totalWindows60,
+                            static_cast<std::uint64_t>(segment.frameWindows.windows60.value)))
+                result.countOverflow = true;
             ++result.timingSections60;
         }
         if (segment.frameWindows.windows120.present &&
             segment.frameWindows.windows120.valid() &&
             segment.frameWindows.windows120.state != EvidenceState::Unsupported) {
-            result.totalWindows120 += static_cast<std::uint64_t>(segment.frameWindows.windows120.value);
+            if (!checkedAdd(result.totalWindows120,
+                            static_cast<std::uint64_t>(segment.frameWindows.windows120.value)))
+                result.countOverflow = true;
             ++result.timingSections120;
         }
         if (segment.frameWindows.windows240.present &&
             segment.frameWindows.windows240.valid() &&
             segment.frameWindows.windows240.state != EvidenceState::Unsupported) {
-            result.totalWindows240 += static_cast<std::uint64_t>(segment.frameWindows.windows240.value);
+            if (!checkedAdd(result.totalWindows240,
+                            static_cast<std::uint64_t>(segment.frameWindows.windows240.value)))
+                result.countOverflow = true;
             ++result.timingSections240;
         }
     }
@@ -360,6 +373,7 @@ inline LevelFeatureAggregate aggregateActiveSections(const LevelEvidence& level)
 
 inline ConsistencyStatus validateAggregateConsistency(
     const LevelEvidence& level, const LevelFeatureAggregate& aggregate) {
+    if (aggregate.countOverflow) return ConsistencyStatus::Inconsistent;
     bool complete = aggregate.activeSectionCount > 0 &&
         aggregate.sectionMeanClearance.sectionCount == aggregate.activeSectionCount &&
         aggregate.sectionMinimumClearance.sectionCount == aggregate.activeSectionCount &&
@@ -455,6 +469,7 @@ inline JudgeResult judge(const LevelEvidence& level) {
     }
 
     bool referenceFound = false;
+    bool routeEvidenceIncomplete = false;
     std::uint32_t referenceRouteCount = 0;
     for (std::size_t i = 0; i < level.routes.size(); ++i) {
         const auto& route = level.routes[i];
@@ -473,6 +488,11 @@ inline JudgeResult judge(const LevelEvidence& level) {
             if (route.outcome == RouteOutcome::Completed) referenceFound = true;
         }
         if (route.affectsDifficulty()) ++result.confirmedEasierRouteCount;
+        if (route.kind == RouteKind::Alternative &&
+            route.outcome == RouteOutcome::Completed &&
+            route.relationToReference == DifficultyRelation::Easier &&
+            !route.bypassedDifficultyFraction.validatedFrom(EvidenceSource::SwagRouteSearch))
+            routeEvidenceIncomplete = true;
         if (route.outcome == RouteOutcome::Unsupported) ++result.unsupportedEvidenceCount;
     }
 
@@ -492,7 +512,8 @@ inline JudgeResult judge(const LevelEvidence& level) {
 
     const bool routeEvidenceReady = level.routeSearch == RouteSearchState::Complete && referenceFound;
     if (allActiveSegmentsValidated && result.unsupportedEvidenceCount == 0 &&
-        routeEvidenceReady && result.consistency == ConsistencyStatus::Consistent) {
+        routeEvidenceReady && !routeEvidenceIncomplete &&
+        result.consistency == ConsistencyStatus::Consistent) {
         result.status = JudgeStatus::ValidatedForCalibration;
     } else {
         result.status = JudgeStatus::InsufficientEvidence;
