@@ -51,7 +51,7 @@ int main() {
         CHECK(readText(completeDir / "manifest.json").find("\"status\": \"recording\"") != std::string::npos);
         CHECK(writer.writeFrame({10, 16'666'666, 16'666'666, 0}, pngBytes, geometry(10)));
         CHECK(writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes, geometry(12)));
-        CHECK(!writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes));
+        CHECK(!writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes, geometry(12)));
         CHECK(writer.framesWritten() == 2);
         CHECK(writer.missedIntervals() == 0);
         writer.recordMissedCaptureIntervals(1);
