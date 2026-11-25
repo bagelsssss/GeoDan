@@ -292,6 +292,7 @@ inline std::optional<Phase> parsePhase(const std::string& value) {
     if (value == "paused") return Phase::Paused;
     if (value == "respawn") return Phase::Respawn;
     if (value == "transition") return Phase::Transition;
+    if (value == "unknown") return Phase::Unknown;
     return {};
 }
 
