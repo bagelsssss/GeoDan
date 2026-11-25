@@ -35,7 +35,7 @@
 - **Base SHA:** `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Promotion status:** Experimental only. User has not approved promotion.
 - **Main-workflow changed:** No.
-- **Implementation so far:** Added portable config/timing/backpressure model, unit tests, recorder design contract, and manually triggered test workflow. No Cocos/GPU capture, image encoder, session writer, UI, or parser handoff has been implemented yet.
+- **Implementation so far:** Added portable config/timing/backpressure model, fixed-rate capture gate, reusable preallocated RGBA buffer pool, unit tests, recorder design contract, and manually triggered test workflow. No Cocos/GPU capture, image encoder, session writer, UI, or parser handoff has been implemented yet.
 - **Trajectory candidate:** Separate branch `workflow-codex/trajectory-rebuild`; not merged or modified.
 
 ## Decisions and findings
@@ -67,8 +67,8 @@ _Record exact repository-relative paths and a short description._
 ### 2026-11-25 — Level Recorder candidate kickoff and portable foundation
 - Created isolated branch `workflow-codex/level-recorder` from `main` SHA `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`.
 - Read root README, shared checklist guide, both agent checklists, current main tree, tools CMake, tool registry, mod settings and gameplay overlay.
-- Added `core/recorder_model.hpp`: configurable capture dimensions/FPS/queue capacity, RGBA byte-budget helpers, monotonic frame timestamps, missed-cadence accounting, and a bounded non-blocking producer queue.
-- Added `tests/test_recorder_model.cpp` covering config, timestamps, missed intervals, bounded queue, drops, close and drain behavior. Test execution is not yet recorded.
+- Added `core/recorder_model.hpp`: configurable capture dimensions/FPS/queue capacity, RGBA byte-budget helpers, fixed-rate capture gate, monotonic frame timestamps, missed-cadence accounting, bounded non-blocking producer queue, and a preallocated reusable pixel-buffer pool.
+- Added `tests/test_recorder_model.cpp` covering config, 60 Hz pacing, timestamps, missed intervals, bounded queue, drops, close/drain behavior, and buffer-pool reuse. Test execution is not yet recorded.
 - Added `docs/level-recorder-design.md` with capture/rendering, 60 FPS, queue, session format, lifecycle, failure and profiling contracts.
 - Added `.github/workflows/geodan-recorder-model.yml`, triggered only by `workflow_dispatch`; no per-commit build/test trigger was added and no workflow was run.
 - User-selected resolution: 360 × 1080. Target cadence: 60 FPS. No guarantee is claimed before profiling.
