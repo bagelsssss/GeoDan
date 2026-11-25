@@ -99,6 +99,18 @@ int main() {
     }
     {
         rec::SessionWriter writer;
+        const auto unsupportedDir = root / "unsupported";
+        CHECK(writer.start(unsupportedDir, {360, 1080, 60}, 1'700'000'000'000'000'000ull));
+        auto unsupported = geometry(0);
+        unsupported.status = rec::GeometryStatus::Unsupported;
+        unsupported.entities.clear();
+        CHECK(writer.writeFrame({0, 0, 0, 0}, pngBytes, unsupported));
+        CHECK(writer.finalize(1'700'000'001'000'000'000ull, "unsupported_test"));
+        const auto hitboxes = readText(unsupportedDir / "hitboxes.csv");
+        CHECK(hitboxes.find("0,active_gameplay,unsupported,frame,,,,,") != std::string::npos);
+    }
+    {
+        rec::SessionWriter writer;
         CHECK(!writer.start(completeDir, {360, 1080, 60}, 1));
     }
     {
