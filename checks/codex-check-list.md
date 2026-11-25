@@ -6,9 +6,9 @@
 
 ## Current status
 
-- **Status:** Active — Classic-only Analyzer includes evidence aggregation plus score-scale, raw-section aggregation, calibration, and skillset primitives. Feature weights and a measured calibration curve remain pending.
+- **Status:** Active — Classic-only Analyzer includes evidence aggregation plus score-scale, raw-section aggregation, calibration, and skillset classification primitives. Feature weights and a measured calibration curve remain pending.
 - **Active task:** Define and validate the section scoring formula using actual Image Parser evidence and calibration levels.
-- **Current stage:** Portable scoring/calibration foundation added; tests authored but not yet run.
+- **Current stage:** Portable scoring/calibration foundation and judge skillset output added; expanded tests authored but not yet run.
 - **Current branch:** workflow-codex/dan-analyzer.
 - **Latest implementation commit before this checklist update:** 109139b73fe743d61a6b3f18836251a4ce5fa13f (additional timing-total and overlapping-section tests).
 
@@ -35,7 +35,7 @@
 - **Branch:** workflow-codex/dan-analyzer, originally based on main at 5cfd2dc01f17761f77be4aee6970f8b1998b10f2.
 - **Promotion state:** Experimental; not approved for ~/main-workflow.
 - **Main workflow changed:** No.
-- **Verified previous branch head:** f15de523c78930f6970e18b8320ec21c2a55706a. Compare against workflow-codex/dan-analyzer reported 8 commits ahead, 0 behind before this checklist update.
+- **Latest remote branch HEAD:** 48d38e6080dfcd0c1cad10e03cba1320302e4ecd. Current compare against main: 44 commits ahead, 1 behind. Candidate remains isolated.
 
 ## Decisions and findings
 
@@ -62,7 +62,8 @@
 
 | Date | Command / test | Result | Notes |
 |---|---|---|---|
-| 2026-11-25 | g++ -std=c++20 -Wall -Wextra -Werror -I/tmp/geodan-analyzer /tmp/geodan-analyzer/test_dan_analyzer_model.cpp | Passed | Exact current candidate model/test contents were reconstructed locally and compiled; output: Dan analyzer judge model: all checks passed. |
+| 2026-11-25 | g++ -std=c++20 -Wall -Wextra -Werror -I/tmp/geodan-analyzer /tmp/geodan-analyzer/test_dan_analyzer_model.cpp | Passed (earlier revision only) | This predates the new score/calibration/classification tests; it does not validate the current expanded suite. |
+| 2026-11-25 | Expanded Dan score/calibration/classification tests | Not run | Must run the exact current branch test suite before treating this milestone as verified. |
 | 2026-11-25 | GitHub Actions analyzer workflow | Not run | Workflow remains workflow_dispatch only; this session had no workflow-dispatch action. |
 | 2026-11-25 | Geode build / in-game tests | Not run | No game integration or actual parser/route-search runtime exists. |
 
@@ -78,11 +79,11 @@
 
 - **Last updated:** 2026-11-25.
 - **Completed:** Added weighted section aggregates for clearance and Nerves, section-level weighted median/p10 distributions, min/max, timing-window totals and coverage, maximum validated easier-route bypass fraction, and consistency checks against parser-level mean/minimum/timing/Nerves summaries. Added chronological non-overlap/range checks, fractional timing rejection, overflow guards, unique route IDs, exactly one reference route, and an insufficient-evidence gate for completed easier routes without validated bypass fractions. Expanded tests for two-section aggregation, weighted distributions, timing totals, Nerves, idle exclusion, parser-summary mismatch, incomplete evidence, fractional windows, mismatched timing totals, overlapping sections, easier/harder route comparison, and unquantified easier routes. Documented which statistics cannot be reconstructed exactly from section summaries.
-- **Remaining:** Run the exact branch test suite. Add integration with the future Image Parser and Swag Route Detection. Define Nerves semantics and route-search coverage/termination evidence with the user. Calibrate the eventual Dan formula only on a held-out Classic dataset.
+- **Remaining:** Run the exact current branch test suite and fix any compile/test failures. Define feature transformations/weights with measured parser evidence, then populate additional verified anchors and evaluate calibration on held-out Classic levels. Add integration with the future Image Parser and Swag Route Detection. Define Nerves semantics and route-search coverage/termination evidence with the user.
 - **Exact stopping point:** Code, tests, and documentation committed to the isolated remote branch. The new test suite was authored but NOT compiled or run in this session. No GitHub Actions run, Geode build, parser integration, route simulation, or Dan calibration.
 - **Next action:** Run `g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_dan_analyzer_model.cpp -o /tmp/geodan-dan-analyzer-tests && /tmp/geodan-dan-analyzer-tests` in the Codex checkout or manually dispatch the existing portable test workflow; fix any failures before extending the model.
 - **Blockers / risks:** Image Parser and Swag Route Detection do not yet exist. Frame-window validity depends on actual recorder timestamp/frame precision. The simulator candidate is not validated. Nerves and bypass-fraction measurement definitions still need calibration. Whole-level frame median/p10 cannot be exactly reconstructed from section summary percentiles; the model deliberately reports section-level distributions separately.
-- **Relevant commits:** 8582cf6e751f87db2be3e9c646dcbcbd5a4b7f88 (aggregation); e72f0f84236b9ea9e9e696346d5b5a7650d0ae33 (validation hardening); d620f39adcd7de5f9555a579408463c9cb973343 (tests); 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design docs); 109139b73fe743d61a6b3f18836251a4ce5fa13f (additional verification tests).
+- **Relevant commits:** 8582cf6e751f87db2be3e9c646dcbcbd5a4b7f88 (aggregation); e72f0f84236b9ea9e9e696346d5b5a7650d0ae33 (validation hardening); d620f39adcd7de5f9555a579408463c9cb973343 (tests); 40b4bbe06fa620c272ea3d46aa9e3e75c2d17a65 (design docs); 109139b73fe743d61a6b3f18836251a4ce5fa13f (additional verification tests); 653cdb4833711d368bcf8cf3c9cba190f247c0bc through 48d38e6080dfcd0c1cad10e03cba1320302e4ecd (score/calibration/classification milestone).
 
 ## Session log
 
