@@ -67,11 +67,13 @@ public:
     explicit FrameTimeline(std::uint32_t framesPerSecond = kDefaultFramesPerSecond)
       : m_fps(framesPerSecond) {}
 
-    bool valid() const { return m_fps > 0; }
+    bool valid() const { return m_fps > 0 && m_fps <= 1'000'000'000u; }
 
     std::optional<FrameStamp> capture(std::uint64_t timestampNs) {
         if (!valid()) return std::nullopt;
-        if (m_started && timestampNs <= m_lastTimestampNs) return std::nullopt;
+        if (m_started && (timestampNs <= m_lastTimestampNs ||
+                          timestampNs < m_nextDeadlineNs))
+            return std::nullopt;
 
         FrameStamp stamp;
         stamp.sequence = m_nextSequence++;
@@ -79,9 +81,8 @@ public:
         if (m_started) {
             stamp.deltaNs = timestampNs - m_lastTimestampNs;
             const auto expected = 1'000'000'000ull / m_fps;
-            if (expected > 0 && stamp.deltaNs > expected) {
-                const auto intervals = stamp.deltaNs / expected;
-                const auto missed = intervals > 0 ? intervals - 1 : 0;
+            if (expected > 0 && timestampNs > m_nextDeadlineNs) {
+                const auto missed = (timestampNs - m_nextDeadlineNs) / expected;
                 stamp.missedIntervals = static_cast<std::uint32_t>(
                     std::min<std::uint64_t>(missed,
                         std::numeric_limits<std::uint32_t>::max()));
@@ -90,6 +91,10 @@ public:
         }
         m_started = true;
         m_lastTimestampNs = timestampNs;
+        const auto expected = 1'000'000'000ull / m_fps;
+        m_nextDeadlineNs = timestampNs > std::numeric_limits<std::uint64_t>::max() - expected
+            ? std::numeric_limits<std::uint64_t>::max()
+            : timestampNs + expected;
         ++m_captured;
         return stamp;
     }
@@ -97,6 +102,7 @@ public:
     void reset() {
         m_started = false;
         m_lastTimestampNs = 0;
+        m_nextDeadlineNs = 0;
         m_nextSequence = 0;
         m_captured = 0;
         m_totalMissed = 0;
@@ -110,6 +116,7 @@ private:
     std::uint32_t m_fps = 0;
     bool m_started = false;
     std::uint64_t m_lastTimestampNs = 0;
+    std::uint64_t m_nextDeadlineNs = 0;
     std::uint64_t m_nextSequence = 0;
     std::uint64_t m_captured = 0;
     std::uint64_t m_totalMissed = 0;
