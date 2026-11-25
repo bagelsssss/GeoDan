@@ -143,3 +143,5 @@ _Record exact repository-relative paths and a short description._
 - Added the explicit v1 Image Parser handoff document and JSON Schema. It defines manifest status handling, Unix-vs-monotonic timestamp semantics, CSV columns, frame naming, sequence gaps, parser consistency checks, and incomplete-session behavior. No parser code or compatibility run is claimed.
 
 - Corrected frame-delta validation for writer-queue drops: a persisted sequence gap means `delta_ns` is measured from the immediately prior captured frame, not the prior persisted frame. Contiguous rows must match timestamp difference; gap rows retain their real capture delta. Writer I/O failures now make a best-effort `error` manifest update.
+
+- Aggregate capture misses are now supplied independently from persisted CSV rows, alongside queue-drop totals after worker queue drain. This preserves cadence misses associated with frames that were subsequently dropped before disk write.

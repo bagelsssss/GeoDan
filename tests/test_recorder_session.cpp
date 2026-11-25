@@ -42,6 +42,8 @@ int main() {
         CHECK(writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes));
         CHECK(!writer.writeFrame({12, 50'000'000, 16'666'667, 1}, pngBytes));
         CHECK(writer.framesWritten() == 2);
+        CHECK(writer.missedIntervals() == 0);
+        writer.recordMissedCaptureIntervals(1);
         CHECK(writer.missedIntervals() == 1);
         writer.recordQueueDrops(2);
         CHECK(writer.queueDrops() == 2);

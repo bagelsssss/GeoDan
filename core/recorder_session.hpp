@@ -118,10 +118,15 @@ public:
         m_lastSequence = stamp.sequence;
         m_lastTimestampNs = stamp.timestampNs;
         ++m_framesWritten;
-        m_missedIntervals = saturatingAdd(m_missedIntervals, stamp.missedIntervals);
         return true;
     }
 
+    // Called by the worker with aggregate capture-timeline and queue counters
+    // after it has drained the producer queue. This includes drops that never
+    // became persisted frame rows.
+    void recordMissedCaptureIntervals(std::uint64_t count) {
+        m_missedIntervals = saturatingAdd(m_missedIntervals, count);
+    }
     void recordQueueDrops(std::uint64_t count = 1) {
         m_queueDrops = saturatingAdd(m_queueDrops, count);
     }

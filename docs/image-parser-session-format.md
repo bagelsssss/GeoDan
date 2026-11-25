@@ -22,7 +22,7 @@ The manifest shape is defined by `schemas/recorder-session-v1.schema.json`. The 
 - The parser should process `complete` sessions by default. It may offer `incomplete` sessions for explicit inspection, but must not treat `recording` or `error` as complete input.
 - `width`, `height`, and `target_fps` describe the requested output. The parser must validate actual decoded PNG dimensions against width/height.
 - `frames_written` is the number of successfully written PNGs, not the number of expected cadence slots.
-- `missed_capture_intervals` counts absent capture-cadence slots reported by the capture timeline. `writer_queue_drops` counts captured frames rejected by the bounded writer queue. They are different failure modes and must not be combined.
+- `missed_capture_intervals` is the aggregate number of absent capture-cadence slots reported by the capture timeline, including intervals associated with frames later dropped by the writer queue. `writer_queue_drops` counts captured frames rejected by the bounded writer queue. They are different failure modes and must not be combined.
 - `start_unix_ns` and `end_unix_ns` are wall-clock Unix timestamps in nanoseconds. `end_unix_ns` is null while recording.
 - Frame timestamps in CSV are monotonic nanoseconds relative to the recording timeline; they are not Unix timestamps and should be used for timing analysis.
 - `first_sequence` and `last_sequence` are the actual first and last successfully written capture sequence numbers. They may be null for an empty session. They are not inferred from the frame count.
