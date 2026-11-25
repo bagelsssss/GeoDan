@@ -144,8 +144,7 @@ void prepareSimulationPlayer(PlayerObject* simulation, PlayerObject* live, bool 
     simulation->setRotation(live->getRotation());
     simulation->setVisible(false);
     simulation->setOpacity(0);
-    simulation->releaseAllButtons();
-
+    // Keep every copied platformer input; only branch the jump button.
     if (holdJump)
         simulation->pushButton(PlayerButton::Jump);
     else
