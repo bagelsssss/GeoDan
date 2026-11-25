@@ -68,6 +68,15 @@
 
 ## Session log
 
+### 2026-11-25 — image parser review and build-on (`workflow-codex/image-parser` at `a042690`)
+- Read the branch diff (6 files, +805/-11: `core/image_parser.hpp`, `tests/test_image_parser.cpp`, docs, workflow). Portable code only; no game files.
+- Verified: `tests/test_image_parser.cpp` did NOT compile: lines 96 and 98 used `"\\"width\\":360"`, which ends the string literal early (6 occurrences in those two lines). Fixed.
+- Verified after fix: test_image_parser builds with g++ -std=c++20 -Wall -Wextra -Werror and prints "Image Parser tests passed". Asserts enabled.
+- Integration check (scratch copy, not committed): a session written by the recorder's `SessionWriter` (from `workflow-claude/level-recorder-from-codex`) with a real 360x1080 PNG is accepted by `parseSession`. A fake 16-byte PNG is rejected as `missing_or_wrong_sized_png`, which is the intended behaviour.
+- Branch: `workflow-claude/image-parser-from-codex` at `04bf467`. Not promoted; `~/main-workflow` unchanged.
+- Still open (from Codex's checklist): recorder sidecar integration into the live recorder, and the Analyzer adapter. Neither is implemented.
+- Codex's checklist on the branch has stale sections ("Last updated: Not initialized", "Next action for Claude"). Flagged to the user; not edited by Claude.
+
 ### 2026-11-25 — level recorder built on Codex's branch
 - Branch `workflow-claude/level-recorder-from-codex` from `workflow-codex/level-recorder` at `92e6fb0`. Commit `47f3cb5`: `tools/src/overlay_renderer.hpp` adds `using namespace geode::prelude;` above its namespace.
 - Tests on the branch (g++ -std=c++20 -Wall -Wextra -Werror): PASS test_hitbox_model, test_recorder_geometry, test_recorder_model, test_recorder_png_encoder, test_recorder_session, test_recorder_worker, test_tool_registry.
