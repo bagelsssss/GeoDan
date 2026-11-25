@@ -6,11 +6,11 @@ Ranks Geometry Dash levels on the osu!mania dan scale.
 
 | Part | Job | Status |
 |---|---|---|
-| Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory, later the macro bot) | `tools/`: debug menu in progress |
-| Level recorder | Records the level on a blank background with the tools on | planned |
-| Image parser | Turns the recorder's video into per-frame images the analyzer can read | planned |
-| Simulator | Plays the level by trial and error with no user input | planned |
-| Analyzer | Calculates the dan from a fixed dan list. The main mod | planned |
+| Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory) | Candidate mostly implemented; not built or runtime-tested |
+| Level recorder | Records the level on a blank background with the tools on | Candidate mostly implemented; not built or runtime-tested |
+| Image parser | Turns the recorder's video into per-frame images the analyzer can read | Session contract documented; integration unverified |
+| Simulator | Plays the level by trial and error with no user input | Trajectory candidate exists; unbuilt and unvalidated |
+| Analyzer | Measures level difficulty and assigns a calibrated dan | Evidence model foundation in progress; no scoring formula |
 
 The old repo, `GeoDan-deprecated`, is archived. Some of its code is being ported as each part is started.
 
