@@ -48,6 +48,10 @@ int main() {
     assert(dan::assessReadiness(level) == dan::AnalysisReadiness::InvalidEvidence);
 
     level.segments[0].minimumClearance = metric(2.5, dan::EvidenceSource::Geometry);
+    level.segments[0].hazardDensityPer1000Units =
+        metric(0.0, dan::EvidenceSource::Geometry, dan::EvidenceState::Unsupported);
+    assert(dan::assessReadiness(level) == dan::AnalysisReadiness::CalibrationEligible);
+    level.segments[0].hazardDensityPer1000Units = {};
     level.segments[0].unsupportedInteractions = 1;
     assert(dan::assessReadiness(level) == dan::AnalysisReadiness::Measured);
     assert(!dan::canAssignDan(level));
