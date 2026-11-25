@@ -125,3 +125,15 @@
 - Read both checklists, the root README and the checks README in full.
 - Found Codex's trajectory branch already implemented. Claude's trajectory work was untracked and failing type-check.
 - Recorded findings and the open question above. No trajectory code pushed.
+
+### 2026-11-25 — level recorder wired live (`workflow-claude/recorder-live-from-codex`, commit `860be16`)
+- User instruction: "its fine, you can implement it now" (accepts the synchronous readback risk; recorder in the menu, off by default).
+- Branch base: `origin/workflow-claude/level-recorder-from-codex` at `47f3cb5`.
+- Added `tools/src/recorder_live.hpp/.cpp`: `LiveRecorder` per PlayLayer attempt. Starts when `level-recorder` is on; renders the portrait target each paced frame (`FrameTimeline`), copies one RGBA frame into a `PixelBufferPool` lease with `newCCImage(true)`, queues with `tryPush`; the worker encodes and writes. Stops on `setting_off`, `level_restart` (resetLevel), `user_quit` (onQuit), `layer_destroyed`. Output: `<save dir>/recordings/session_<unix ns>/`.
+- Registry: `level-recorder` → Available (5 available tools); `tests/test_tool_registry.cpp` count updated. `mod.json`: `level-recorder` setting, default false. `main.cpp`: new RECORDER section.
+- `overlay.cpp`: recorder update placed after overlay drawing, before the portrait-preview early return; `resetLevel` and `onQuit` hooks stop the session.
+- Corrections found while writing: `m_isDead` is on `PlayerObject`, not `PlayLayer` (fixed to `m_player1->m_isDead`); `LiveRecorder()` moved out of line because `Session` is incomplete in the header; `using namespace geode::prelude` moved above the portrait header include.
+- Verified: all 7 core test files pass (g++ -std=c++20 -Wall -Wextra -Werror). Type-check of `recorder_live.cpp`, `overlay.cpp`, `main.cpp` against 2.2081 headers: only the known SDK noise (`MusicDownloadManager.hpp` SEL_HttpResponse; `Modify.hpp` string_view), which the untouched base `overlay.cpp` also shows.
+- `check_commit.py` on `860be16`: core-tests PASS, touched-files PASS, geode-compile SKIP, **settings-match FAIL**: `portrait-preview-test` is in mod.json but not in the registry. The same failure exists on base `47f3cb5` (checked in a temporary worktree). It is a temporary diagnostic setting, not a tool. Not changed by me; needs a decision: allowlist diagnostic settings in the checker, or move the test setting out of mod.json when it is removed.
+- Not verified: any build with the Geode SDK; in-game recording; the synchronous `newCCImage` cost at 60 FPS; whether `PlayLayer::onQuit` and the restart path behave as assumed; whether the Fields destructor runs when the layer is destroyed; that pausing does not break the timeline (it will record missed intervals); stop blocks the game thread while the queue drains (up to queue capacity of PNG encodes).
+- Not promoted. `~/main-workflow` not changed. Branch pushed; no PR opened.
