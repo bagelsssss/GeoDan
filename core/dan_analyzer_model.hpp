@@ -41,8 +41,7 @@ struct Measurement {
     bool valid() const {
         if (!present) return true;
         return std::isfinite(value) && sampleCount > 0 &&
-               state != EvidenceState::Unknown && state != EvidenceState::Unsupported &&
-               source != EvidenceSource::Unknown;
+               state != EvidenceState::Unknown && source != EvidenceSource::Unknown;
     }
 
     bool validatedFrom(EvidenceSource expectedSource) const {
