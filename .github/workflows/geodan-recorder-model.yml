@@ -19,3 +19,11 @@ jobs:
         run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -Icore tests/test_recorder_session.cpp -o /tmp/geodan-recorder-session-tests
       - name: Run recorder session tests
         run: /tmp/geodan-recorder-session-tests
+      - name: Compile recorder PNG encoder tests
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -Icore tests/test_recorder_png_encoder.cpp -o /tmp/geodan-recorder-png-tests
+      - name: Run recorder PNG encoder tests
+        run: /tmp/geodan-recorder-png-tests
+      - name: Compile recorder worker tests
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -Icore tests/test_recorder_worker.cpp -o /tmp/geodan-recorder-worker-tests
+      - name: Run recorder worker tests
+        run: /tmp/geodan-recorder-worker-tests
