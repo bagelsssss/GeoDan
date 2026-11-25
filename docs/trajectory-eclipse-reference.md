@@ -96,8 +96,14 @@ These are useful safeguards, not a complete proof that every side effect is bloc
 - [ ] In-game test ordinary cube, ship, wave, ball, UFO, robot, spider, swing, slopes, portals, triggers, dual, speed/timewarp, and death/restart/quit transitions.
 - [ ] Profile frame cost at several prediction iteration counts.
 
-## Current status
+## Current implementation status (2026-11-25)
 
-This is research and design documentation, not a completed implementation. The earlier scalar-physics prototype was removed after the Eclipse source was inspected because it would have been less faithful than using the game's own player update and collision routines.
+The isolated Codex candidate now has a first game-facing implementation in:
 
-No build, automated test, or in-game verification has been run for this research.
+- `tools/src/trajectory.cpp` / `tools/src/trajectory.hpp` — owns two hidden simulation players, copies the live player's state, simulates independent hold/release branches through the game's player update and collision routines, and draws the predicted segments.
+- `tools/src/overlay.cpp` — updates the trajectory after the live PlayLayer update and clears/releases it on reset/quit.
+- `core/trajectory_model.hpp` — bounded path storage, terminal reasons, and scoped simulation context.
+
+The implementation suppresses known side effects (simulation deaths, end animation, gravity flips, trigger activation, ring handling, selected player effects, game events, particles, and hard-streak updates). Collision candidates are filtered to ordinary solids/hazards/slopes and restored after the collision call. Unsupported candidates and known moving objects terminate that branch as uncertain.
+
+**This is an experimental candidate, not a verified or promoted feature.** The Geode build and in-game tests have not been run. The binding declarations were checked against Geode's 2.2081 `GeometryDash.bro`, but bindings do not expose every internal side effect. In particular, the simulation still needs a Geode build and in-game safety audit for hidden shared-state changes, audio, moving/rotating geometry, all gamemodes, timewarp, dual mode, and lifecycle transitions. Do not claim complete side-effect isolation until those tests pass.
