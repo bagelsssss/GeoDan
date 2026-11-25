@@ -34,7 +34,7 @@ core/dan_analyzer_model.hpp defines:
 - Game modes: classic and platformer.
 - Provenance: geometry, simulation, visual, and gameplay telemetry.
 - Evidence states: unknown, observed, measured, validated, unsupported.
-- Segment measurements keyed by sample-index ranges (not assumed world-X spans), with minimum clearance, hazard density, timing windows, required/peak input rate, success rate and attempts to complete. Segment mode is explicit so classic and platformer evidence cannot be mixed silently.
+- Segment measurements keyed by sample-index ranges (not assumed world-X spans), with minimum clearance, hazard density, timing windows, required/peak input rate, success rate and attempts to complete. Segment mode is explicit so classic and platformer evidence cannot be mixed silently. Segment phase distinguishes start-idle, active gameplay, pause, respawn and transition samples; only active-gameplay segments contribute to difficulty readiness.
 - All 26 user-requested skillset labels.
 - Initial 1st–10th Dan tier names, without mapping measurements to tiers.
 - A readiness gate that refuses dan assignment unless every segment has validated geometry and simulation evidence and no unsupported interactions.
@@ -66,6 +66,8 @@ The uploaded geodan-log(2).txt is a rotated-slope contact run. It records:
 The uploaded geodan-log(1).txt is a separate Future Candy MEGER ship-mode run. Its header also says noclip=unverified. The player state remains stationary for the first 240 logged frames despite nonzero reported X velocity, then begins moving; around frame 246 the recorded mode changes from ship to cube, the player Y position changes sharply, and upside changes to 1. This is a useful transition/telemetry test case, but without verified noclip state and an explicit trigger/event correlation it must not be used as a validated physics measurement.
 
 This is useful diagnostic evidence for the simulator's collision adapter and for defining what the Analyzer should record. It does not by itself establish the correct slope collision shape or whether the run is a valid no-noclip physics reference.
+
+Both this log and geodan-log(1).txt also contain long initial periods where the player position is static while the logger continues emitting samples. The Analyzer must classify startup idle, pause, respawn and transition intervals separately from active gameplay; otherwise idle samples would distort pace, survival-time and input-rate measurements. The current evidence model therefore has an explicit segment phase, and only ActiveGameplay segments count toward calibration readiness.
 
 ## Why no scoring formula yet
 
