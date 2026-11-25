@@ -8,7 +8,7 @@
 
 - **Status:** Active — prediction data model and nested RAII simulation guard implemented; game-facing simulation remains unimplemented.
 - **Active task:** Implement a safe, GeoDan-owned trajectory simulator using verified Geometry Dash 2.2081 behavior.
-- **Current stage:** Core prediction state/data model.
+- **Current stage:** Core prediction state/data model and scoped guard.
 - **Current branch:** `workflow-codex/trajectory-rebuild`.
 - **Current HEAD before this stage:** `80fc253d386d515f4fb51bea0dfc280927368d2f`.
 
@@ -49,7 +49,7 @@
 
 ## Files changed
 
-- `core/trajectory_model.hpp` — independent hold/release path state, bounded sample storage, stop reasons, reset semantics.
+- `core/trajectory_model.hpp` — independent hold/release path state, bounded sample storage, stop reasons, reset semantics, and nested thread-local RAII simulation guard.
 - `tests/test_trajectory_model.cpp` — pure C++ checks for branch isolation, stopping, reset, and bounds.
 
 ## Handoff / next action
@@ -60,7 +60,7 @@
 - **Exact stopping point:** Core model and test source committed on isolated remote branch; no game-facing simulation code added.
 - **Next action:** Continue with the side-effect guard and hidden-player lifecycle only after confirming all exact hook signatures and game call paths.
 - **Blockers / risks:** Binding files expose only part of the game implementation; internal GD behavior requires careful in-game validation. Local Codex workspace and local build are unavailable in this session.
-- **Relevant commits:** `f356d04c8f4f427080e7a95832656aa6aa2faf36` (trajectory model + test); `97ff42c7f181c299c3d9576bcef71353f40a3d44` (manual-only Actions trigger).
+- **Relevant commits:** `f356d04c8f4f427080e7a95832656aa6aa2faf36` (trajectory model + test); `97ff42c7f181c299c3d9576bcef71353f40a3d44` (manual-only Actions trigger); `63b70def0fc7e22a1c7656f0fc001466fe3e1a5d` (nested simulation guard).
 
 ## Session log
 
@@ -70,4 +70,4 @@
 - Added pure data structures for two independent prediction paths, bounded sample count, terminal reasons, and reset behavior.
 - Added a standalone C++ test source and compiled/ran it with `g++ -std=c++20 -Wall -Wextra -Werror`; all checks passed.
 - Changed the candidate workflow to `workflow_dispatch` only, so pushes no longer automatically consume Actions minutes. The workflow itself was not run.
-- Added a nested RAII simulation context using thread-local nesting depth. No Geode build or in-game test was performed.
+- Added a nested RAII simulation context using thread-local nesting depth. Compiled and ran the full equivalent pure-C++ assertion set with `g++ -std=c++20 -Wall -Wextra -Werror`; all checks passed. No Geode build or in-game test was performed.
