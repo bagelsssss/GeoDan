@@ -123,3 +123,4 @@ _Record exact repository-relative paths and a short description._
 - No build, runtime, visual, or performance test has been executed here. User must build/install the candidate and inspect the preview in-game.
 - Changed: tools/src/overlay.cpp, tools/mod.json, docs/level-recorder-design.md, checks/codex-check-list.md.
 - Next: build candidate, enable Portrait capture preview (TEST) in Geode mod settings, enter a level, and report visual results/build errors. Do not proceed to GPU readback until this passes.
+- Follow-up source review added the missing `capture` namespace alias used by the temporary preview hook; this is a source-level correction, not a build result.

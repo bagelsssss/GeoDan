@@ -18,6 +18,7 @@ using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
 namespace tr = geodan::core::trail;
 namespace overlay = geodan::tools::overlay;
+namespace capture = geodan::tools::capture;
 
 namespace {
 
