@@ -8,14 +8,14 @@
 
 - **Status:** Active — isolated Level Recorder candidate; not approved for promotion.
 - **Active task:** Implement a 360 × 1080 portrait level recorder with black background, diagnostic overlays, parser-ready session output, and a 60 FPS performance target.
-- **Current stage:** Portable PNG encoder and background queue-draining worker added with synthetic tests; tests/build still pending. Portrait preview remains unvalidated. GPU readback is gated on preview validation and graphics-backend capability inspection.
+- **Current stage:** Portable hitbox sidecar writer, per-frame geometry model, worker transport, and PlayLayer geometry snapshot adapter added. Live capture producer is still not connected; GPU readback, preview validation, and current sidecar tests remain pending.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
-- **Latest verified candidate HEAD before this checklist update:** `8ae9271c1b76b1c817f24855052515fe1724fb90`.
+- **Latest verified candidate HEAD before this checklist update:** `4a47d2bdfc6acd1ba6a6c665e74dee4d543ab3bb`.
 - **Local workspace:** `~/workflow-codex` has not been verified in this session. Remote GitHub branch is the candidate source.
 - **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
 - **Main-workflow changed:** No.
-- **Other candidate:** `workflow-codex/trajectory-rebuild` is separate and untouched by this recorder task.
+- **Other candidates:** `workflow-codex/trajectory-rebuild` is separate and untouched. Claude's review branch `workflow-claude/level-recorder-from-codex` is at `47f3cb5d41a047611b5b2dfdd2b545d9ef7651e3`, based on our earlier `92e6fb0`; it contains a two-line Geode-prelude fix only and is not merged.
 
 ## Project constraints
 
@@ -35,7 +35,7 @@
 - **Base SHA:** `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Promotion status:** Experimental only. User has not approved promotion.
 - **Main-workflow changed:** No.
-- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate, reusable preallocated RGBA buffer pool, bounded non-blocking queue and model tests. Shared hitbox/trail renderer is used by live PlayLayer. Added portrait target and disabled-by-default preview harness. Added `core/recorder_session.hpp`, a worker-owned portable sink for encoded PNG frames, versioned manifest, ordered frame files and CSV metadata, plus synthetic session tests. Added `core/recorder_png_encoder.hpp` (RGBA8 PNG with stored DEFLATE blocks) and `core/recorder_worker.hpp` (background queue drain, encode, session write, finalization and join), with synthetic tests. No GPU readback or gameplay start/stop controls yet.
+- **Implementation so far:** Added portable capture timing/backpressure, portrait target, shared overlay renderer, PNG encoder, worker and session writer. New `core/recorder_geometry.hpp` defines capture-pixel bounds, frame phase/status, coordinate mapping and CSV serialization. `SessionWriter` now creates `hitboxes.csv` and writes one sentinel plus player/hazard rows for every persisted PNG. `QueuedFrame` transports geometry through the worker. `tools/src/recorder_geometry.hpp` snapshots player/hazard bounds from `PlayLayer`, maps them through the portrait transform, and marks unclassified/unsupported geometry explicitly. Rotated/circular hazards use conservative AABBs; lethal slope edges are unsupported. This is a provisional diagnostic proxy, not verified exact engine collision geometry. The snapshot helper is not yet called by a live capture producer.
 - **Trajectory candidate:** Separate branch `workflow-codex/trajectory-rebuild`; not merged or modified.
 
 ## Decisions and findings
@@ -156,3 +156,23 @@ _Record exact repository-relative paths and a short description._
 - GPU readback is not implemented yet: preview orientation/content is unvalidated, and the project targets Windows, Android, macOS and iOS with different GL/GLES extension availability. Do not guess PBO/map/fence APIs or substitute synchronous `newCCImage` as a 60 FPS path. Next: run portable tests and validate the portrait preview; then inspect the active graphics backend/extensions and implement a capability-gated asynchronous readback path.
 - Exact changed files: `core/recorder_png_encoder.hpp`, `core/recorder_worker.hpp`, `tests/test_recorder_png_encoder.cpp`, `tests/test_recorder_worker.cpp`, `.github/workflows/geodan-recorder-model.yml`, `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
 - No local workspace, Geode build, test execution, Actions run, in-game test, GPU readback, performance benchmark, or promotion is claimed. `main` and `~/main-workflow` remain unchanged.
+
+
+
+### 2026-11-25 — Recorder hitbox sidecar and Claude cross-review handoff
+- Re-read the shared workflow guide and both agent checklists before this task. Current main's Claude checklist records the user's workflow decision that Claude reviews Codex's candidate, then builds/reviews on a Claude-owned branch; no changes were made to Claude's checklist.
+- Verified current Codex Recorder branch before checklist update: `workflow-codex/level-recorder`, HEAD `4a47d2bdfc6acd1ba6a6c665e74dee4d543ab3bb`. It is based on main `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`; current main has advanced by 9 documentation commits (README and Claude checklist only), with no conflicting source-code changes. Candidate remains experimental.
+- Added `core/recorder_geometry.hpp`: portable frame geometry, capture transform (world/Cocos to top-left capture-pixel coordinates), clipping/intersection, validation, and exact hitboxes.csv row serialization. Valid frames require player evidence; unsupported frames can preserve uncertainty.
+- Updated `core/recorder_session.hpp` to create and write `hitboxes.csv` in lockstep with PNG and `frames.csv` output. Metadata failures make the session error/incomplete rather than silently publishing missing geometry.
+- Updated `core/recorder_worker.hpp` so each queued frame carries its matching geometry snapshot to the worker-owned SessionWriter.
+- Added `tools/src/recorder_geometry.hpp`: PlayLayer snapshot adapter using the existing diagnostic hitbox geometry helpers and portrait capture transform. It skips decorations, disabled groups and no-touch objects; marks unclassified interactive objects and lethal slope edges unsupported. It uses conservative AABB envelopes for rotated/circular hazards and the player's existing inner diagnostic box. This is not proven exact engine collision geometry.
+- Added/updated tests: `tests/test_recorder_geometry.cpp`, `tests/test_recorder_session.cpp`, and `tests/test_recorder_worker.cpp`. Updated the manual-only recorder workflow to include the geometry test. These new sidecar/session/worker tests have NOT been run in this session; no Actions run is claimed.
+- Claude's checklist records a review branch `workflow-claude/level-recorder-from-codex` at `47f3cb5d41a047611b5b2dfdd2b545d9ef7651e3`, based on our earlier `92e6fb0`. Claude ran the portable suite successfully on that earlier revision and type-checked `overlay.cpp` (no SDK build or in-game test). Claude found `overlay_renderer.hpp` needed `using namespace geode::prelude;`; I inspected Claude's exact two-line diff and applied that small source fix to this Codex branch with provenance. Claude's review branch has not incorporated the newer sidecar work.
+- Updated the separate Image Parser candidate `workflow-codex/image-parser` (latest `a0426901f160943c097cce2ea64657d0d3b4fc0c`) to accept `unknown` phase rows, validate per-frame metadata consistency even for unknown phases, and document the provisional AABB geometry limitations.
+- Important limitation: `snapshotGeometry` is not yet called by a live frame-capture producer. The current Recorder still lacks the GPU readback/PlayLayer enqueue lifecycle, so no real session is produced yet. Portrait preview remains unvalidated.
+- Potential contract decision before freezing: the v1 manifest fields did not change, but the session directory now includes a required parser sidecar. Consider whether to keep the manifest schema at v1 with an added sidecar file or explicitly bump the session contract to v2. No version bump was made.
+- Tests/build record: Claude's earlier tests at base revision `92e6fb0` passed for hitbox model, recorder geometry/model/PNG/session/worker, and tool registry; `overlay.cpp` type-check had only known header noise. This does NOT validate the newer sidecar writer/worker changes. No current test, Geode SDK build, Actions dispatch, in-game capture, GPU readback, or performance test was run here.
+- Exact files changed on this branch: `core/recorder_geometry.hpp`, `core/recorder_session.hpp`, `core/recorder_worker.hpp`, `tools/src/recorder_geometry.hpp`, `tools/src/overlay_renderer.hpp`, `tests/test_recorder_geometry.cpp`, `tests/test_recorder_session.cpp`, `tests/test_recorder_worker.cpp`, `.github/workflows/geodan-recorder-model.yml`, `docs/image-parser-session-format.md`, `docs/level-recorder-design.md`, this checklist.
+- No `main`, `~/main-workflow`, or Claude-owned branch was changed. Local `~/workflow-codex` was not accessed; all edits were on the isolated remote Codex branch.
+- **Claude handoff request:** Review latest `workflow-codex/level-recorder` HEAD `4a47d2b`, especially the new geometry adapter, CSV sidecar writer and worker transport. Please run the updated portable tests on a Claude-owned branch based on this latest revision, report exact outcomes and geometry/API concerns in Claude's checklist, and do not edit the Codex branch.
+- **Next Codex action:** after Claude's review, resolve any issues, connect the geometry snapshot to the actual capture producer once GPU readback/recorder lifecycle is ready, and validate the coordinate mapping against a real portrait frame.
