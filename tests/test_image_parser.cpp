@@ -90,6 +90,43 @@ int main() {
     }
     {
         const auto path = makeSession(2);
+        auto manifest = path / "manifest.json";
+        std::ifstream in(manifest);
+        std::string json((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        const auto widthAt = json.find("\\"width\\":360");
+        assert(widthAt != std::string::npos);
+        json.replace(widthAt, std::string("\\"width\\":360").size(), "\\"width\\":720");
+        std::ofstream out(manifest); out << json; out.close();
+        for (std::uint32_t i = 0; i < 2; ++i) {
+            char name[16]; std::snprintf(name, sizeof(name), "%06u", i);
+            writePngHeader(path / "frames" / (std::string("frame_") + name + ".png"), 720, 1080);
+        }
+        std::string error;
+        const auto result = parseSession(path, error);
+        assert(result && result->clearance.meanPx.value == 3.75);
+        std::filesystem::remove_all(path);
+    }
+    {
+        const auto path = makeSession(1);
+        auto geometry = path / "hitboxes.csv";
+        std::ifstream in(geometry);
+        std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        for (const auto& kind : {"frame", "player", "hazard"}) {
+            const auto oldValue = std::string("0,active_gameplay,valid,") + kind;
+            const auto newValue = std::string("0,active_gameplay,unsupported,") + kind;
+            const auto at = content.find(oldValue);
+            assert(at != std::string::npos);
+            content.replace(at, oldValue.size(), newValue);
+        }
+        std::ofstream out(geometry); out << content; out.close();
+        std::string error;
+        const auto result = parseSession(path, error);
+        assert(result && result->unclassifiedFrameCount == 1);
+        assert(result->clearance.meanPx.status == EvidenceStatus::Unsupported);
+        std::filesystem::remove_all(path);
+    }
+    {
+        const auto path = makeSession(2);
         std::filesystem::remove(path / "hitboxes.csv");
         std::string error;
         const auto result = parseSession(path, error);
