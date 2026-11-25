@@ -139,3 +139,5 @@ _Record exact repository-relative paths and a short description._
 - Source audit follow-up: manifest now records the actual first frame sequence (not an assumed zero); synthetic test uses sequence 10 then 12 to exercise a gap.
 
 - Updated the existing `workflow_dispatch`-only portable test workflow to compile and run the session-writer test alongside the recorder model test. No automatic per-commit trigger was added, and the workflow has not been dispatched.
+
+- Added the explicit v1 Image Parser handoff document and JSON Schema. It defines manifest status handling, Unix-vs-monotonic timestamp semantics, CSV columns, frame naming, sequence gaps, parser consistency checks, and incomplete-session behavior. No parser code or compatibility run is claimed.
