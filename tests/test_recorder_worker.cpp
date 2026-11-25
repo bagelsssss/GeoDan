@@ -51,6 +51,12 @@ int main() {
                            std::istreambuf_iterator<char>()};
     if (json.find("\"status\": \"complete\"") == std::string::npos)
         return EXIT_FAILURE;
+    std::ifstream hitboxInput(root / "session" / "hitboxes.csv");
+    const std::string hitboxes{std::istreambuf_iterator<char>(hitboxInput),
+                               std::istreambuf_iterator<char>()};
+    if (hitboxes.find("0,active_gameplay,valid,player,1,0,0,1,1") == std::string::npos ||
+        hitboxes.find("0,active_gameplay,valid,hazard,2,1.5,0,2,1") == std::string::npos)
+        return EXIT_FAILURE;
     std::error_code ignored;
     std::filesystem::remove_all(root, ignored);
     std::puts("recorder worker: queue drain, PNG output and finalization checks passed");
