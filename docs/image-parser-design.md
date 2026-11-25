@@ -21,7 +21,7 @@ The hitbox sidecar has this exact header:
 sequence,phase,geometry_status,entity_type,entity_id,left,top,right,bottom
 ```
 
-There is one `frame` sentinel row per persisted frame. It declares the phase and whether geometry enumeration for that frame is complete. Entity rows list the player's and visible, collision-enabled hazard bounds for that frame.
+There is one `frame` sentinel row per persisted frame. It declares the phase and whether geometry enumeration for that frame is complete. Entity rows list the player's and collision-enabled hazard bounds intersecting the capture rectangle for that frame.
 
 - `phase`: `start_idle`, `active_gameplay`, `paused`, `respawn`, `transition`, or `unknown`. Unknown is never treated as active gameplay.
 - `geometry_status`: `valid` or `unsupported`.
