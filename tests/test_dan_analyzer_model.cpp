@@ -35,6 +35,15 @@ int main() {
     assert(dan::assessReadiness(level) == dan::AnalysisReadiness::CalibrationEligible);
     assert(dan::canAssignDan(level));
 
+    auto platformerSegment = segment;
+    platformerSegment.index = 1;
+    platformerSegment.mode = dan::GameMode::Platformer;
+    platformerSegment.firstSampleIndex = 301;
+    platformerSegment.lastSampleIndex = 500;
+    level.segments.push_back(platformerSegment);
+    assert(dan::assessReadiness(level) == dan::AnalysisReadiness::CalibrationEligible);
+    level.segments.pop_back();
+
     level.segments[0].minimumClearance = {};
     assert(dan::assessReadiness(level) == dan::AnalysisReadiness::Measured);
     assert(!dan::canAssignDan(level));
