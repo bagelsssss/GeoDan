@@ -1,0 +1,17 @@
+name: GeoDan recorder model tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recorder-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile recorder model tests
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -Icore tests/test_recorder_model.cpp -o /tmp/geodan-recorder-tests
+      - name: Run recorder model tests
+        run: /tmp/geodan-recorder-tests
