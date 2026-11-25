@@ -23,8 +23,8 @@ int main() {
 
     dan::SegmentEvidence segment;
     segment.index = 0;
-    segment.startX = 0.0;
-    segment.endX = 300.0;
+    segment.firstSampleIndex = 0;
+    segment.lastSampleIndex = 300;
     segment.mode = dan::GameMode::Classic;
     segment.minimumClearance = metric(2.5, dan::EvidenceSource::Geometry);
     segment.tightestTimingWindowFrames = metric(3.0, dan::EvidenceSource::Simulation);
@@ -57,6 +57,10 @@ int main() {
     assert(!dan::canAssignDan(level));
 
     level.segments[0].unsupportedInteractions = 0;
+    level.segments[0].successfulTrialRate =
+        metric(1.5, dan::EvidenceSource::Simulation);
+    assert(dan::assessReadiness(level) == dan::AnalysisReadiness::InvalidEvidence);
+    level.segments[0].successfulTrialRate = {};
     level.skillsets.push_back({dan::Skillset::Wave, 5, 4, dan::EvidenceState::Measured});
     assert(dan::assessReadiness(level) == dan::AnalysisReadiness::InvalidEvidence);
 
