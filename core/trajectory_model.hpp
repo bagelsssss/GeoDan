@@ -67,6 +67,9 @@ struct State {
     bool holdingJump = false;
     bool isPlatformer = false;
     bool goingLeft = false;
+    bool velocityUncapped = false;
+    bool robotBoostInvalidated = false;
+    float robotBoostCharge = 0.f;
     Mode mode = Mode::Unsupported;
 };
 
@@ -121,7 +124,9 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
     }
 
     const float dt = request.stepSeconds;
-    const float scaleMod = state.scale == 1.f ? 1.f : 0.8f;
+    const bool flyingMode = state.mode == Mode::Ship || state.mode == Mode::Ufo ||
+                            state.mode == Mode::Wave || state.mode == Mode::Swing;
+    const float scaleMod = state.scale == 1.f ? 1.f : (flyingMode ? 0.85f : 0.8f);
     const float modifiedGravity = state.gravity * state.gravityMultiplier;
     const float horizontalSpeed = state.playerSpeed * state.speedMultiplier;
 
@@ -152,6 +157,11 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
                         holdJump = false;
                     }
                 } else {
+                    if (state.mode == Mode::Robot && state.jumping && holdJump &&
+                        !state.robotBoostInvalidated && state.robotBoostCharge < 1.5f) {
+                        state.robotBoostCharge += scaledDt * 0.1f;
+                        state.velocityY += modifiedGravity * scaledDt * gravityFlip * gravityScale;
+                    }
                     state.velocityY -= gravityScale * modifiedGravity * scaledDt * gravityFlip;
                     if (!state.upsideDown) state.velocityY = std::max(state.velocityY, -15.f);
                     else state.velocityY = std::min(state.velocityY, 15.f);
@@ -160,7 +170,9 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
             }
             case Mode::Ship: {
                 const bool falling = state.upsideDown ? state.velocityY > 0.f : state.velocityY < 0.f;
-                float shipMod = holdJump ? -1.f : (falling ? 1.2f : 0.8f);
+                float shipMod = holdJump && !state.velocityUncapped ? -1.f :
+                                (state.velocityUncapped ? (falling ? 0.8f : -1.f) : 0.8f);
+                if (!holdJump && !falling) shipMod = 1.2f;
                 const float boostMod = holdJump && falling ? 0.5f : 0.4f;
                 const float gravity = shipMod >= 0.f ? modifiedGravity : 0.958199f;
                 state.velocityY -= gravity * scaledDt * gravityFlip * shipMod * boostMod / scaleMod;
@@ -191,7 +203,8 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
                     state.velocityY *= 0.8f;
                     state.jumpUnused = false;
                 }
-                state.velocityY -= 0.4f * modifiedGravity * scaledDt * flip(state);
+                const float swingScale = state.scale == 1.f ? 0.4f : 0.6f;
+                state.velocityY -= swingScale * modifiedGravity * scaledDt * flip(state);
                 state.velocityY = std::clamp(state.velocityY, -8.f, 8.f);
                 break;
             }
@@ -203,9 +216,10 @@ inline Result predict(State state, bool holdJump, const std::vector<Obstacle>& o
         }
 
         const float dx = horizontalSpeed * dt * (state.goingLeft ? -1.f : 1.f);
-        const float dy = state.mode == Mode::Wave
+        float dy = state.mode == Mode::Wave
             ? std::fabs(dx) * flip(state) * (holdJump ? 1.f : -1.f)
             : state.velocityY * scaledDt;
+        if (state.mode == Mode::Wave && state.scale != 1.f) dy *= 2.f;
         state.position.x += dx;
         state.position.y += dy;
         state.holdingJump = holdJump;
