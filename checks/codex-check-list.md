@@ -25,7 +25,7 @@
 - **Task:** Parse complete Classic Recorder Session v1 recordings, validate frame/timestamp integrity, group chronological images, and measure physical player-to-hazard clearance.
 - **Remote branch:** `workflow-codex/image-parser`
 - **Branch base:** `main` at `f5835c3d1291884e25e9384c3f70b0694cb0a7a0`.
-- **Latest implementation commit before this checklist update:** `3d4cccfe57911a4ba51ab325fb3d7001588d3e7a`.
+- **Latest implementation/documentation commit before this checklist update:** `2d2ac9fd5a0e7243cbc96e57ff0fa8e3b4047d84`.
 - **Local workspace:** User's `~/workflow-codex` was not accessed. Source was edited on the isolated remote branch and mirrored into `/tmp/geodan-parser` only for compilation/tests.
 - **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
 - **Main-workflow changed:** No.
@@ -87,5 +87,5 @@ _Record exact repository-relative paths and a short description._
 - No GitHub Actions dispatch, Recorder build, Geode build, real capture parse, Analyzer integration, or in-game test was performed.
 - Critical dependency: the current Recorder candidate writes manifest/frames.csv/PNG but does not emit the required `hitboxes.csv`. The parser is therefore not yet end-to-end usable on existing sessions. Next step is to implement a recorder-side geometry sidecar producer using actual collision geometry and verify coordinate mapping against the captured PNG.
 - Timing windows, Nerves, and skillset classification are deliberately left Missing until telemetry and formulas are specified; 60 FPS imagery cannot establish sub-frame 120/240 FPS timing evidence.
-- Files changed: `core/image_parser.hpp`, `tests/test_image_parser.cpp`, `docs/image-parser-design.md`, `.github/workflows/geodan-image-parser-tests.yml`, this Codex checklist.
+- Files changed: `core/image_parser.hpp`, `tests/test_image_parser.cpp`, `docs/image-parser-design.md`, `.github/workflows/geodan-image-parser-tests.yml`, candidate-branch `README.md`, this Codex checklist.
 - No user-local workflow directory was assumed or changed. `main` and `~/main-workflow` were not changed.
