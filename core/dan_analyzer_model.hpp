@@ -525,8 +525,8 @@ inline RawScoreAggregate aggregateRawSectionScores(const LevelEvidence& level) {
         total += static_cast<long double>(section.rawDifficultyContribution.value);
         ++result.scoredSectionCount;
     }
-    if (result.scoredSectionCount == 0 ||
-        !std::isfinite(static_cast<double>(total)) ||
+    if (result.scoredSectionCount == 0) return result;
+    if (!std::isfinite(static_cast<double>(total)) ||
         total > std::numeric_limits<double>::max() ||
         total < -std::numeric_limits<double>::max()) {
         result.overflow = true;
