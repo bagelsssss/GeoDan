@@ -78,23 +78,33 @@ public:
         FrameStamp stamp;
         stamp.sequence = m_nextSequence++;
         stamp.timestampNs = timestampNs;
+        const auto expected = 1'000'000'000ull / m_fps;
         if (m_started) {
             stamp.deltaNs = timestampNs - m_lastTimestampNs;
-            const auto expected = 1'000'000'000ull / m_fps;
-            if (expected > 0 && timestampNs > m_nextDeadlineNs) {
-                const auto missed = (timestampNs - m_nextDeadlineNs) / expected;
-                stamp.missedIntervals = static_cast<std::uint32_t>(
-                    std::min<std::uint64_t>(missed,
-                        std::numeric_limits<std::uint32_t>::max()));
-                m_totalMissed += stamp.missedIntervals;
-            }
+            const auto missed = timestampNs > m_nextDeadlineNs
+                ? (timestampNs - m_nextDeadlineNs) / expected
+                : 0;
+            stamp.missedIntervals = static_cast<std::uint32_t>(
+                std::min<std::uint64_t>(missed,
+                    std::numeric_limits<std::uint32_t>::max()));
+            m_totalMissed += stamp.missedIntervals;
+
+            // Keep the cadence anchored to the original 60 Hz timeline so
+            // small per-frame delays accumulate instead of being hidden.
+            const auto intervalsToAdvance = missed + 1;
+            const auto remaining = std::numeric_limits<std::uint64_t>::max() -
+                                   m_nextDeadlineNs;
+            m_nextDeadlineNs = intervalsToAdvance > remaining / expected
+                ? std::numeric_limits<std::uint64_t>::max()
+                : m_nextDeadlineNs + intervalsToAdvance * expected;
+        } else {
+            m_nextDeadlineNs = timestampNs >
+                    std::numeric_limits<std::uint64_t>::max() - expected
+                ? std::numeric_limits<std::uint64_t>::max()
+                : timestampNs + expected;
         }
         m_started = true;
         m_lastTimestampNs = timestampNs;
-        const auto expected = 1'000'000'000ull / m_fps;
-        m_nextDeadlineNs = timestampNs > std::numeric_limits<std::uint64_t>::max() - expected
-            ? std::numeric_limits<std::uint64_t>::max()
-            : timestampNs + expected;
         ++m_captured;
         return stamp;
     }
