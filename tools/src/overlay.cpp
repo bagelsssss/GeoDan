@@ -13,12 +13,14 @@
 #include "core/hitbox_trail.hpp"
 #include "overlay_renderer.hpp"
 #include "portrait_capture_target.hpp"
+#include "recorder_live.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
 namespace tr = geodan::core::trail;
 namespace overlay = geodan::tools::overlay;
 namespace capture = geodan::tools::capture;
+namespace recorder_live = geodan::tools::recorder_live;
 
 namespace {
 
@@ -42,6 +44,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         capture::PortraitCaptureTarget portraitTest;
         bool portraitTestInitialized = false;
         bool portraitTestInitAttempted = false;
+        recorder_live::LiveRecorder recorder;
     };
 
     void postUpdate(float dt) {
@@ -79,6 +82,9 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             overlay::drawTrail(f.trailNode, f.tracker.trail(0));
             overlay::drawTrail(f.trailNode, f.tracker.trail(1));
         }
+        // Level recorder: runs after the overlays so recordings include them.
+        f.recorder.update(this, mod->getSettingValue<bool>("level-recorder"));
+
         // Temporary visual validation only: one extra render pass, no readback or files.
         const bool portraitPreview = mod->getSettingValue<bool>("portrait-preview-test");
         auto* portraitTarget = f.portraitTest.renderTexture();
@@ -115,7 +121,14 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
     }
 
     void resetLevel() {
+        // A restart ends the current recording attempt; the next frame starts a new one.
+        m_fields->recorder.stop("level_restart");
         PlayLayer::resetLevel();
         m_fields->tracker.reset();
+    }
+
+    void onQuit() {
+        m_fields->recorder.stop("user_quit");
+        PlayLayer::onQuit();
     }
 };
