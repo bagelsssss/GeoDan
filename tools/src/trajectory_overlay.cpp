@@ -40,9 +40,6 @@ bool makeState(PlayerObject* player, tr::State& out) {
     out.holdingJump = player->m_holdingJump;
     out.isPlatformer = player->m_isPlatformer;
     out.goingLeft = player->m_isGoingLeft;
-    out.velocityUncapped = player->m_isVelocityUncapped;
-    out.robotBoostInvalidated = player->m_robotBoostInvalidated;
-    out.robotBoostCharge = player->m_robotBoostCharge;
 
     if (player->m_isShip) out.mode = tr::Mode::Ship;
     else if (player->m_isBird) out.mode = tr::Mode::Ufo;
