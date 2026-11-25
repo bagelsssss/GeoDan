@@ -8,7 +8,7 @@
 
 - **Status:** Active — isolated Level Recorder candidate; not approved for promotion.
 - **Active task:** Implement a 360 × 1080 portrait level recorder with black background, diagnostic overlays, parser-ready session output, and a 60 FPS performance target.
-- **Current stage:** Portable recorder model and shared overlay renderer added; portrait offscreen target primitive added; not yet integrated into gameplay or read back.
+- **Current stage:** Temporary disabled-by-default portrait preview test integrated; needs local build and in-game visual validation. No pixel readback or recording writer.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Latest verified candidate HEAD before checklist update:** `4e258bfe560501d658fe9cce476f58e242fea53b`.
@@ -57,7 +57,7 @@ _Record exact repository-relative paths and a short description._
 - **Last updated:** 2026-11-25.
 - **Completed:** Isolated recorder branch created; portable capture config/timing/backpressure model, bounded queue, reusable pixel buffer pool, tests, design contract, and manual-only test workflow committed.
 - **Remaining:** Integrate the capture target with a verified gameplay-only subtree; choose/visually validate portrait focus and scale; implement verified GPU readback and background PNG/session writer; add recorder controls and parser handoff; build, test, and profile.
-- **Exact stopping point:** Shared overlay renderer and offscreen target primitive are committed; no gameplay integration, pixel readback, encoder, or recording lifecycle exists.
+- **Exact stopping point:** Temporary preview integration committed but not locally built or visually tested; no pixel readback, encoder, or recording lifecycle exists.
 - **Next action:** Continue Codex work in `~/workflow-codex` only after verifying that workspace and its branch/HEAD; otherwise continue through this isolated remote branch without claiming local workspace access.
 - **Blockers / risks:** Synchronous `CCRenderTexture::newCCImage` is unsuitable as an assumed 60 FPS hot path; cross-platform asynchronous GPU readback support is unverified. No test/build/Actions/in-game run has occurred.
 - **Promotion:** Not approved; `~/main-workflow` unchanged.
@@ -112,3 +112,14 @@ _Record exact repository-relative paths and a short description._
 - No build, test, in-game capture, pixel readback, PNG encoding, session writer, or performance measurement was run. The new header is uncompiled and unverified.
 - Changed files: `tools/src/portrait_capture_target.hpp` (added), `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
 - Next: local Geode build and visual test to confirm transform stack correctness, actual output dimensions, and whether `m_objectLayer` contains the desired level/player/overlay content without HUD. Only after that integrate into PlayLayer and choose the crop scale.
+
+### 2026-11-25 — temporary in-game portrait preview harness
+- Verified candidate HEAD before edit: c48dbb0660b835fbf1bb6c3a68d2b119dcce6cde; no local workspace access or build is claimed.
+- Added disabled-by-default Geode setting `portrait-preview-test`.
+- When enabled, PlayLayer::postUpdate initializes the 360×1080 render target once, renders m_objectLayer centered on player 1 using current game-window height as the initial crop reference, and displays the render texture as a small top-right preview.
+- The preview is outside m_objectLayer, so it is not recursively captured. It hides when the setting is disabled. No pixel readback, files, encoder, or session writer are involved.
+- The test renders an additional pass every gameplay update while enabled; this is deliberately temporary and may affect performance. Disable it after a short visual check.
+- Added documentation describing the test and its limitations.
+- No build, runtime, visual, or performance test has been executed here. User must build/install the candidate and inspect the preview in-game.
+- Changed: tools/src/overlay.cpp, tools/mod.json, docs/level-recorder-design.md, checks/codex-check-list.md.
+- Next: build candidate, enable Portrait capture preview (TEST) in Geode mod settings, enter a level, and report visual results/build errors. Do not proceed to GPU readback until this passes.

@@ -80,6 +80,12 @@ The image parser should consume a completed manifest, not scan an arbitrary fold
 - If the queue fills, drop the incoming frame without waiting and record the drop.
 - If GPU readback itself stalls, the CPU queue cannot solve it. Profile it separately and only add platform-specific asynchronous readback where the supported backend provides a correct implementation.
 
+## Temporary in-game portrait preview test
+
+A disabled-by-default Geode setting, `portrait-preview-test`, initializes the 360×1080 target and continuously renders `m_objectLayer` focused on player 1. The render texture is displayed as a small portrait preview in the top-right of the gameplay layer. This allows checking whether the object layer includes the player, level objects, and diagnostic overlays while excluding pause UI. It renders every gameplay update while enabled and is a temporary visual test only: it does not read pixels back, write files, or guarantee 60 FPS. Disable it after testing because it adds a second render pass.
+
+The initial crop scales the current game-window height to the target height and centers on player 1. This is a test heuristic, not a finalized camera/framing policy. Render-texture vertical orientation and transform correctness must be inspected in-game.
+
 ## Portrait offscreen target checkpoint
 
 Added `tools/src/portrait_capture_target.hpp`, a small Cocos render-target owner for exact pixel dimensions. It converts requested output pixels to Cocos points using the active content scale factor, verifies the resulting texture dimensions, retains/releases the render texture, clears each frame to opaque black, and visits a caller-supplied world subtree under an explicit focus point and scale. It uses `CCNode::transformAncestors()` so the subtree retains its live scene-graph transforms, while applying the portrait framing outside those transforms. The live game camera and scene graph are not reparented or modified.

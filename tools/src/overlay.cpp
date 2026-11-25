@@ -12,6 +12,7 @@
 #include "core/hitbox_model.hpp"
 #include "core/hitbox_trail.hpp"
 #include "overlay_renderer.hpp"
+#include "portrait_capture_target.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
@@ -37,6 +38,9 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         CCDrawNode* overlay = nullptr;
         CCDrawNode* trailNode = nullptr;
         tr::Tracker tracker;
+        capture::PortraitCaptureTarget portraitTest;
+        bool portraitTestInitialized = false;
+        bool portraitTestInitAttempted = false;
     };
 
     void postUpdate(float dt) {
@@ -74,6 +78,39 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             overlay::drawTrail(f.trailNode, f.tracker.trail(0));
             overlay::drawTrail(f.trailNode, f.tracker.trail(1));
         }
+        // Temporary visual validation only: one extra render pass, no readback or files.
+        const bool portraitPreview = mod->getSettingValue<bool>("portrait-preview-test");
+        auto* portraitTarget = f.portraitTest.renderTexture();
+        if (!portraitPreview) {
+            if (portraitTarget) portraitTarget->setVisible(false);
+            return;
+        }
+        if (!f.portraitTestInitAttempted) {
+            f.portraitTestInitAttempted = true;
+            f.portraitTestInitialized = f.portraitTest.initialize(360, 1080);
+            if (!f.portraitTestInitialized) {
+                log::error("GeoDan portrait preview: failed to create exact 360x1080 render target");
+                return;
+            }
+            portraitTarget = f.portraitTest.renderTexture();
+            if (!portraitTarget) return;
+            this->addChild(portraitTarget, 100000);
+        }
+        if (!f.portraitTestInitialized || !portraitTarget) return;
+        const auto focus = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
+        if (!focus) { portraitTarget->setVisible(false); return; }
+        const auto win = CCDirector::sharedDirector()->getWinSize();
+        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) return;
+        const float worldToPointScale = static_cast<float>(f.portraitTest.pointHeight()) / win.height;
+        if (!f.portraitTest.render(m_objectLayer, *focus, worldToPointScale)) return;
+        const float previewScale = std::min(
+            (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
+            (win.height * 0.78f) / static_cast<float>(f.portraitTest.pointHeight()));
+        portraitTarget->setScale(previewScale);
+        portraitTarget->setPosition(ccp(
+            win.width - f.portraitTest.pointWidth() * previewScale * 0.5f - 10.f,
+            win.height - f.portraitTest.pointHeight() * previewScale * 0.5f - 10.f));
+        portraitTarget->setVisible(true);
     }
 
     void resetLevel() {
