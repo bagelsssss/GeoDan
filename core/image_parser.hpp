@@ -26,6 +26,7 @@ namespace geodan::core::image_parser {
 
 inline constexpr std::uint32_t kRecorderSchemaVersion = 1;
 inline constexpr std::size_t kImagesPerSection = 10;
+inline constexpr double kReferenceCaptureWidth = 360.0;
 
 enum class SessionStatus { Recording, Complete, Incomplete, Error, Invalid };
 enum class Phase { StartIdle, ActiveGameplay, Paused, Respawn, Transition, Unknown };
@@ -165,6 +166,7 @@ inline std::optional<Manifest> readManifest(const std::filesystem::path& path, s
     Manifest m;
     const auto version = jsonUnsignedField(json, "schema_version");
     const auto status = jsonStringField(json, "status");
+    const auto stopReason = jsonStringField(json, "stop_reason");
     const auto width = jsonUnsignedField(json, "width");
     const auto height = jsonUnsignedField(json, "height");
     const auto fps = jsonUnsignedField(json, "target_fps");
@@ -172,7 +174,7 @@ inline std::optional<Manifest> readManifest(const std::filesystem::path& path, s
     const auto missed = jsonUnsignedField(json, "missed_capture_intervals");
     const auto drops = jsonUnsignedField(json, "writer_queue_drops");
     const auto start = jsonUnsignedField(json, "start_unix_ns");
-    if (!version || !status || !width || !height || !fps || !written || !missed ||
+    if (!version || !status || !stopReason || !width || !height || !fps || !written || !missed ||
         !drops || !start || !jsonNullOrUnsignedField(json, "end_unix_ns", m.endUnixNs) ||
         !jsonNullOrUnsignedField(json, "first_sequence", m.firstSequence) ||
         !jsonNullOrUnsignedField(json, "last_sequence", m.lastSequence)) {
@@ -271,6 +273,7 @@ inline std::optional<std::pair<std::uint32_t, std::uint32_t>> readPngDimensions(
     if (!input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()))) return {};
     constexpr std::array<std::uint8_t, 8> signature{0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a};
     if (!std::equal(signature.begin(), signature.end(), bytes.begin()) ||
+        bytes[8] != 0 || bytes[9] != 0 || bytes[10] != 0 || bytes[11] != 13 ||
         bytes[12] != 'I' || bytes[13] != 'H' || bytes[14] != 'D' || bytes[15] != 'R') return {};
     const auto read32 = [&](std::size_t i) {
         return (static_cast<std::uint32_t>(bytes[i]) << 24) |
@@ -367,9 +370,16 @@ inline double rectangleClearance(const Rect& a, const Rect& b) {
     return std::hypot(dx, dy);
 }
 
-inline ClearanceStatistics clearanceStatistics(const std::vector<double>& samples) {
+inline ClearanceStatistics clearanceStatistics(const std::vector<double>& samples,
+                                               bool unsupported = false) {
     ClearanceStatistics result;
-    if (samples.empty()) return result;
+    if (samples.empty()) {
+        if (unsupported) {
+            result.meanPx.status = result.medianPx.status =
+                result.minimumPx.status = result.percentile10Px.status = EvidenceStatus::Unsupported;
+        }
+        return result;
+    }
     auto sorted = samples;
     std::sort(sorted.begin(), sorted.end());
     const auto count = static_cast<std::uint32_t>(std::min<std::size_t>(
@@ -424,6 +434,7 @@ inline std::optional<ParseResult> parseSession(const std::filesystem::path& sess
     result.sourceFrameCount = frames->size();
     result.missedCaptureIntervals = manifest->missedCaptureIntervals;
     result.writerQueueDrops = manifest->writerQueueDrops;
+    const double clearanceScale = kReferenceCaptureWidth / static_cast<double>(manifest->width);
     std::vector<double> allClearances;
     for (std::size_t begin = 0; begin < frames->size();) {
         const auto phase = bySequence.at((*frames)[begin].sequence)->phase;
@@ -458,20 +469,20 @@ inline std::optional<ParseResult> parseSession(const std::filesystem::path& sess
             double closest = std::numeric_limits<double>::infinity();
             for (const auto* player : players)
                 for (const auto* hazard : hazards)
-                    closest = std::min(closest, rectangleClearance(*player, *hazard));
+                    closest = std::min(closest, rectangleClearance(*player, *hazard) * clearanceScale);
             if (std::isfinite(closest)) {
                 sectionClearances.push_back(closest);
                 allClearances.push_back(closest);
             }
         }
-        section.clearance = clearanceStatistics(sectionClearances);
+        section.clearance = clearanceStatistics(sectionClearances, section.unsupportedHitboxCount > 0);
         // Timing windows, Nerves and skillsets stay Missing until their telemetry
         // and calculation contracts are defined and supplied by the Recorder.
         result.sections.push_back(std::move(section));
         begin = end;
     }
     result.processedFrameCount = result.sourceFrameCount - result.unclassifiedFrameCount;
-    result.clearance = clearanceStatistics(allClearances);
+    result.clearance = clearanceStatistics(allClearances, result.unclassifiedFrameCount > 0);
     result.parserComplete = result.unclassifiedFrameCount == 0 && !result.sections.empty();
     error.clear();
     return result;
