@@ -8,10 +8,10 @@
 
 - **Status:** Active — isolated Level Recorder candidate; not approved for promotion.
 - **Active task:** Implement a 360 × 1080 portrait level recorder with black background, diagnostic overlays, parser-ready session output, and a 60 FPS performance target.
-- **Current stage:** Temporary disabled-by-default portrait preview test integrated; needs local build/in-game visual validation. Portable worker-owned session writer and synthetic tests added; test execution still required. No GPU readback or PNG encoder.
+- **Current stage:** Portable PNG encoder and background queue-draining worker added with synthetic tests; tests/build still pending. Portrait preview remains unvalidated. GPU readback is gated on preview validation and graphics-backend capability inspection.
 - **Candidate branch:** `workflow-codex/level-recorder`
 - **Branch base:** `main` at `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
-- **Latest verified candidate HEAD before this checklist update:** `c5015d204b88d30dacbaff3762d9e7c702df26fa`.
+- **Latest verified candidate HEAD before this checklist update:** `8ae9271c1b76b1c817f24855052515fe1724fb90`.
 - **Local workspace:** `~/workflow-codex` has not been verified in this session. Remote GitHub branch is the candidate source.
 - **Promotion status:** Experimental only. No approval to promote into `~/main-workflow`.
 - **Main-workflow changed:** No.
@@ -35,7 +35,7 @@
 - **Base SHA:** `5cfd2dc01f17761f77be4aee6970f8b1998b10f2`
 - **Promotion status:** Experimental only. User has not approved promotion.
 - **Main-workflow changed:** No.
-- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate, reusable preallocated RGBA buffer pool, bounded non-blocking queue and model tests. Shared hitbox/trail renderer is used by live PlayLayer. Added portrait target and disabled-by-default preview harness. Added `core/recorder_session.hpp`, a worker-owned portable sink for encoded PNG frames, versioned manifest, ordered frame files and CSV metadata, plus synthetic session tests. No GPU readback, actual PNG encoder, worker-thread lifecycle, controls or parser integration yet.
+- **Implementation so far:** Added portable config/timing/backpressure model, anchored fixed-rate capture gate, reusable preallocated RGBA buffer pool, bounded non-blocking queue and model tests. Shared hitbox/trail renderer is used by live PlayLayer. Added portrait target and disabled-by-default preview harness. Added `core/recorder_session.hpp`, a worker-owned portable sink for encoded PNG frames, versioned manifest, ordered frame files and CSV metadata, plus synthetic session tests. Added `core/recorder_png_encoder.hpp` (RGBA8 PNG with stored DEFLATE blocks) and `core/recorder_worker.hpp` (background queue drain, encode, session write, finalization and join), with synthetic tests. No GPU readback or gameplay start/stop controls yet.
 - **Trajectory candidate:** Separate branch `workflow-codex/trajectory-rebuild`; not merged or modified.
 
 ## Decisions and findings
@@ -57,7 +57,7 @@ _Record exact repository-relative paths and a short description._
 - **Last updated:** 2026-11-25.
 - **Completed:** Isolated recorder branch created; portable capture config/timing/backpressure model, bounded queue, reusable pixel buffer pool, tests, design contract, and manual-only test workflow committed.
 - **Remaining:** User must build and visually validate the portrait preview. Independently, run the portable model and session tests; implement PNG encoding and worker lifecycle that drains the bounded queue into SessionWriter; define/verify parser handoff; later validate GPU readback and profile on target hardware.
-- **Exact stopping point:** Temporary preview integration committed but not locally built or visually tested. Portable SessionWriter and tests are present but not executed; no pixel encoder or worker lifecycle exists.
+- **Exact stopping point:** Portable PNG encoder and background worker are committed with synthetic tests and manual workflow steps, but no tests/build have been executed here. Worker is not connected to PlayLayer. GPU readback remains intentionally unimplemented until preview and backend validation.
 - **Next action:** Continue Codex work in `~/workflow-codex` only after verifying that workspace and its branch/HEAD; otherwise continue through this isolated remote branch without claiming local workspace access.
 - **Blockers / risks:** Synchronous `CCRenderTexture::newCCImage` is unsuitable as an assumed 60 FPS hot path; cross-platform asynchronous GPU readback support is unverified. No test/build/Actions/in-game run has occurred.
 - **Promotion:** Not approved; `~/main-workflow` unchanged.
@@ -145,3 +145,14 @@ _Record exact repository-relative paths and a short description._
 - Corrected frame-delta validation for writer-queue drops: a persisted sequence gap means `delta_ns` is measured from the immediately prior captured frame, not the prior persisted frame. Contiguous rows must match timestamp difference; gap rows retain their real capture delta. Writer I/O failures now make a best-effort `error` manifest update.
 
 - Aggregate capture misses are now supplied independently from persisted CSV rows, alongside queue-drop totals after worker queue drain. This preserves cadence misses associated with frames that were subsequently dropped before disk write.
+
+
+### 2026-11-25 — portable PNG encoder and background worker
+- Verified the recorder branch files and the session-writer contract at commit `b904b683a2a84f506dbc96f22470a964662fe429`; all work remains isolated on `workflow-codex/level-recorder`.
+- Added `core/recorder_png_encoder.hpp`: a dependency-free RGBA8 PNG encoder using valid zlib DEFLATE stored blocks, PNG CRC-32 and Adler-32 checksums. This avoids a third-party library but prioritizes predictable low CPU complexity over compression ratio; output size/disk throughput must be measured.
+- Added `core/recorder_worker.hpp`: a background worker that owns SessionWriter, consumes the bounded queue, encodes RGBA pixel leases, writes frames in order, aggregates queue drops/cadence misses, drains accepted frames on stop, finalizes, and joins. The queue and pixel pool must outlive the worker and producer must stop before worker stop.
+- Added `tests/test_recorder_png_encoder.cpp` and `tests/test_recorder_worker.cpp`; extended the manual-only workflow to compile/run both tests. No test, build, or workflow dispatch was run here.
+- Updated `docs/level-recorder-design.md` with the encoder/worker contracts and explicit GPU-readback gate.
+- GPU readback is not implemented yet: preview orientation/content is unvalidated, and the project targets Windows, Android, macOS and iOS with different GL/GLES extension availability. Do not guess PBO/map/fence APIs or substitute synchronous `newCCImage` as a 60 FPS path. Next: run portable tests and validate the portrait preview; then inspect the active graphics backend/extensions and implement a capability-gated asynchronous readback path.
+- Exact changed files: `core/recorder_png_encoder.hpp`, `core/recorder_worker.hpp`, `tests/test_recorder_png_encoder.cpp`, `tests/test_recorder_worker.cpp`, `.github/workflows/geodan-recorder-model.yml`, `docs/level-recorder-design.md`, `checks/codex-check-list.md`.
+- No local workspace, Geode build, test execution, Actions run, in-game test, GPU readback, performance benchmark, or promotion is claimed. `main` and `~/main-workflow` remain unchanged.
