@@ -188,3 +188,13 @@
 - Scope proposed by Claude and not yet confirmed by user: hitboxes, unclassified outlines, hitbox trail, working trajectory, level recorder writing frames the image parser accepts. Dan analyzer out of scope (test failing).
 - Estimate given: about 3–5 hours of Claude work, plus game sessions from the user. Start after Codex's review report.
 - Status: waiting on Codex's review. No alpha code written yet.
+
+### 2026-11-25 — branch restructure (user decision)
+- User decisions: Claude is the builder for the remaining mod work; prune Codex's branches but keep a Codex master; build the rest of the mod on Claude's master; then work on the recorder.
+- Clarified: Claude cannot run the Windows Geode build here. The user runs builds on their PC and pastes output; Claude prepares the branch and commands.
+- Created `workflow-codex/master` at `e5937fc`: `workflow-codex/combined-tools` (`278afd7`) plus `workflow-codex/dan-analyzer` (`24a5aea`) merged. Conflicts kept the combined-tools versions of README, registry, registry test, mod.json and main.cpp (the analyzer branch predates trajectory). Codex checklist keeps both logs verbatim. Per-file portable tests (10 files) all PASS.
+- Archived Codex branches (copies, no history lost): `archive/codex-trajectory-rebuild` (3cc7391), `archive/codex-level-recorder` (d7d1a07), `archive/codex-image-parser` (795d579), `archive/codex-dan-analyzer` (24a5aea), `archive/codex-combined-tools` (278afd7).
+- Deleting the old `workflow-codex/*` names (except master) was refused by the remote (HTTP 403). Not retried. User to delete on GitHub or allow it.
+- Created `workflow-claude/master` at `e5937fc` (same as workflow-codex/master).
+- Not mine: `alpha-branch` at `f80478a` appeared on the remote; not touched.
+- Next: Windows build of `workflow-claude/master` (user runs), then Claude's build-the-rest work, then the recorder.
