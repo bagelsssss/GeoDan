@@ -136,23 +136,11 @@ void LiveRecorder::captureFrame(PlayLayer* layer) {
     const int pointHeight = s.target.pointHeight();
     if (!focus || win.height <= 0.f || pointHeight <= 0) { s.lastDrop = "no_focus"; return; }
     const float worldToPointScale = static_cast<float>(pointHeight) / win.height;
-    if (!s.target.render(layer->m_objectLayer, *focus, worldToPointScale)) {
+    // Synchronous GPU readback straight from the render target: exactly
+    // 360x1080 RGBA, rows top-down. Accepted by the user; measure at 60 FPS.
+    if (!s.target.renderAndRead(layer->m_objectLayer, *focus, worldToPointScale,
+                                lease.data(), lease.size())) {
         s.lastDrop = "render_fail";
-        return;
-    }
-
-    // Synchronous GPU readback. Accepted by the user; measure at 60 FPS.
-    CCImage* image = s.target.renderTexture()->newCCImage(true);
-    if (!image) { s.lastDrop = "readback_null"; return; }
-    const std::size_t expected = lease.size();
-    const std::size_t got = static_cast<std::size_t>(image->getDataLen());
-    const bool sameSize = image->getData() && got == expected;
-    if (sameSize) std::memcpy(lease.data(), image->getData(), expected);
-    image->release();
-    if (!sameSize) {
-        log::warn("GeoDan recorder: readback size mismatch, frame skipped");
-        // Shows bytes returned / bytes expected, so the cause is visible on screen.
-        s.lastDrop = "size " + std::to_string(got) + "/" + std::to_string(expected);
         return;
     }
 
