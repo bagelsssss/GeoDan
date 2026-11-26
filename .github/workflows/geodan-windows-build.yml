@@ -1,0 +1,39 @@
+name: GeoDan Windows build
+
+on:
+  # Manual only. Run it when a candidate checkpoint is ready for PC testing.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or commit to build (for example 4d26d48)"
+        required: false
+        default: "4d26d48"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Build Windows mod
+        id: build
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          target: Windows
+          build-config: RelWithDebInfo
+          path: tools
+          export-symbols: true
+
+      - name: Show build output path
+        shell: bash
+        run: |
+          echo "Built: ${{ steps.build.outputs.build-output }}"
+
+      - name: Upload .geode package
+        uses: actions/upload-artifact@v4
+        with:
+          name: geodan-tools-windows
+          path: ${{ steps.build.outputs.build-output }}
+          if-no-files-found: error
