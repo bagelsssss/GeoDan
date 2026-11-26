@@ -16,6 +16,7 @@
 #include "recorder_model.hpp"
 #include "recorder_session.hpp"
 #include "recorder_png_encoder.hpp"
+#include "recorder_video_sink.hpp"
 
 namespace geodan::core::recorder {
 
@@ -34,6 +35,9 @@ public:
     ~RecorderWorker() {
         if (m_started && !m_joined) (void)stop(0, "worker_destroyed");
     }
+
+    // Executable used for Mp4 storage. Call before start().
+    void setFfmpegPath(std::string path) { m_ffmpegPath = std::move(path); }
 
     // Session creation occurs inside the worker thread so SessionWriter has a
     // single owner for its entire lifetime.
@@ -78,6 +82,20 @@ private:
                 ready.set_value(false);
                 return;
             }
+            if (config.storage == FrameStorage::Mp4) {
+                video::SinkConfig sink;
+                sink.ffmpeg = m_ffmpegPath;
+                sink.outputPath = (m_writer.directory() / "video.mp4").string();
+                sink.width = static_cast<int>(config.width);
+                sink.height = static_cast<int>(config.height);
+                sink.fps = static_cast<int>(config.targetFramesPerSecond);
+                if (!m_sink.open(sink)) {
+                    m_error = "ffmpeg_start_failed: " + m_sink.error();
+                    (void)m_writer.abort(m_error, SessionWriter::nowUnixNs());
+                    ready.set_value(false);
+                    return;
+                }
+            }
             ready.set_value(true);
             readySent = true;
 
@@ -90,6 +108,18 @@ private:
                     m_error = "invalid_rgba_frame_buffer";
                     continue;
                 }
+                if (config.storage == FrameStorage::Mp4) {
+                    if (!m_sink.writeFrame(frame->pixels.data(), frame->pixels.size())) {
+                        m_error = m_sink.error().empty() ? "ffmpeg_frame_write_failed"
+                                                         : m_sink.error();
+                        continue;
+                    }
+                    if (!m_writer.writeVideoFrame(frame->stamp, frame->geometry)) {
+                        m_error = m_writer.error().empty() ? "session_frame_write_failed"
+                                                           : m_writer.error();
+                    }
+                    continue;
+                }
                 if (!m_encoder.encode(config.width, config.height,
                         std::span<const std::uint8_t>(frame->pixels.data(), frame->pixels.size()),
                         encoded)) {
@@ -100,6 +130,12 @@ private:
                     m_error = m_writer.error().empty() ? "session_frame_write_failed"
                                                        : m_writer.error();
                 }
+            }
+
+            // ffmpeg must finish writing video.mp4 before the manifest can say complete.
+            if (config.storage == FrameStorage::Mp4) {
+                if (!m_sink.close() && m_error.empty())
+                    m_error = m_sink.error().empty() ? "ffmpeg_close_failed" : m_sink.error();
             }
 
             m_writer.recordMissedCaptureIntervals(m_missedAtStop);
@@ -128,6 +164,8 @@ private:
     BoundedFrameQueue<QueuedFrame>& m_queue;
     SessionWriter m_writer;
     RgbaPngEncoder m_encoder;
+    video::FfmpegSink m_sink;
+    std::string m_ffmpegPath = "ffmpeg";
     std::thread m_thread;
     bool m_started = false;
     bool m_joined = false;
