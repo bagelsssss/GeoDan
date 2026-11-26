@@ -43,6 +43,10 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         capture::PortraitCaptureTarget portraitTest;
         bool portraitTestInitialized = false;
         bool portraitTestInitAttempted = false;
+        // Preview-only subtree: hitboxes and ground lines, no sprites or background.
+        // Hidden in the scene; visible only while the preview renders it.
+        CCNode* previewRoot = nullptr;
+        CCDrawNode* previewDraw = nullptr;
     };
 
     void postUpdate(float dt) {
@@ -101,19 +105,60 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             this->addChild(portraitTarget, 100000);
         }
         if (!f.portraitTestInitialized || !portraitTarget) return;
-        const auto focus = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
-        if (!focus) { portraitTarget->setVisible(false); return; }
+        const auto focus1 = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
+        if (!focus1) { portraitTarget->setVisible(false); return; }
         const auto win = CCDirector::sharedDirector()->getWinSize();
         if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) return;
-        const float worldToPointScale = static_cast<float>(f.portraitTest.pointHeight()) / win.height;
-        if (!f.portraitTest.render(m_objectLayer, *focus, worldToPointScale)) return;
+
+        // Dual mode: centre on the middle of both players, and widen the view
+        // when they are far apart vertically so both stay visible.
+        CCPoint focus = *focus1;
+        float span = 0.f;
+        if (m_gameState.m_isDualMode && m_player2) {
+            if (const auto focus2 = capture::PortraitCaptureTarget::worldPositionOf(m_player2)) {
+                focus = ccp((focus1->x + focus2->x) * 0.5f, (focus1->y + focus2->y) * 0.5f);
+                span = focus1->y > focus2->y ? focus1->y - focus2->y : focus2->y - focus1->y;
+            }
+        }
+        // Zoomed out from the screen scale (was 1x of the window height).
+        const float viewHeight = std::max(win.height * 2.f, span * 1.5f + 200.f);
+        const float worldToPointScale = static_cast<float>(f.portraitTest.pointHeight()) / viewHeight;
+
+        // Hitboxes only: rebuild the preview subtree every frame from the same
+        // hitbox drawer the scene uses, plus ground edges as lines.
+        if (!f.previewRoot) {
+            f.previewRoot = CCNode::create();
+            f.previewDraw = CCDrawNode::create();
+            if (!f.previewRoot || !f.previewDraw) return;
+            f.previewRoot->addChild(f.previewDraw);
+            f.previewRoot->setVisible(false);
+            m_objectLayer->addChild(f.previewRoot, 10002);
+        }
+        f.previewDraw->clear();
+        overlay::drawHitboxes(f.previewDraw, m_objects, m_objectLayer, true, true);
+        const float halfWidth = win.width / worldToPointScale;
+        const ccColor4F groundColour = ccc4f(1.f, 1.f, 1.f, 0.9f);
+        // Ground edges: mode 0 is the floor and mode 1 the ceiling. Assumed from
+        // the bindings name; check on the phone that they land on the ground.
+        for (int mode = 0; mode < 2; ++mode) {
+            const float groundY = this->getGroundHeightForMode(mode);
+            f.previewDraw->drawSegment(ccp(focus.x - halfWidth, groundY),
+                                       ccp(focus.x + halfWidth, groundY), 2.f, groundColour);
+        }
+
+        f.previewRoot->setVisible(true);
+        const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
+        f.previewRoot->setVisible(false);
+        if (!rendered) return;
+
         const float previewScale = std::min(
             (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
             (win.height * 0.78f) / static_cast<float>(f.portraitTest.pointHeight()));
         portraitTarget->setScale(previewScale);
+        // Left edge, vertically centred: keeps the top-right game buttons clear.
         portraitTarget->setPosition(ccp(
-            win.width - f.portraitTest.pointWidth() * previewScale * 0.5f - 10.f,
-            win.height - f.portraitTest.pointHeight() * previewScale * 0.5f - 10.f));
+            10.f + f.portraitTest.pointWidth() * previewScale * 0.5f,
+            win.height * 0.5f));
         portraitTarget->setVisible(true);
     }
 
