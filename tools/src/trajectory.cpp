@@ -341,8 +341,12 @@ class $modify(GeoDanTrajectoryBaseLayer, GJBaseGameLayer) {
     cocos2d::CCParticleSystemQuad* spawnParticle(const char* plist, int zOrder,
                                                   cocos2d::tCCPositionType positionType,
                                                   cocos2d::CCPoint position) {
-        if (trajectory::SimulationContext::active()) return nullptr;
-        return GJBaseGameLayer::spawnParticle(plist, zOrder, positionType, position);
+        // Never return nullptr: callers may dereference the result. Spawn normally,
+        // then detach the particle again while a simulation is running.
+        auto* particle = GJBaseGameLayer::spawnParticle(plist, zOrder, positionType, position);
+        if (particle && trajectory::SimulationContext::active())
+            particle->removeFromParentAndCleanup(true);
+        return particle;
     }
 
     void collisionCheckObjects(PlayerObject* player, gd::vector<GameObject*>* objects,
