@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "core/hitbox_model.hpp"
@@ -46,6 +47,10 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         // Hidden in the scene; visible only while the preview renders it.
         CCNode* previewRoot = nullptr;
         CCDrawNode* previewDraw = nullptr;
+        // On-screen status for the preview: state of the last update and a count
+        // of successful renders. Shows what the preview is doing without logcat.
+        CCLabelBMFont* previewStatus = nullptr;
+        int previewRenders = 0;
     };
 
     void postUpdate(float dt) {
@@ -89,6 +94,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         auto* portraitTarget = f.portraitTest.renderTexture();
         if (!portraitPreview) {
             if (portraitTarget) portraitTarget->setVisible(false);
+            if (f.previewStatus) f.previewStatus->setVisible(false);
             return;
         }
         if (!f.portraitTestInitAttempted) {
@@ -104,12 +110,27 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             // Hidden until the first successful render, so an early return never
             // leaves an empty target drawn at the origin.
             portraitTarget->setVisible(false);
+            // On-screen status line, bottom-left, so the preview can be diagnosed on the phone.
+            f.previewStatus = CCLabelBMFont::create("PV start", "chatFont.fnt");
+            if (f.previewStatus) {
+                f.previewStatus->setScale(0.4f);
+                f.previewStatus->setAnchorPoint(ccp(0.f, 0.f));
+                f.previewStatus->setPosition(ccp(4.f, 4.f));
+                f.previewStatus->setColor(ccc3(255, 230, 80));
+                this->addChild(f.previewStatus, 100001);
+            }
         }
         if (!f.portraitTestInitialized || !portraitTarget) return;
+        auto setStatus = [&f](const char* state) {
+            if (!f.previewStatus) return;
+            f.previewStatus->setVisible(true);
+            f.previewStatus->setString(
+                (std::string("PV ") + state + " " + std::to_string(f.previewRenders)).c_str());
+        };
         const auto focus1 = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
-        if (!focus1) { portraitTarget->setVisible(false); return; }
+        if (!focus1) { setStatus("no-player"); portraitTarget->setVisible(false); return; }
         const auto win = CCDirector::sharedDirector()->getWinSize();
-        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) return;
+        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) { setStatus("bad-size"); return; }
 
         // Dual mode: centre on the middle of both players, and widen the view
         // when they are far apart vertically so both stay visible.
@@ -130,7 +151,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         if (!f.previewRoot) {
             f.previewRoot = CCNode::create();
             f.previewDraw = CCDrawNode::create();
-            if (!f.previewRoot || !f.previewDraw) return;
+            if (!f.previewRoot || !f.previewDraw) { setStatus("no-preview"); return; }
             f.previewRoot->addChild(f.previewDraw);
             f.previewRoot->setVisible(false);
             m_objectLayer->addChild(f.previewRoot, 10002);
@@ -167,8 +188,11 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
         f.previewRoot->setVisible(false);
         if (!rendered) {
+            setStatus("render-fail");
             return;
         }
+        ++f.previewRenders;
+        setStatus("ok");
 
         const float previewScale = std::min(
             (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
