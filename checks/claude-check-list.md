@@ -8,7 +8,7 @@
 
 - **Status:** Active, paused for user decision on trajectory ownership.
 - **Active task:** None in progress. A trajectory port was started on local, uncommitted files and then stopped (see Handoff).
-- **Current stage:** Hitbox/trail/popup work is on `main`. No Claude trajectory candidate branch exists yet.
+- **Current stage:** Tools and the level recorder are done (`video.mp4`, matches the on-screen preview). Next: Input/Image Analyzer (I/I Analyzer), then its test, the dan analyzer, its test, and the simulator submod.
 - **Baseline checked:** `main` at `f5835c3` (verified by fast-forward on 2026-11-25; local clone `/home/claude/GeoDan-new`).
 - **Workspace:** `~/workflow-claude` is not present in this sandbox. Its existence on the user's machine is unverified.
 
@@ -203,3 +203,10 @@
 - Recorder work now lives on `workflow-claude/recorder` (master `0cba41f` plus the two recorder commits). It is not complete (frames drop with a readback size mismatch), so it is not merged into master yet.
 - Before every build command given to the user, state which branch and commit it builds and confirm it contains master's latest commit.
 - `alpha-branch` is Codex's branch and has the known regressions listed above (step reverted to frame time, `playBurstEffect` re-added, missing `;`, dan-analyzer test removed). Merging master into it needs the user's go-ahead and a conflict review first.
+
+### 2026-11-27 — roadmap update (user decision)
+- Status per user: tools and level recorder DONE. I/I Analyzer, dan analyzer and simulator PLANNED.
+- Order: (1) Input/Image Analyzer (I/I Analyzer), which replaces the old "image parser" name and compares the player's input with the preview video; (2) test it; (3) dan analyzer, which takes I/I results into the dan system; (4) test it; (5) simulator.
+- Decision (user): the simulator is a submod, not part of the tools mod. A robot that plays the level in place of human input. Trajectory prediction goes inside the simulator submod. It is not built yet.
+- Naming (user): "Input/Image Analyzer" (I/I Analyzer) in the UI and docs. Code names are not changed in this docs-only pass.
+- Docs-only update on `workflow-claude/roadmap-update`, created from `workflow-claude/master`. No code, build or test changes.

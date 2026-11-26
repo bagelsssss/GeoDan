@@ -4,13 +4,15 @@ Ranks Geometry Dash levels on the osu!mania dan scale.
 
 ## Pipeline
 
-| Part | Job | Status |
+| Stage | Job | Status |
 |---|---|---|
-| Tools | Diagnostic overlays and analysis helpers (hitboxes, trail, trajectory) | Mostly implemented candidate; not built or in-game tested (isolated branch) |
-| Level recorder | Records the level on a blank background with the tools on | Mostly implemented candidate; not built or in-game tested (isolated branch) |
-| Image parser | Turns the recorder's video into per-frame images the analyzer can read | planned |
-| Simulator | Plays the level by trial and error with no user input | planned |
-| Analyzer | Calculates the dan from a fixed dan list. The main mod | planned |
+| Tools | Diagnostic overlays (hitboxes, trail) and the level recorder's tool set | Done |
+| Level recorder | Records the level to `video.mp4` with the tools on, matching the on-screen preview | Done |
+| Input/Image Analyzer (I/I Analyzer) | Compares the player's input with the preview video, block by block (100 blocks), and produces the evidence the dan analyzer reads | Planned |
+| Dan analyzer | Takes the I/I Analyzer results into the dan system and returns a dan rank | Planned |
+| Simulator (submod) | A robot that plays the level in place of human input. Trajectory prediction lives here, not in the tools mod | Planned |
+
+Order: I/I Analyzer → test → dan analyzer → test → simulator. Once the simulator reproduces the manual results, its output replaces user input.
 
 The old repo, `GeoDan-deprecated`, is archived. Some of its code is being ported as each part is started.
 

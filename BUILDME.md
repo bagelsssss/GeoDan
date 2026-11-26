@@ -2,6 +2,8 @@
 
 Status: draft from Claude's findings. Codex's independent findings are **not yet combined** into this file. Replace this line when they are.
 
+Roadmap: tools and the level recorder are done; next is the Input/Image Analyzer (I/I Analyzer), then the dan analyzer, then the simulator submod. The branch names below predate that rename.
+
 Nothing in this file has been run in the game. Portable tests were run on Ubuntu 24.04 (g++ 13.3). Your machine uses g++ 16.2.1, so re-run the tests there first.
 
 ## 1. Verified project state
