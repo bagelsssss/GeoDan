@@ -9,7 +9,7 @@ static int g_fail = 0;
 #define CHECK(c) do { if (!(c)) { std::printf("FAIL line %d: %s\n", __LINE__, #c); ++g_fail; } } while (0)
 
 int main() {
-    CHECK(kToolCount == 6);
+    CHECK(kToolCount == 5);
     std::size_t availableCount = 0;
     for (const auto& tool : kTools)
         if (canEnable(tool)) ++availableCount;

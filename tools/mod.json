@@ -10,7 +10,7 @@
   "name": "GeoDan Tools",
   "version": "v0.2.0",
   "developer": "bagelsssss",
-  "description": "Debug tools for GeoDan: hitboxes, hitbox trail and trajectory. Diagnostic only; never changes collision or physics. Switch them on from the TOOLS button on the pause menu.",
+  "description": "Debug tools for GeoDan: hitboxes, hitbox trail and level recorder. Diagnostic only; never changes collision or physics. Switch them on from the TOOLS button on the pause menu.",
   "settings": {
     "hitboxes": {
       "type": "bool",
@@ -30,10 +30,10 @@
       "description": "Faded grey trail of the player's recent hitboxes.",
       "default": false
     },
-    "trajectory": {
+    "level-recorder": {
       "type": "bool",
-      "name": "Trajectory",
-      "description": "Predicted path ahead for hold and release.",
+      "name": "Level recorder",
+      "description": "Records the level, tools on, to a session folder.",
       "default": false
     },
     "portrait-preview-test": {

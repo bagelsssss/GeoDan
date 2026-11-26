@@ -32,11 +32,11 @@ bool savedOrDefault(std::string_view id, bool) {
 }
 
 // Which popup section a tool belongs to.
-enum class Section { Hitboxes, Trajectory, Planned };
+enum class Section { Hitboxes, Recorder, Planned };
 
 Section sectionOf(const core::ToolDef& tool) {
     if (!core::canEnable(tool)) return Section::Planned;
-    if (tool.id == "trajectory") return Section::Trajectory;
+    if (tool.id == "level-recorder") return Section::Recorder;
     return Section::Hitboxes;
 }
 
@@ -110,7 +110,7 @@ private:
         float y = size.height - 42.f;
 
         y = addSection(y, "HITBOXES", Section::Hitboxes, size);
-        y = addSection(y, "TRAJECTORY", Section::Trajectory, size);
+        y = addSection(y, "RECORDER", Section::Recorder, size);
         y = addSection(y, "RECORDER", Section::Recorder, size);
         y = addSection(y, "COMING NEXT", Section::Planned, size);
 
