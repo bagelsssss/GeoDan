@@ -19,7 +19,8 @@ struct CaptureView {
     float worldToPointScale = 0.f;
 
     bool valid() const {
-        return root && std::isfinite(worldToPointScale) && worldToPointScale > 0.f;
+        return root && std::isfinite(focus.x) && std::isfinite(focus.y) &&
+               std::isfinite(worldToPointScale) && worldToPointScale > 0.f;
     }
 };
 

@@ -238,8 +238,8 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
 
         // These point dimensions represent the exact 360x1080 output pixels,
         // whether the visible preview target has been initialized or not.
-        const float pointWidth = 360.f / contentScale;
-        const float pointHeight = 1080.f / contentScale;
+        const float pointWidth = std::round(360.f / contentScale);
+        const float pointHeight = std::round(1080.f / contentScale);
 
         // Dual mode: centre on the middle of both players, and widen the view
         // when they are far apart vertically so both stay visible.
