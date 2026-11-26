@@ -1,0 +1,40 @@
+name: GeoDan recorder preview-match portable tests
+
+on:
+  push:
+    branches: [workflow-codex/recorder-preview-match]
+    paths:
+      - ".github/workflows/geodan-recorder-preview-match-tests.yml"
+      - "core/**"
+      - "tests/**"
+      - "tools/src/**"
+      - "tools/mod.json"
+
+permissions:
+  contents: read
+
+jobs:
+  portable-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up compiler
+        run: sudo apt-get update && sudo apt-get install -y g++
+      - name: test_dan_analyzer_model.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_dan_analyzer_model.cpp -o /tmp/geodan-dan-analyzer && /tmp/geodan-dan-analyzer
+      - name: test_hitbox_model.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_hitbox_model.cpp -o /tmp/geodan-hitbox && /tmp/geodan-hitbox
+      - name: test_image_parser.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_image_parser.cpp -o /tmp/geodan-image-parser && /tmp/geodan-image-parser
+      - name: test_recorder_geometry.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_recorder_geometry.cpp -o /tmp/geodan-recorder-geometry && /tmp/geodan-recorder-geometry
+      - name: test_recorder_model.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_recorder_model.cpp -o /tmp/geodan-recorder-model && /tmp/geodan-recorder-model
+      - name: test_recorder_png_encoder.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_recorder_png_encoder.cpp -o /tmp/geodan-recorder-png && /tmp/geodan-recorder-png
+      - name: test_recorder_session.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_recorder_session.cpp -o /tmp/geodan-recorder-session && /tmp/geodan-recorder-session
+      - name: test_recorder_worker.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_recorder_worker.cpp -o /tmp/geodan-recorder-worker && /tmp/geodan-recorder-worker
+      - name: test_tool_registry.cpp
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pthread -I./core -I. tests/test_tool_registry.cpp -o /tmp/geodan-tool-registry && /tmp/geodan-tool-registry
