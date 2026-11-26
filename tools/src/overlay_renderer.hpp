@@ -82,11 +82,12 @@ inline bool buildShape(GameObject* o, bool showUnclassified, std::vector<hb::Pt>
     // The game's rotated collision box when present, else the axis-aligned rect.
     std::array<CCPoint, 4> corners{};
     bool haveCorners = false;
-    if (o->m_orientedBox) {
-        if (auto* box = o->getOrientedBox()) {
-            for (std::size_t i = 0; i < 4; ++i) corners[i] = box->m_corners[i];
-            haveCorners = true;
-        }
+    // Refresh the box first: slopes can have a stale or missing box, which made
+    // them draw unrotated. Recomputing the cached box is what the game does too.
+    if (o->m_isOrientedBoxDirty) o->updateOrientedBox();
+    if (auto* box = o->getOrientedBox()) {
+        for (std::size_t i = 0; i < 4; ++i) corners[i] = box->m_corners[i];
+        haveCorners = true;
     }
     if (!haveCorners) {
         const auto r = o->getObjectRect();
