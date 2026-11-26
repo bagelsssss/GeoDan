@@ -3,6 +3,7 @@
 // never changes collision, physics or level objects.
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
+#include <Geode/binding/GJGroundLayer.hpp>
 
 #include <algorithm>
 #include <array>
@@ -163,6 +164,21 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         const CCRect cull = CCRectMake(centre.x - halfWidth, centre.y - halfHeight,
                                        halfWidth * 2.f, halfHeight * 2.f);
         overlay::drawHitboxes(f.previewDraw, m_objects, m_objectLayer, true, true, &cull);
+
+        // Ground lines: the game's own ground layers (the floor, and the second
+        // ground in dual or ship modes), converted through each layer's transform.
+        // Same method as the screenshot marker, so the line follows the real ground.
+        constexpr float kGroundHalfExtent = 10000.f;
+        const ccColor4F groundColour = ccc4f(1.f, 1.f, 1.f, 1.f);
+        for (auto* ground : {m_groundLayer, m_groundLayer2}) {
+            if (!ground || !ground->isVisible()) continue;
+            const float groundY = ground->getGroundY();
+            const CCPoint a = m_objectLayer->convertToNodeSpace(
+                ground->convertToWorldSpace(ccp(-kGroundHalfExtent, groundY)));
+            const CCPoint b = m_objectLayer->convertToNodeSpace(
+                ground->convertToWorldSpace(ccp(kGroundHalfExtent, groundY)));
+            f.previewDraw->drawSegment(a, b, 2.f, groundColour);
+        }
 
         auto drawPlayerRect = [&](PlayerObject* player, const ccColor4F& colour) {
             if (!player || !player->isVisible()) return;
