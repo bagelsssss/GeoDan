@@ -188,3 +188,11 @@
 - Scope proposed by Claude and not yet confirmed by user: hitboxes, unclassified outlines, hitbox trail, working trajectory, level recorder writing frames the image parser accepts. Dan analyzer out of scope (test failing).
 - Estimate given: about 3–5 hours of Claude work, plus game sessions from the user. Start after Codex's review report.
 - Status: waiting on Codex's review. No alpha code written yet.
+
+### 2026-11-26 — portrait preview on workflow-claude/master (user device tests)
+- Commits: `a68540c` restores the PortraitCaptureTarget preview after the `da01c0c` pure-virtual crash; `a628084` hides the target until its first render; `1fd7bbf` draws the hitbox trail in the preview; `4bfebbd` adds an on-screen `PV <state> <count>` status line (bottom-left); `bb7ab5b` draws the game's ground layers (`m_groundLayer`, `m_groundLayer2`) converted through their transforms.
+- Android64 CI on `bb7ab5b`: run 45746678813 (dispatched on user request). The user reports the preview "looks perfect" on the phone.
+- The earlier random freeze and the missing-trail report were addressed by the commits above; the user's device report is the evidence.
+- Not verified: the TOOLS button on the pause menu and level page in the latest build; the Windows build of these commits (no Geode SDK on this machine).
+- Decision (user, 2026-11-26): the trajectory tool is needed for the simulator. It is not built now and will go inside the simulator submod, not the tools mod. This reverses the earlier removal (`936aa60`).
+- Still open: the recorder zero-frame bug (a Valid frame needs a player; the live producer must set Unsupported when the player is missing); the simulator submod's location is unknown.
