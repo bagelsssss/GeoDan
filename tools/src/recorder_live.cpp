@@ -8,11 +8,13 @@
 #include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 
 using namespace geode::prelude;
 
 #include "core/recorder_geometry.hpp"
+#include "core/recorder_input_log.hpp"
 #include "core/recorder_model.hpp"
 #include "core/recorder_session.hpp"
 #include "core/recorder_worker.hpp"
@@ -54,6 +56,7 @@ struct LiveRecorder::Session {
     std::uint64_t queueFull = 0;  // frames the full queue refused
     std::string lastDrop = "none";
     std::filesystem::path directory;
+    rec::InputLog inputs;         // button presses and releases, game thread only
 };
 
 LiveRecorder::LiveRecorder() = default;
@@ -120,6 +123,18 @@ bool LiveRecorder::start(PlayLayer* layer) {
     log::info("GeoDan recorder: recording to {}", session->directory.string());
     m_session = std::move(session);
     return true;
+}
+
+void LiveRecorder::recordInput(bool down, int button, bool player1) {
+    if (!m_session) return;
+    auto& s = *m_session;
+    rec::InputEvent event;
+    event.timeNs = steadyNowNs() - s.startSteadyNs;
+    event.down = down;
+    event.button = button;
+    event.player1 = player1;
+    // A full log drops the event and counts it; capture carries on.
+    s.inputs.push(event);
 }
 
 void LiveRecorder::captureFrame(PlayLayer* layer, const Scene& scene) {
@@ -193,6 +208,18 @@ void LiveRecorder::stop(const std::string& reason) {
     auto& s = *m_session;
 
     const bool ok = s.worker.stop(s.timeline.missedIntervals(), reason);
+
+    // The input log is small text, so it is written here on the game thread
+    // after the video worker has finished. Written even when the session was
+    // incomplete, so the attempt's inputs are kept.
+    {
+        std::ofstream out(s.directory / "inputs.csv", std::ios::binary | std::ios::trunc);
+        out << rec::inputCsv(s.inputs.events());
+        out.close();
+        if (out.fail()) log::error("GeoDan recorder: could not write inputs.csv in {}", s.directory.string());
+        if (s.inputs.dropped() > 0)
+            log::warn("GeoDan recorder: {} input events dropped (log full)", s.inputs.dropped());
+    }
     if (ok) {
         log::info("GeoDan recorder: saved {} frames to {} ({}; no-buffer drops {}, queue drops {})",
                   s.worker.framesWritten(), s.directory.string(), reason,

@@ -38,6 +38,11 @@ public:
 
     bool active() const { return m_session != nullptr; }
 
+    // Called from the game's button handler for every press and release. Does
+    // nothing when no session is running. Written to inputs.csv when the
+    // session stops. Game thread only.
+    void recordInput(bool down, int button, bool player1);
+
     // One-line status for the on-screen label: frames handed to the writer,
     // and the count and reason of each drop. Game thread only.
     std::string status() const;

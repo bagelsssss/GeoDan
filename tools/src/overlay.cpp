@@ -292,4 +292,11 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         m_fields->recorder.stop("user_quit");
         PlayLayer::onQuit();
     }
+
+    // Records every press and release for the I/I Analyzer. The game's own
+    // handling runs first and is never changed.
+    void handleButton(bool down, int button, bool isPlayer1) {
+        PlayLayer::handleButton(down, button, isPlayer1);
+        m_fields->recorder.recordInput(down, button, isPlayer1);
+    }
 };
