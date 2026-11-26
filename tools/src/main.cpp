@@ -111,7 +111,6 @@ private:
 
         y = addSection(y, "HITBOXES", Section::Hitboxes, size);
         y = addSection(y, "RECORDER", Section::Recorder, size);
-        y = addSection(y, "RECORDER", Section::Recorder, size);
         y = addSection(y, "COMING NEXT", Section::Planned, size);
 
         auto* summary = CCLabelBMFont::create(
