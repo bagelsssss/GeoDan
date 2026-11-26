@@ -1,10 +1,12 @@
-# Build and test: MP4 encoder commit (PC)
+# Build and test: recorder with MP4 output (PC)
 
 ## The commit to test
 
-**`e7fecd4`** on `workflow-claude/video-recorder`: "Record the level as an MP4 through ffmpeg".
+**`02345b7`** on `workflow-claude/recorder-video`.
 
-This commit adds the ffmpeg encoder and the MP4 storage mode in the portable core. The in-game recorder is **not** wired to it yet, so the mod does not record MP4 in game. The in-game test checks the master features only.
+This commit is the recorder branch with master merged in (so it has the slope fix and later preview work) and the MP4 encoder wired in. Each recording session writes one `video.mp4`, not a PNG per frame.
+
+Not yet on master. Master will get it only after you test it.
 
 ## 1. Requirements (Windows PC)
 
@@ -14,7 +16,7 @@ This commit adds the ffmpeg encoder and the MP4 storage mode in the portable cor
 | Geode CLI | must build against SDK 5.11.2 |
 | Geode SDK 5.11.2 | check with `geode sdk version` |
 | g++ 13 or newer | for the portable tests (MinGW-w64, or WSL) |
-| ffmpeg and ffprobe | on PATH; the MP4 tests run them for real |
+| ffmpeg and ffprobe | on PATH. The recorder runs `ffmpeg`, so it must be found by that name |
 
 Status: none of these steps have been run on your PC yet.
 
@@ -24,11 +26,11 @@ Status: none of these steps have been run on your PC yet.
 git clone https://github.com/bagelsssss/GeoDan.git
 cd GeoDan
 git fetch origin
-git checkout e7fecd4
+git checkout 02345b7
 git log --oneline -1
 ```
 
-The last line must start with `e7fecd4`.
+The last line must start with `02345b7`.
 
 ## 3. Portable tests (no game needed)
 
@@ -42,7 +44,7 @@ Get-ChildItem tests -Filter test_*.cpp | ForEach-Object {
 }
 ```
 
-Every test should print a pass line. `test_recorder_video_sink` and `test_recorder_video_worker` encode a real MP4 and check it with ffprobe. Both need ffmpeg on PATH. Without it, they print a skip line.
+Every test should print a pass line. `test_recorder_video_sink` and `test_recorder_video_worker` run ffmpeg and ffprobe for real.
 
 ## 4. Build the mod
 
@@ -53,12 +55,15 @@ geode build --config RelWithDebInfo
 
 The `.geode` file is written under `tools\build`. Do not copy it into the game's Mods folder until the build succeeds.
 
-## 5. In-game test (master features)
+## 5. In-game test
 
-Turn on in the Tools popup: Hitboxes, Unclassified, Hitbox trail. Enable the portrait preview test in the mod settings.
+1. In the Tools popup, turn on **Level recorder**.
+2. Open a level, play for about 5 seconds, then restart. Each restart starts a new session.
+3. Find the session folder `recordings\session_<unix ns>` in the mod's save directory.
+4. Check the session folder:
+   - `video.mp4` exists and plays in a video player.
+   - `manifest.json` has `"schema_version": 2` and `"status": "complete"` after a normal stop.
+   - `frames.csv` has one row per frame.
+5. Check the on-screen status line in the portrait preview. It should read `REC queued N` with `drops 0`, and `N` should rise while you play.
 
-1. A level shows hitbox outlines, and the trail follows the player.
-2. The TOOLS button appears on the pause menu and on the level page.
-3. The portrait preview shows hitboxes, both ground lines, and the trail, with a yellow `PV ok <count>` line at the bottom left.
-
-Report a failure with the Geode log (search for `GeoDan`) and a screenshot.
+Report a failure with the Geode log (search for `GeoDan`), `manifest.json`, and a screenshot of the portrait preview.
