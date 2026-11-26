@@ -135,10 +135,11 @@ void LiveRecorder::captureFrame(PlayLayer* layer, const CaptureView& view) {
     }
     rec::PixelBufferPool::Lease lease = std::move(*leaseOpt);
 
+    const CCPoint focus = ccp(view.focusX, view.focusY);
     // Render the exact same diagnostic-only scene and camera as the on-screen
     // portrait preview. This intentionally excludes the live icon and sprites.
     // Synchronous GPU readback: 360x1080 RGBA, rows top-down.
-    if (!s.target.renderAndRead(view.root, view.focus, view.worldToPointScale,
+    if (!s.target.renderAndRead(view.root, focus, view.worldToPointScale,
                                 lease.data(), lease.size())) {
         s.lastDrop = "render_fail";
         return;
@@ -149,8 +150,8 @@ void LiveRecorder::captureFrame(PlayLayer* layer, const CaptureView& view) {
     transform.height = rec::kDefaultHeight;
     transform.contentScale = CC_CONTENT_SCALE_FACTOR();
     transform.worldToPointScale = view.worldToPointScale;
-    transform.focusWorld.x = static_cast<double>(view.focus.x);
-    transform.focusWorld.y = static_cast<double>(view.focus.y);
+    transform.focusWorld.x = static_cast<double>(view.focusX);
+    transform.focusWorld.y = static_cast<double>(view.focusY);
 
     const bool playerDead = !layer->m_player1 || layer->m_player1->m_isDead;
     const auto phase = playerDead ? rec::CapturePhase::Unknown
