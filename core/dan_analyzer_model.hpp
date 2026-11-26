@@ -58,14 +58,21 @@ struct RatingBand {
 
 inline RatingBand ratingBandForScore(double score) {
     if (!std::isfinite(score) || score < 1.0 || score > 50.0) return {};
-    const double displayed = std::round(score * 100.0) / 100.0;
-    if (displayed < 1.0 || displayed > 50.0) return {};
-    if (displayed >= 20.01) return {true, true, 20, DanSubdivision::Mid};
-    const auto tier = static_cast<std::uint8_t>(std::floor(displayed));
-    if (tier < 1 || tier > 19) return {};
-    const double fraction = displayed - static_cast<double>(tier);
-    const auto subdivision = fraction < 0.35 ? DanSubdivision::LowMid
-        : fraction < 0.65 ? DanSubdivision::Mid : DanSubdivision::MidHigh;
+
+    // Compare integer hundredths so exact .35/.65 boundaries cannot be shifted
+    // by binary floating-point representation (for example, 1.65 - 1 < .65).
+    const auto hundredths = static_cast<std::uint32_t>(std::llround(score * 100.0));
+    if (hundredths < 100 || hundredths > 5000) return {};
+    if (hundredths >= 2001) return {true, true, 20, DanSubdivision::Mid};
+
+    // 20.00 is still Iota Mid/High; Kappa begins at 20.01.
+    if (hundredths == 2000)
+        return {true, false, 19, DanSubdivision::MidHigh};
+
+    const auto tier = static_cast<std::uint8_t>(hundredths / 100);
+    const auto tierHundredths = hundredths % 100;
+    const auto subdivision = tierHundredths < 35 ? DanSubdivision::LowMid
+        : tierHundredths < 65 ? DanSubdivision::Mid : DanSubdivision::MidHigh;
     return {true, false, tier, subdivision};
 }
 
@@ -541,7 +548,8 @@ inline MainSkillset classifyMainSkillset(const std::vector<MainSkillsetEvidence>
     const MainSkillsetEvidence* best = nullptr;
     long double bestRatio = -1.0L;
     for (const auto& item : evidence) {
-        if (!item.valid() || item.totalObservations == 0 || item.positiveObservations == 0)
+        if (!item.valid() || item.state == EvidenceState::Unsupported ||
+            item.totalObservations == 0 || item.positiveObservations == 0)
             continue;
         const long double ratio = static_cast<long double>(item.positiveObservations) /
                                   item.totalObservations;
@@ -557,8 +565,9 @@ inline std::vector<Skillset> classifySubSkillsets(
     const std::vector<SkillsetEvidence>& evidence) {
     std::vector<Skillset> result;
     for (const auto& item : evidence) {
-        if (!item.valid() || item.positiveObservations == 0 ||
-            item.skillset == Skillset::Overall || item.skillset == Skillset::Memory) continue;
+        if (!item.valid() || item.state == EvidenceState::Unsupported ||
+            item.positiveObservations == 0 || item.skillset == Skillset::Overall ||
+            item.skillset == Skillset::Memory) continue;
         if (std::find(result.begin(), result.end(), item.skillset) == result.end())
             result.push_back(item.skillset);
     }

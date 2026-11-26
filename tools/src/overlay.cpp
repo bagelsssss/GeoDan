@@ -3,17 +3,18 @@
 // never changes collision, physics or level objects.
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
+#include <Geode/binding/GJGroundLayer.hpp>
 
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "core/hitbox_model.hpp"
 #include "core/hitbox_trail.hpp"
 #include "overlay_renderer.hpp"
 #include "portrait_capture_target.hpp"
-#include "trajectory.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
@@ -43,6 +44,14 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         capture::PortraitCaptureTarget portraitTest;
         bool portraitTestInitialized = false;
         bool portraitTestInitAttempted = false;
+        // Preview-only subtree: hitboxes only, no sprites or background.
+        // Hidden in the scene; visible only while the preview renders it.
+        CCNode* previewRoot = nullptr;
+        CCDrawNode* previewDraw = nullptr;
+        // On-screen status for the preview: state of the last update and a count
+        // of successful renders. Shows what the preview is doing without logcat.
+        CCLabelBMFont* previewStatus = nullptr;
+        int previewRenders = 0;
     };
 
     void postUpdate(float dt) {
@@ -53,7 +62,6 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         // Trail: one sample per tick, recorded even while the overlay is hidden
         // so switching it on shows history straight away.
         f.tracker.observeTick(dt, snapshotOf(m_player1), snapshotOf(m_player2));
-        updateGeoDanTrajectory(this, dt);
 
         const bool showTrail = mod->getSettingValue<bool>("hitbox-trail");
         const bool showHitboxes = mod->getSettingValue<bool>("hitboxes");
@@ -81,11 +89,13 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             overlay::drawTrail(f.trailNode, f.tracker.trail(0));
             overlay::drawTrail(f.trailNode, f.tracker.trail(1));
         }
+
         // Temporary visual validation only: one extra render pass, no readback or files.
         const bool portraitPreview = mod->getSettingValue<bool>("portrait-preview-test");
         auto* portraitTarget = f.portraitTest.renderTexture();
         if (!portraitPreview) {
             if (portraitTarget) portraitTarget->setVisible(false);
+            if (f.previewStatus) f.previewStatus->setVisible(false);
             return;
         }
         if (!f.portraitTestInitAttempted) {
@@ -98,32 +108,126 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             portraitTarget = f.portraitTest.renderTexture();
             if (!portraitTarget) return;
             this->addChild(portraitTarget, 100000);
+            // Hidden until the first successful render, so an early return never
+            // leaves an empty target drawn at the origin.
+            portraitTarget->setVisible(false);
+            // On-screen status line, bottom-left, so the preview can be diagnosed on the phone.
+            f.previewStatus = CCLabelBMFont::create("PV start", "chatFont.fnt");
+            if (f.previewStatus) {
+                f.previewStatus->setScale(0.4f);
+                f.previewStatus->setAnchorPoint(ccp(0.f, 0.f));
+                f.previewStatus->setPosition(ccp(4.f, 4.f));
+                f.previewStatus->setColor(ccc3(255, 230, 80));
+                this->addChild(f.previewStatus, 100001);
+            }
         }
         if (!f.portraitTestInitialized || !portraitTarget) return;
-        const auto focus = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
-        if (!focus) { portraitTarget->setVisible(false); return; }
+        auto setStatus = [&f](const char* state) {
+            if (!f.previewStatus) return;
+            f.previewStatus->setVisible(true);
+            f.previewStatus->setString(
+                (std::string("PV ") + state + " " + std::to_string(f.previewRenders)).c_str());
+        };
+        const auto focus1 = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
+        if (!focus1) { setStatus("no-player"); portraitTarget->setVisible(false); return; }
         const auto win = CCDirector::sharedDirector()->getWinSize();
-        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) return;
-        const float worldToPointScale = static_cast<float>(f.portraitTest.pointHeight()) / win.height;
-        if (!f.portraitTest.render(m_objectLayer, *focus, worldToPointScale)) return;
+        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) { setStatus("bad-size"); return; }
+
+        // Dual mode: centre on the middle of both players, and widen the view
+        // when they are far apart vertically so both stay visible.
+        CCPoint focus = *focus1;
+        float span = 0.f;
+        if (m_gameState.m_isDualMode && m_player2) {
+            if (const auto focus2 = capture::PortraitCaptureTarget::worldPositionOf(m_player2)) {
+                focus = ccp((focus1->x + focus2->x) * 0.5f, (focus1->y + focus2->y) * 0.5f);
+                span = focus1->y > focus2->y ? focus1->y - focus2->y : focus2->y - focus1->y;
+            }
+        }
+        // Zoomed out from the screen scale (was 1x of the window height).
+        const float viewHeight = std::max(win.height * 2.f, span * 1.5f + 200.f);
+        const float worldToPointScale = static_cast<float>(f.portraitTest.pointHeight()) / viewHeight;
+
+        // Hitboxes only: level objects and both players, culled to the preview's
+        // own view (not the main camera's), in the same coordinates as the scene.
+        if (!f.previewRoot) {
+            f.previewRoot = CCNode::create();
+            f.previewDraw = CCDrawNode::create();
+            if (!f.previewRoot || !f.previewDraw) { setStatus("no-preview"); return; }
+            f.previewRoot->addChild(f.previewDraw);
+            f.previewRoot->setVisible(false);
+            m_objectLayer->addChild(f.previewRoot, 10002);
+        }
+        f.previewDraw->clear();
+        const float halfWidth = f.portraitTest.pointWidth() / worldToPointScale * 0.5f + 120.f;
+        const float halfHeight = f.portraitTest.pointHeight() / worldToPointScale * 0.5f + 120.f;
+        const CCPoint centre = m_objectLayer->convertToNodeSpace(focus);
+        const CCRect cull = CCRectMake(centre.x - halfWidth, centre.y - halfHeight,
+                                       halfWidth * 2.f, halfHeight * 2.f);
+        overlay::drawHitboxes(f.previewDraw, m_objects, m_objectLayer, true, true, &cull);
+
+        // Ground lines: the game's own ground layers (the floor, and the second
+        // ground in dual or ship modes), converted through each layer's transform.
+        // Same method as the screenshot marker, so the line follows the real ground.
+        constexpr float kGroundHalfExtent = 10000.f;
+        const ccColor4F groundColour = ccc4f(1.f, 1.f, 1.f, 1.f);
+        for (auto* ground : {m_groundLayer, m_groundLayer2}) {
+            if (!ground || !ground->isVisible()) continue;
+            const float groundY = ground->getGroundY();
+            const CCPoint a = m_objectLayer->convertToNodeSpace(
+                ground->convertToWorldSpace(ccp(-kGroundHalfExtent, groundY)));
+            const CCPoint b = m_objectLayer->convertToNodeSpace(
+                ground->convertToWorldSpace(ccp(kGroundHalfExtent, groundY)));
+            f.previewDraw->drawSegment(a, b, 2.f, groundColour);
+        }
+
+        auto drawPlayerRect = [&](PlayerObject* player, const ccColor4F& colour) {
+            if (!player || !player->isVisible()) return;
+            const auto rect = player->getObjectRect();
+            const CCPoint a = ccp(rect.getMinX(), rect.getMinY());
+            const CCPoint b = ccp(rect.getMinX(), rect.getMaxY());
+            const CCPoint c = ccp(rect.getMaxX(), rect.getMaxY());
+            const CCPoint d = ccp(rect.getMaxX(), rect.getMinY());
+            f.previewDraw->drawSegment(a, b, 1.5f, colour);
+            f.previewDraw->drawSegment(b, c, 1.5f, colour);
+            f.previewDraw->drawSegment(c, d, 1.5f, colour);
+            f.previewDraw->drawSegment(d, a, 1.5f, colour);
+        };
+        drawPlayerRect(m_player1, ccc4f(1.f, 0.2f, 0.2f, 1.f));
+        if (m_gameState.m_isDualMode) drawPlayerRect(m_player2, ccc4f(0.2f, 1.f, 0.2f, 1.f));
+        // The hitbox trail follows the same setting as the main overlay.
+        if (showTrail) {
+            overlay::drawTrail(f.previewDraw, f.tracker.trail(0));
+            overlay::drawTrail(f.previewDraw, f.tracker.trail(1));
+        }
+
+        f.previewRoot->setVisible(true);
+        const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
+        f.previewRoot->setVisible(false);
+        if (!rendered) {
+            setStatus("render-fail");
+            return;
+        }
+        ++f.previewRenders;
+        setStatus("ok");
+
         const float previewScale = std::min(
             (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
             (win.height * 0.78f) / static_cast<float>(f.portraitTest.pointHeight()));
         portraitTarget->setScale(previewScale);
+        // Right edge, vertically centred, clear of the top-right game buttons.
         portraitTarget->setPosition(ccp(
-            win.width - f.portraitTest.pointWidth() * previewScale * 0.5f - 10.f,
-            win.height - f.portraitTest.pointHeight() * previewScale * 0.5f - 10.f));
+            win.width - 10.f - f.portraitTest.pointWidth() * previewScale * 0.5f,
+            win.height * 0.5f));
         portraitTarget->setVisible(true);
     }
 
     void resetLevel() {
+        // Finish the current attempt before resetting per-attempt state.
         PlayLayer::resetLevel();
         m_fields->tracker.reset();
-        resetGeoDanTrajectory(this);
     }
 
     void onQuit() {
-        cleanupGeoDanTrajectory(this);
         PlayLayer::onQuit();
     }
 };

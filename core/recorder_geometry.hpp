@@ -57,6 +57,7 @@ struct FrameGeometry {
                 return false;
             hasPlayer = hasPlayer || entity.kind == GeometryEntityKind::Player;
         }
+        // A supported frame must describe the player; an unsupported frame may omit it.
         return status == GeometryStatus::Unsupported || hasPlayer;
     }
 };

@@ -1,0 +1,32 @@
+name: GeoDan combined-tools per-file review tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [workflow-codex/combined-tools]
+    paths:
+      - ".github/workflows/geodan-combined-tools-review-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  portable-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: test_hitbox_model.cpp (compile and run)
+        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_hitbox_model.cpp" -o "/tmp/geodan-test-hitbox-model" && "/tmp/geodan-test-hitbox-model"
+      - name: test_image_parser.cpp (compile and run)
+        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_image_parser.cpp" -o "/tmp/geodan-test-image-parser" && "/tmp/geodan-test-image-parser"
+      - name: test_recorder_geometry.cpp (compile and run)
+        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_recorder_geometry.cpp" -o "/tmp/geodan-test-recorder-geometry" && "/tmp/geodan-test-recorder-geometry"
+      - name: test_recorder_model.cpp (compile and run)
+        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_recorder_model.cpp" -o "/tmp/geodan-test-recorder-model" && "/tmp/geodan-test-recorder-model"
+      - name: test_recorder_png_encoder.cpp (compile and run)
+        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_recorder_png_encoder.cpp" -o "/tmp/geodan-test-recorder-png-encoder" && "/tmp/geodan-test-recorder-png-encoder"
+      - name: test_recorder_session.cpp (compile and run)
+        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_recorder_session.cpp" -o "/tmp/geodan-test-recorder-session" && "/tmp/geodan-test-recorder-session"
+      - name: test_recorder_worker.cpp (compile and run)
+        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_recorder_worker.cpp" -o "/tmp/geodan-test-recorder-worker" && "/tmp/geodan-test-recorder-worker"
+      - name: test_tool_registry.cpp (compile and run)

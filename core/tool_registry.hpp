@@ -12,7 +12,7 @@ enum class Status {
 };
 
 struct ToolDef {
-    std::string_view id;       // setting key in tools/mod.json; stable, never reused
+    std::string_view id;       // stable tool ID; Available tools use this as a mod.json setting key
     std::string_view title;    // card heading
     std::string_view blurb;    // one line under the heading
     Status status;
@@ -23,8 +23,7 @@ inline constexpr ToolDef kTools[] = {
     {"hitboxes", "Hitboxes", "Outline each object's own hitbox in gameplay.", Status::Available, false},
     {"unclassified", "Unclassified", "Also outline objects GeoDan cannot classify, in magenta.", Status::Available, false},
     {"hitbox-trail", "Hitbox trail", "Faded grey trail of the player's recent hitboxes.", Status::Available, false},
-    {"trajectory", "Trajectory", "Predicted path ahead for hold and release.", Status::Available, false},
-    {"level-recorder", "Level recorder", "Records the level with the tools on. Next.", Status::Planned, false},
+    {"level-recorder", "Level recorder", "Recorder library is present; live capture is pending.", Status::Planned, false},
     {"macro-bot", "Macro bot", "Plays a recorded input sequence. Later.", Status::Planned, false},
 };
 

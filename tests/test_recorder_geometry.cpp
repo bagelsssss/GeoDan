@@ -47,9 +47,13 @@ int main() {
     frame.entities.back().id = 43;
     frame.entities.back().bounds = {10, 10, 10, 20};
     if (frame.valid()) return 12; // zero-width rectangle
-    frame.entities.clear();
-    if (frame.valid()) return 13; // valid geometry requires a player
-    if (rec::CaptureTransform{0, 1080, 1.0, 2.0, {0,0}}.valid()) return 14;
+    rec::FrameGeometry noPlayer;
+    noPlayer.status = rec::GeometryStatus::Valid;
+    noPlayer.entities.push_back({rec::GeometryEntityKind::Hazard, 7, {200, 530, 220, 550}});
+    if (noPlayer.valid()) return 14; // a supported frame must contain the player
+    noPlayer.status = rec::GeometryStatus::Unsupported;
+    if (!noPlayer.valid()) return 15; // an unsupported frame may omit the player
+    if (rec::CaptureTransform{0, 1080, 1.0, 2.0, {0,0}}.valid()) return 13;
 
     std::cout << "recorder geometry: all checks passed\n";
     return 0;
