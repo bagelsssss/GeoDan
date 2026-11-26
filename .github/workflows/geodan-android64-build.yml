@@ -27,7 +27,8 @@ jobs:
           export-symbols: true
 
       - name: Show build output path
-        run: echo "Built: ${{ steps.build.outputs.build-output }}"
+        run: |
+          echo "Built: ${{ steps.build.outputs.build-output }}"
 
       - name: Upload .geode package
         uses: actions/upload-artifact@v4
