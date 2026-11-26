@@ -196,3 +196,10 @@
 - Not verified: the TOOLS button on the pause menu and level page in the latest build; the Windows build of these commits (no Geode SDK on this machine).
 - Decision (user, 2026-11-26): the trajectory tool is needed for the simulator. It is not built now and will go inside the simulator submod, not the tools mod. This reverses the earlier removal (`936aa60`).
 - Still open: the recorder zero-frame bug (a Valid frame needs a player; the live producer must set Unsupported when the player is missing); the simulator submod's location is unknown.
+
+### 2026-11-26 — branch flow (user rule)
+- A finished tool or submod is merged into `workflow-claude/master`. After the user tests that master, it is merged up to `alpha-branch`. Work in progress lives on a branch created from `workflow-claude/master`, never from an older base, so every test build includes the preview and everything else already merged.
+- Why: the `workflow-claude/improve-on-codex` build (branched from Codex's `e5937fc`) had the recorder but none of master's 15 later commits, so a PC test showed a build without the preview.
+- Recorder work now lives on `workflow-claude/recorder` (master `0cba41f` plus the two recorder commits). It is not complete (frames drop with a readback size mismatch), so it is not merged into master yet.
+- Before every build command given to the user, state which branch and commit it builds and confirm it contains master's latest commit.
+- `alpha-branch` is Codex's branch and has the known regressions listed above (step reverted to frame time, `playBurstEffect` re-added, missing `;`, dan-analyzer test removed). Merging master into it needs the user's go-ahead and a conflict review first.
