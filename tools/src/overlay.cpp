@@ -161,7 +161,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             // while either offscreen target visits it.
             f.previewRoot->setVisible(true);
             const recorder_live::CaptureView captureView{
-                f.previewRoot, view->focus, view->worldToPointScale
+                f.previewRoot, view->focus.x, view->focus.y, view->worldToPointScale
             };
             f.recorder.update(this, recordingOn, captureView);
 
