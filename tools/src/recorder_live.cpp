@@ -99,6 +99,7 @@ bool LiveRecorder::start(PlayLayer* layer) {
     config.width = width;
     config.height = height;
     config.targetFramesPerSecond = rec::kDefaultFramesPerSecond;
+    config.storage = rec::FrameStorage::Mp4;  // one video.mp4, not a PNG per frame
 
     if (!session->worker.start(session->directory, config, unixStart)) {
         log::error("GeoDan recorder: session did not start at {}: {}",

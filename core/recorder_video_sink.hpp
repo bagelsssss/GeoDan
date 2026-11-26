@@ -12,6 +12,8 @@
 #include <string>
 
 #if defined(_WIN32)
+#include <fcntl.h>
+#include <io.h>
 #define GEODAN_POPEN _popen
 #define GEODAN_PCLOSE _pclose
 #else
@@ -65,6 +67,10 @@ public:
         m_frameBytes = static_cast<std::size_t>(c.width) * static_cast<std::size_t>(c.height) * 4u;
         m_pipe = GEODAN_POPEN(cmd.c_str(), "w");
         if (!m_pipe) { m_error = "could not start ffmpeg"; return false; }
+#if defined(_WIN32)
+        // Text mode would rewrite every 0x0A byte in the pixel data as CRLF.
+        _setmode(_fileno(m_pipe), _O_BINARY);
+#endif
         m_frames = 0;
         m_error.clear();
         return true;
