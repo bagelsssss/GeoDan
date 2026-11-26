@@ -18,10 +18,15 @@
 #include "recorder_geometry.hpp"
 
 namespace geodan::core::recorder {
+// PNG keeps one file per frame (the original format). Mp4 pipes frames to
+// ffmpeg and writes a single video.mp4; the CSV metadata is the same in both.
+enum class FrameStorage { Png, Mp4 };
+
 struct SessionConfig {
     std::uint32_t width = kDefaultWidth;
     std::uint32_t height = kDefaultHeight;
     std::uint32_t targetFramesPerSecond = kDefaultFramesPerSecond;
+    FrameStorage storage = FrameStorage::Png;
     bool valid() const { return width > 0 && height > 0 && targetFramesPerSecond > 0; }
 };
 
@@ -49,8 +54,10 @@ public:
             return fail("cannot_create_new_session_directory: " + ec.message());
         m_sessionDirectory = sessionDirectory;
         m_framesDirectory = m_sessionDirectory / "frames";
-        std::filesystem::create_directory(m_framesDirectory, ec);
-        if (ec) return fail("cannot_create_frames_directory: " + ec.message());
+        if (config.storage == FrameStorage::Png) {
+            std::filesystem::create_directory(m_framesDirectory, ec);
+            if (ec) return fail("cannot_create_frames_directory: " + ec.message());
+        }
 
         m_config = config;
         m_startUnixNs = startUnixNs;
@@ -74,23 +81,8 @@ public:
     // Sequence gaps are preserved in filenames; frames are never renumbered.
     bool writeFrame(const FrameStamp& stamp, std::span<const std::uint8_t> pngBytes,
                     const FrameGeometry& geometry) {
-        if (m_state != State::Recording || !hasPngSignature(pngBytes)) return false;
-        if (geometry.sequence != stamp.sequence || !geometry.valid())
-            return fail("invalid_or_mismatched_frame_geometry");
-        if (!m_hasLastFrame) {
-            // The first persisted frame may follow one or more captured frames
-            // dropped before reaching the writer. Only sequence zero must have
-            // a zero delta; later first-persisted frames retain their real delta.
-            if ((stamp.sequence == 0 && stamp.deltaNs != 0) ||
-                (stamp.sequence > 0 && stamp.deltaNs == 0)) return false;
-        } else {
-            if (stamp.sequence <= m_lastSequence || stamp.timestampNs <= m_lastTimestampNs)
-                return false;
-            const auto persistedGapNs = stamp.timestampNs - m_lastTimestampNs;
-            if (stamp.deltaNs == 0 || stamp.deltaNs > persistedGapNs) return false;
-            if (stamp.sequence - m_lastSequence == 1 && stamp.deltaNs != persistedGapNs)
-                return false;
-        }
+        if (m_config.storage != FrameStorage::Png || !hasPngSignature(pngBytes)) return false;
+        if (!acceptFrame(stamp, geometry)) return false;
 
         const auto finalPath = m_framesDirectory / frameFilename(stamp.sequence);
         auto temporaryPath = finalPath;
@@ -116,27 +108,21 @@ public:
             return fail("cannot_finalize_frame_file: " + ec.message());
         }
 
-        m_csv << stamp.sequence << ',' << stamp.timestampNs << ','
-              << stamp.deltaNs << ',' << stamp.missedIntervals << ",written\n";
-        m_csv.flush();
-        if (!m_csv) {
+        if (!appendRows(stamp, geometry)) {
             std::filesystem::remove(finalPath, ec);
-            return fail("cannot_write_frame_metadata");
+            return false;
         }
-        if (!writeGeometryCsvFrame(m_hitboxesCsv, geometry)) {
-            std::filesystem::remove(finalPath, ec);
-            return fail("cannot_write_hitbox_metadata");
-        }
-        m_hitboxesCsv.flush();
-        if (!m_hitboxesCsv) {
-            std::filesystem::remove(finalPath, ec);
-            return fail("hitbox_metadata_flush_failed");
-        }
-        if (!m_hasLastFrame) m_firstSequence = stamp.sequence;
-        m_hasLastFrame = true;
-        m_lastSequence = stamp.sequence;
-        m_lastTimestampNs = stamp.timestampNs;
-        ++m_framesWritten;
+        commitFrame(stamp);
+        return true;
+    }
+
+    // Video storage: the caller has already piped this frame to the encoder.
+    // Writes the same metadata rows as PNG storage, without a per-frame file.
+    bool writeVideoFrame(const FrameStamp& stamp, const FrameGeometry& geometry) {
+        if (m_config.storage != FrameStorage::Mp4) return false;
+        if (!acceptFrame(stamp, geometry)) return false;
+        if (!appendRows(stamp, geometry)) return false;
+        commitFrame(stamp);
         return true;
     }
 
@@ -191,6 +177,48 @@ public:
     }
 
 private:
+    // Shared by both storage modes: state, geometry and timeline rules.
+    bool acceptFrame(const FrameStamp& stamp, const FrameGeometry& geometry) {
+        if (m_state != State::Recording) return false;
+        if (geometry.sequence != stamp.sequence || !geometry.valid())
+            return fail("invalid_or_mismatched_frame_geometry");
+        if (!m_hasLastFrame) {
+            // The first persisted frame may follow one or more captured frames
+            // dropped before reaching the writer. Only sequence zero must have
+            // a zero delta; later first-persisted frames retain their real delta.
+            if ((stamp.sequence == 0 && stamp.deltaNs != 0) ||
+                (stamp.sequence > 0 && stamp.deltaNs == 0)) return false;
+        } else {
+            if (stamp.sequence <= m_lastSequence || stamp.timestampNs <= m_lastTimestampNs)
+                return false;
+            const auto persistedGapNs = stamp.timestampNs - m_lastTimestampNs;
+            if (stamp.deltaNs == 0 || stamp.deltaNs > persistedGapNs) return false;
+            if (stamp.sequence - m_lastSequence == 1 && stamp.deltaNs != persistedGapNs)
+                return false;
+        }
+        return true;
+    }
+
+    bool appendRows(const FrameStamp& stamp, const FrameGeometry& geometry) {
+        m_csv << stamp.sequence << ',' << stamp.timestampNs << ','
+              << stamp.deltaNs << ',' << stamp.missedIntervals << ",written\n";
+        m_csv.flush();
+        if (!m_csv) return fail("cannot_write_frame_metadata");
+        if (!writeGeometryCsvFrame(m_hitboxesCsv, geometry))
+            return fail("cannot_write_hitbox_metadata");
+        m_hitboxesCsv.flush();
+        if (!m_hitboxesCsv) return fail("hitbox_metadata_flush_failed");
+        return true;
+    }
+
+    void commitFrame(const FrameStamp& stamp) {
+        if (!m_hasLastFrame) m_firstSequence = stamp.sequence;
+        m_hasLastFrame = true;
+        m_lastSequence = stamp.sequence;
+        m_lastTimestampNs = stamp.timestampNs;
+        ++m_framesWritten;
+    }
+
     static constexpr std::array<std::uint8_t, 8> kPngSignature{
         0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a
     };
@@ -229,9 +257,10 @@ private:
     }
     bool writeManifest(const std::string& status, std::uint64_t endUnixNs,
                        const std::string& stopReason) {
+        const bool video = m_config.storage == FrameStorage::Mp4;
         std::ostringstream json;
         json << "{\n"
-             << "  \"schema_version\": 1,\n"
+             << "  \"schema_version\": " << (video ? 2 : 1) << ",\n"
              << "  \"status\": \"" << status << "\",\n"
              << "  \"width\": " << m_config.width << ",\n"
              << "  \"height\": " << m_config.height << ",\n"
@@ -247,8 +276,14 @@ private:
         json << ",\n  \"last_sequence\": ";
         if (!m_hasLastFrame) json << "null"; else json << m_lastSequence;
         json << ",\n  \"stop_reason\": \"" << jsonEscape(stopReason) << "\",\n"
-             << "  \"frames_metadata\": \"frames.csv\",\n"
-             << "  \"frames_directory\": \"frames\"\n}\n";
+             << "  \"frames_metadata\": \"frames.csv\",\n";
+        if (video) {
+            json << "  \"frame_storage\": \"mp4\",\n"
+                 << "  \"video_file\": \"video.mp4\",\n"
+                 << "  \"frames_directory\": null\n}\n";
+        } else {
+            json << "  \"frames_directory\": \"frames\"\n}\n";
+        }
 
         const auto temporary = m_sessionDirectory / "manifest.json.tmp";
         const auto destination = m_sessionDirectory / "manifest.json";

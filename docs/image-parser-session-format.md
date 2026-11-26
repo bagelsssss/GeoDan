@@ -68,3 +68,26 @@ The current writer does not provide a filesystem transaction across all files. A
 ## Compatibility note
 
 This v1 contract describes the current portable session sink only. The actual PNG encoder, background worker lifecycle, parser implementation, and end-to-end compatibility test are still pending. Changes to the manifest shape require a schema-version increment rather than silently reinterpreting v1 fields.
+
+## Schema v2: MP4 storage
+
+Sessions recorded with `FrameStorage::Mp4` use `schemas/recorder-session-v2.schema.json`. The PNG format above is unchanged and remains the default.
+
+```text
+<session>/
+├── manifest.json
+├── frames.csv
+└── video.mp4
+```
+
+- `schema_version` is `2`, and the manifest carries `frame_storage: "mp4"`, `video_file: "video.mp4"` and `frames_directory: null`. No `frames/` directory is created.
+- `video.mp4` is H.264 (`yuv420p`), constant-rate at `target_fps`, with one video frame per written CSV row in CSV order. The CSV holds the real timing; the video's timestamps are nominal.
+- The CSV contract is identical: one row per written frame, same columns, same sequence rules.
+- `complete` is written only after the encoder process exits with status 0. A failed or interrupted encode is `incomplete` or `error`, and `video.mp4` must not be used.
+
+Consistency checks for v2, replacing checks 5 and 6 above:
+- Decoded frame count of `video.mp4` equals the CSV row count and `frames_written`.
+- The video's width and height equal the manifest's `width` and `height`.
+- Gaps in CSV `sequence` are preserved as metadata only. The encoded video contains no synthesized frames for them.
+
+Android does not use this format yet. It needs an in-process encoder, and that work is separate from this change.
