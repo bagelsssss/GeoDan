@@ -53,14 +53,26 @@ inline std::string buildCommand(const SinkConfig& c) {
            " \"" + c.outputPath + "\"";
 }
 
-class FfmpegSink final {
+// Any encoder the recorder worker can drive. The worker calls these from its own
+// thread only, in order: open once, writeFrame per frame, close once.
+class VideoSink {
+public:
+    virtual ~VideoSink() = default;
+    virtual bool open(const SinkConfig& c) = 0;
+    virtual bool writeFrame(const std::uint8_t* rgba, std::size_t size) = 0;
+    // Finishes the file. True only when the encoder reports success.
+    virtual bool close() = 0;
+    virtual const std::string& error() const = 0;
+};
+
+class FfmpegSink final : public VideoSink {
 public:
     FfmpegSink() = default;
     FfmpegSink(const FfmpegSink&) = delete;
     FfmpegSink& operator=(const FfmpegSink&) = delete;
-    ~FfmpegSink() { close(); }
+    ~FfmpegSink() override { close(); }
 
-    bool open(const SinkConfig& c) {
+    bool open(const SinkConfig& c) override {
         if (m_pipe) return false;
         const std::string cmd = buildCommand(c);
         if (cmd.empty()) { m_error = "invalid sink configuration"; return false; }
@@ -77,7 +89,7 @@ public:
     }
 
     // One frame of exactly width*height*4 bytes, rows top-down.
-    bool writeFrame(const std::uint8_t* rgba, std::size_t size) {
+    bool writeFrame(const std::uint8_t* rgba, std::size_t size) override {
         if (!m_pipe) { m_error = "sink is not open"; return false; }
         if (!rgba || size != m_frameBytes) { m_error = "frame size mismatch"; return false; }
         if (std::fwrite(rgba, 1, size, m_pipe) != size) {
@@ -90,7 +102,7 @@ public:
 
     // Ends the stream and waits for ffmpeg to finish writing the file.
     // Returns true only when ffmpeg exited cleanly.
-    bool close() {
+    bool close() override {
         if (!m_pipe) return m_frames > 0 && m_error.empty();
         const int status = GEODAN_PCLOSE(m_pipe);
         m_pipe = nullptr;
@@ -99,7 +111,7 @@ public:
     }
 
     std::uint64_t framesWritten() const { return m_frames; }
-    const std::string& error() const { return m_error; }
+    const std::string& error() const override { return m_error; }
 
 private:
     std::FILE* m_pipe = nullptr;

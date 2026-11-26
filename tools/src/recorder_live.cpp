@@ -16,6 +16,7 @@ using namespace geode::prelude;
 #include "core/recorder_model.hpp"
 #include "core/recorder_session.hpp"
 #include "core/recorder_worker.hpp"
+#include "ffmpeg_api_sink.hpp"
 #include "portrait_capture_target.hpp"
 #include "recorder_geometry.hpp"
 namespace rec = geodan::core::recorder;
@@ -100,6 +101,8 @@ bool LiveRecorder::start(PlayLayer* layer) {
     config.height = height;
     config.targetFramesPerSecond = rec::kDefaultFramesPerSecond;
     config.storage = rec::FrameStorage::Mp4;  // one video.mp4, not a PNG per frame
+    // In-process encoder from the FFmpeg API mod; no ffmpeg.exe on the PATH is needed.
+    session->worker.setVideoSink(std::make_unique<encoder::FfmpegApiSink>());
 
     if (!session->worker.start(session->directory, config, unixStart)) {
         log::error("GeoDan recorder: session did not start at {}: {}",
