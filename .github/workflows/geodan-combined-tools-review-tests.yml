@@ -30,6 +30,3 @@ jobs:
       - name: test_recorder_worker.cpp (compile and run)
         run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_recorder_worker.cpp" -o "/tmp/geodan-test-recorder-worker" && "/tmp/geodan-test-recorder-worker"
       - name: test_tool_registry.cpp (compile and run)
-        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_tool_registry.cpp" -o "/tmp/geodan-test-tool-registry" && "/tmp/geodan-test-tool-registry"
-      - name: test_trajectory_model.cpp (compile and run)
-        run: g++ -std=c++20 -Wall -Wextra -Werror -I"./core" -I"." "tests/test_trajectory_model.cpp" -o "/tmp/geodan-test-trajectory-model" && "/tmp/geodan-test-trajectory-model"

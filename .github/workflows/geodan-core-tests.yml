@@ -20,7 +20,3 @@ jobs:
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_tool_registry.cpp -o /tmp/test-registry
           /tmp/test-registry
-      - name: Build and run trajectory model tests
-        run: |
-          g++ -std=c++20 -Wall -Wextra -Werror -Icore tests/test_trajectory_model.cpp -o /tmp/test-trajectory
-          /tmp/test-trajectory

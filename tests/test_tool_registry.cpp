@@ -9,11 +9,11 @@ static int g_fail = 0;
 #define CHECK(c) do { if (!(c)) { std::printf("FAIL line %d: %s\n", __LINE__, #c); ++g_fail; } } while (0)
 
 int main() {
-    CHECK(kToolCount == 6);
+    CHECK(kToolCount == 5);
     std::size_t availableCount = 0;
     for (const auto& tool : kTools)
         if (canEnable(tool)) ++availableCount;
-    CHECK(availableCount == 4);
+    CHECK(availableCount == 3);
 
     for (std::size_t i = 0; i < kToolCount; ++i) {
         const auto& t = kTools[i];
@@ -29,7 +29,7 @@ int main() {
     auto nothingSaved = [](std::string_view, bool fallback) { return fallback; };
     auto everythingOn = [](std::string_view, bool) { return true; };
     CHECK(countOn(nothingSaved) == 0);
-    CHECK(countOn(everythingOn) == 4);   // only the four available tools can be enabled
+    CHECK(countOn(everythingOn) == 3);   // only the three available tools can be enabled
     for (const auto& t : kTools)
         if (t.status == Status::Planned) CHECK(!isOn(t, everythingOn));
 

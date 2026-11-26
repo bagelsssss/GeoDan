@@ -14,7 +14,6 @@
 #include "core/hitbox_model.hpp"
 #include "core/hitbox_trail.hpp"
 #include "overlay_renderer.hpp"
-#include "trajectory.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
@@ -99,7 +98,6 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             overlay::drawTrail(f.trailNode, f.tracker.trail(0));
             overlay::drawTrail(f.trailNode, f.tracker.trail(1));
         }
-        updateGeoDanTrajectory(this, dt);
 
         const bool portraitPreview = mod->getSettingValue<bool>("portrait-preview-test");
         if (!portraitPreview) {
@@ -118,7 +116,6 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         auto& f = *m_fields.self();
         const auto win = CCDirector::sharedDirector()->getWinSize();
         if (!m_objectLayer || win.width <= 0.f || win.height <= 0.f) {
-            setGeoDanPreviewStatus(f.previewFrames, false);
             return;
         }
 
@@ -130,7 +127,6 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             f.previewDraw = CCDrawNode::create();
             f.previewSprite = CCSprite::create();
             if (!f.previewTarget || !f.previewRoot || !f.previewDraw || !f.previewSprite) {
-                setGeoDanPreviewStatus(f.previewFrames, false);
                 return;
             }
             f.previewRoot->addChild(f.previewDraw);
@@ -189,7 +185,6 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         // Portrait crop centred on the focus, shown as a flipped texture region.
         auto* texture = f.previewTarget->getSprite()->getTexture();
         if (!texture) {
-            setGeoDanPreviewStatus(f.previewFrames, false);
             return;
         }
         const float cropW = win.height * kPortraitRatio;
@@ -209,18 +204,15 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         f.previewSprite->setVisible(true);
 
         ++f.previewFrames;
-        setGeoDanPreviewStatus(f.previewFrames, true);
     }
 
     void resetLevel() {
         // Finish the current attempt before resetting per-attempt state.
         PlayLayer::resetLevel();
-        resetGeoDanTrajectory(this);
         m_fields->tracker.reset();
     }
 
     void onQuit() {
-        cleanupGeoDanTrajectory(this);
         PlayLayer::onQuit();
     }
 };
