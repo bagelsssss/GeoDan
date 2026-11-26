@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 
 #include "core/trajectory_model.hpp"
 
@@ -37,6 +38,7 @@ struct TrajectoryRuntime {
     bool simulationDead = false;
     bool unsafeInteraction = false;
     trajectory::Settings settings{};
+    CCLabelBMFont* readout = nullptr; // on-screen diagnostics, top-left
 };
 
 TrajectoryRuntime* s_runtime = nullptr;
@@ -84,6 +86,11 @@ void destroyRuntime(TrajectoryRuntime* runtime) {
         runtime->drawNode = nullptr;
     }
 
+    if (runtime->readout) {
+        runtime->readout->removeFromParentAndCleanup(true);
+        runtime->readout = nullptr;
+    }
+
     for (auto*& player : runtime->simulationPlayers) {
         if (!player) continue;
         player->removeFromParentAndCleanup(true);
@@ -123,6 +130,18 @@ bool initializeRuntime(PlayLayer* layer) {
 
     layer->m_objectLayer->addChild(runtime->drawNode, 10001);
     runtime->drawNode->setVisible(false);
+
+    // Diagnostics readout: fixed to the top-left of the screen, hidden until the
+    // trajectory setting is on. Remove this block once the trajectory is fixed.
+    const auto win = CCDirector::get()->getWinSize();
+    runtime->readout = CCLabelBMFont::create("", "bigFont.fnt");
+    if (runtime->readout) {
+        runtime->readout->setScale(0.28f);
+        runtime->readout->setAnchorPoint(ccp(0.f, 1.f));
+        runtime->readout->setPosition(ccp(8.f, win.height - 8.f));
+        runtime->readout->setVisible(false);
+        layer->addChild(runtime->readout, 100002);
+    }
     s_runtime = runtime;
     return true;
 }
@@ -240,6 +259,47 @@ void drawPredictions(TrajectoryRuntime& runtime) {
     }
 }
 
+// Diagnostics: once per second, log each branch's sample count and stop reason,
+// and show the same numbers on screen. Stop reasons: 0 none, 1 collision,
+// 2 unsafe interaction, 3 invalid state, 4 step limit.
+float s_diagnosticsElapsed = 0.f;
+
+void logBranch(std::size_t playerIndex, const char* name, const trajectory::Path& path) {
+    log::info("GeoDan trajectory p{} {} samples={} stop={}", playerIndex + 1, name,
+              path.samples.size(), static_cast<int>(path.stopReason));
+}
+
+void showDiagnostics(TrajectoryRuntime& runtime, float dt) {
+    s_diagnosticsElapsed += dt;
+    if (s_diagnosticsElapsed < 1.f) return;
+    s_diagnosticsElapsed = 0.f;
+
+    const auto& h1 = runtime.predictions[0].path(trajectory::Branch::Hold);
+    const auto& r1 = runtime.predictions[0].path(trajectory::Branch::Release);
+    const auto& h2 = runtime.predictions[1].path(trajectory::Branch::Hold);
+    const auto& r2 = runtime.predictions[1].path(trajectory::Branch::Release);
+    logBranch(0, "hold", h1);
+    logBranch(0, "release", r1);
+    logBranch(1, "hold", h2);
+    logBranch(1, "release", r2);
+
+    const bool nodeVisible = runtime.drawNode && runtime.drawNode->isVisible();
+    const unsigned int children = runtime.drawNode ? runtime.drawNode->getChildrenCount() : 0u;
+    log::info("GeoDan trajectory draw visible={} children={}", nodeVisible, children);
+
+    if (runtime.readout) {
+        char text[256];
+        std::snprintf(text, sizeof(text),
+            "P1 hold %zu/%d rel %zu/%d\nP2 hold %zu/%d rel %zu/%d\ndraw %s",
+            h1.samples.size(), static_cast<int>(h1.stopReason),
+            r1.samples.size(), static_cast<int>(r1.stopReason),
+            h2.samples.size(), static_cast<int>(h2.stopReason),
+            r2.samples.size(), static_cast<int>(r2.stopReason),
+            nodeVisible ? "on" : "off");
+        runtime.readout->setString(text);
+    }
+}
+
 } // namespace
 
 void updateGeoDanTrajectory(PlayLayer* layer, float dt) {
@@ -250,6 +310,7 @@ void updateGeoDanTrajectory(PlayLayer* layer, float dt) {
         if (s_runtime && s_runtime->owner == layer && s_runtime->drawNode) {
             s_runtime->drawNode->clear();
             s_runtime->drawNode->setVisible(false);
+            if (s_runtime->readout) s_runtime->readout->setVisible(false);
         }
         return;
     }
@@ -258,6 +319,7 @@ void updateGeoDanTrajectory(PlayLayer* layer, float dt) {
     auto& runtime = *s_runtime;
     runtime.drawNode->clear();
     runtime.drawNode->setVisible(true);
+    if (runtime.readout) runtime.readout->setVisible(true);
 
     const float timeWarp = layer->m_gameState.m_timeWarp;
     if (!std::isfinite(dt) || dt <= 0.f || !std::isfinite(timeWarp) || timeWarp <= 0.f) {
@@ -286,6 +348,7 @@ void updateGeoDanTrajectory(PlayLayer* layer, float dt) {
     }
 
     drawPredictions(runtime);
+    showDiagnostics(runtime, dt);
 }
 
 void resetGeoDanTrajectory(PlayLayer* layer) {
