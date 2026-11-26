@@ -280,6 +280,7 @@ private:
         if (video) {
             json << "  \"frame_storage\": \"mp4\",\n"
                  << "  \"video_file\": \"video.mp4\",\n"
+                 << "  \"input_file\": \"inputs.csv\",\n"
                  << "  \"frames_directory\": null\n}\n";
         } else {
             json << "  \"frames_directory\": \"frames\"\n}\n";

@@ -21,6 +21,7 @@
     "frames_metadata",
     "frame_storage",
     "video_file",
+    "input_file",
     "frames_directory"
   ],
   "properties": {
@@ -40,6 +41,7 @@
     "frames_metadata": { "const": "frames.csv" },
     "frame_storage": { "const": "mp4" },
     "video_file": { "const": "video.mp4" },
+    "input_file": { "const": "inputs.csv" },
     "frames_directory": { "type": "null" }
   }
 }

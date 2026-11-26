@@ -119,6 +119,7 @@ int main() {
     CHECK(manifest.find("\"schema_version\": 2") != std::string::npos);
     CHECK(manifest.find("\"frame_storage\": \"mp4\"") != std::string::npos);
     CHECK(manifest.find("\"video_file\": \"video.mp4\"") != std::string::npos);
+    CHECK(manifest.find("\"input_file\": \"inputs.csv\"") != std::string::npos);
     CHECK(manifest.find("\"frames_directory\": null") != std::string::npos);
     CHECK(manifest.find("\"status\": \"complete\"") != std::string::npos);
     CHECK(manifest.find("\"frames_written\": 30,") != std::string::npos);
