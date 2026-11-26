@@ -51,11 +51,14 @@ struct FrameGeometry {
 
     bool valid() const {
         std::set<std::pair<GeometryEntityKind, std::uint64_t>> ids;
+        bool hasPlayer = false;
         for (const auto& entity : entities) {
             if (!entity.bounds.valid() || !ids.emplace(entity.kind, entity.id).second)
                 return false;
+            hasPlayer = hasPlayer || entity.kind == GeometryEntityKind::Player;
         }
-        return true;
+        // A supported frame must describe the player; an unsupported frame may omit it.
+        return status == GeometryStatus::Unsupported || hasPlayer;
     }
 };
 
