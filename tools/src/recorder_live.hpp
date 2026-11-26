@@ -47,7 +47,7 @@ public:
 private:
     struct Session;
     bool start(PlayLayer* layer);
-    void captureFrame(PlayLayer* layer);
+    void captureFrame(PlayLayer* layer, const CaptureView& view);
 
     std::unique_ptr<Session> m_session;
     bool m_startFailed = false; // cleared when the attempt ends (stop)
