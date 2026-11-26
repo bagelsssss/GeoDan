@@ -24,10 +24,10 @@ namespace {
 
 constexpr std::size_t kPlayerCount = 2;
 constexpr std::size_t kBranchCount = 2;
-constexpr float kLineWidth = 1.0f;
+constexpr float kLineWidth = 3.0f;
 
-const ccColor4F kHoldColour = ccc4f(0.18f, 1.0f, 0.30f, 0.95f);
-const ccColor4F kReleaseColour = ccc4f(1.0f, 0.22f, 0.18f, 0.95f);
+const ccColor4F kHoldColour = ccc4f(0.18f, 1.0f, 0.30f, 1.0f);
+const ccColor4F kReleaseColour = ccc4f(1.0f, 0.22f, 0.18f, 1.0f);
 
 struct TrajectoryRuntime {
     PlayLayer* owner = nullptr;
@@ -263,6 +263,17 @@ void drawPredictions(TrajectoryRuntime& runtime) {
 // and show the same numbers on screen. Stop reasons: 0 none, 1 collision,
 // 2 unsafe interaction, 3 invalid state, 4 step limit.
 float s_diagnosticsElapsed = 0.f;
+int s_previewFrames = 0;
+bool s_previewRendered = false;
+
+} // namespace
+
+void setGeoDanPreviewStatus(int frames, bool rendered) {
+    s_previewFrames = frames;
+    s_previewRendered = rendered;
+}
+
+namespace {
 
 void logBranch(std::size_t playerIndex, const char* name, const trajectory::Path& path) {
     log::info("GeoDan trajectory p{} {} samples={} stop={}", playerIndex + 1, name,
@@ -290,12 +301,13 @@ void showDiagnostics(TrajectoryRuntime& runtime, float dt) {
     if (runtime.readout) {
         char text[256];
         std::snprintf(text, sizeof(text),
-            "P1 hold %zu/%d rel %zu/%d\nP2 hold %zu/%d rel %zu/%d\ndraw %s",
+            "P1 hold %zu/%d rel %zu/%d\nP2 hold %zu/%d rel %zu/%d\ndraw %s\nPV %d %s",
             h1.samples.size(), static_cast<int>(h1.stopReason),
             r1.samples.size(), static_cast<int>(r1.stopReason),
             h2.samples.size(), static_cast<int>(h2.stopReason),
             r2.samples.size(), static_cast<int>(r2.stopReason),
-            nodeVisible ? "on" : "off");
+            nodeVisible ? "on" : "off", s_previewFrames,
+            s_previewRendered ? "ok" : "FAIL");
         runtime.readout->setString(text);
     }
 }

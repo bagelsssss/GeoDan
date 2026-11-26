@@ -160,13 +160,14 @@ inline void drawTrail(CCDrawNode* node, const tr::Trail& trail) {
 
 
 inline void drawHitboxes(CCDrawNode* node, CCArray* objects, CCNode* objectLayer,
-                         bool enabled, bool showUnclassified) {
+                         bool enabled, bool showUnclassified,
+                         const CCRect* cullRect = nullptr) {
     if (!node || !objectLayer) return;
     node->clear();
     node->setVisible(enabled);
     if (!enabled || !objects) return;
 
-    const auto view = visibleRect(objectLayer, kViewMargin);
+    const CCRect view = cullRect ? *cullRect : visibleRect(objectLayer, kViewMargin);
     for (unsigned int i = 0; i < objects->count(); ++i) {
         auto* object = static_cast<GameObject*>(objects->objectAtIndex(i));
         if (!object || !view.containsPoint(object->getPosition())) continue;

@@ -43,10 +43,11 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         capture::PortraitCaptureTarget portraitTest;
         bool portraitTestInitialized = false;
         bool portraitTestInitAttempted = false;
-        // Preview-only subtree: hitboxes and ground lines, no sprites or background.
+        // Preview-only subtree: hitboxes only, no sprites or background.
         // Hidden in the scene; visible only while the preview renders it.
         CCNode* previewRoot = nullptr;
         CCDrawNode* previewDraw = nullptr;
+        int previewFrames = 0;
     };
 
     void postUpdate(float dt) {
@@ -124,8 +125,8 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         const float viewHeight = std::max(win.height * 2.f, span * 1.5f + 200.f);
         const float worldToPointScale = static_cast<float>(f.portraitTest.pointHeight()) / viewHeight;
 
-        // Hitboxes only: rebuild the preview subtree every frame from the same
-        // hitbox drawer the scene uses, plus ground edges as lines.
+        // Hitboxes only: level objects and both players, culled to the preview's
+        // own view (not the main camera's), in the same coordinates as the scene.
         if (!f.previewRoot) {
             f.previewRoot = CCNode::create();
             f.previewDraw = CCDrawNode::create();
@@ -135,29 +136,45 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             m_objectLayer->addChild(f.previewRoot, 10002);
         }
         f.previewDraw->clear();
-        overlay::drawHitboxes(f.previewDraw, m_objects, m_objectLayer, true, true);
-        const float halfWidth = win.width / worldToPointScale;
-        const ccColor4F groundColour = ccc4f(1.f, 1.f, 1.f, 0.9f);
-        // Ground edges: mode 0 is the floor and mode 1 the ceiling. Assumed from
-        // the bindings name; check on the phone that they land on the ground.
-        for (int mode = 0; mode < 2; ++mode) {
-            const float groundY = this->getGroundHeightForMode(mode);
-            f.previewDraw->drawSegment(ccp(focus.x - halfWidth, groundY),
-                                       ccp(focus.x + halfWidth, groundY), 2.f, groundColour);
-        }
+        const float halfWidth = f.portraitTest.pointWidth() / worldToPointScale * 0.5f + 120.f;
+        const float halfHeight = f.portraitTest.pointHeight() / worldToPointScale * 0.5f + 120.f;
+        const CCPoint centre = m_objectLayer->convertToNodeSpace(focus);
+        const CCRect cull = CCRectMake(centre.x - halfWidth, centre.y - halfHeight,
+                                       halfWidth * 2.f, halfHeight * 2.f);
+        overlay::drawHitboxes(f.previewDraw, m_objects, m_objectLayer, true, true, &cull);
+
+        auto drawPlayerRect = [&](PlayerObject* player, const ccColor4F& colour) {
+            if (!player || !player->isVisible()) return;
+            const auto rect = player->getObjectRect();
+            const CCPoint a = ccp(rect.getMinX(), rect.getMinY());
+            const CCPoint b = ccp(rect.getMinX(), rect.getMaxY());
+            const CCPoint c = ccp(rect.getMaxX(), rect.getMaxY());
+            const CCPoint d = ccp(rect.getMaxX(), rect.getMinY());
+            f.previewDraw->drawSegment(a, b, 1.5f, colour);
+            f.previewDraw->drawSegment(b, c, 1.5f, colour);
+            f.previewDraw->drawSegment(c, d, 1.5f, colour);
+            f.previewDraw->drawSegment(d, a, 1.5f, colour);
+        };
+        drawPlayerRect(m_player1, ccc4f(1.f, 0.2f, 0.2f, 1.f));
+        if (m_gameState.m_isDualMode) drawPlayerRect(m_player2, ccc4f(0.2f, 1.f, 0.2f, 1.f));
 
         f.previewRoot->setVisible(true);
         const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
         f.previewRoot->setVisible(false);
-        if (!rendered) return;
+        if (!rendered) {
+            setGeoDanPreviewStatus(f.previewFrames, false);
+            return;
+        }
+        ++f.previewFrames;
+        setGeoDanPreviewStatus(f.previewFrames, true);
 
         const float previewScale = std::min(
             (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
             (win.height * 0.78f) / static_cast<float>(f.portraitTest.pointHeight()));
         portraitTarget->setScale(previewScale);
-        // Left edge, vertically centred: keeps the top-right game buttons clear.
+        // Right edge, vertically centred, clear of the top-right game buttons.
         portraitTarget->setPosition(ccp(
-            10.f + f.portraitTest.pointWidth() * previewScale * 0.5f,
+            win.width - 10.f - f.portraitTest.pointWidth() * previewScale * 0.5f,
             win.height * 0.5f));
         portraitTarget->setVisible(true);
     }
