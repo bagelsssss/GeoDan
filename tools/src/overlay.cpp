@@ -1,10 +1,12 @@
 // GeoDan Tools - gameplay overlay. Draws object hitboxes and the player's
-// hitbox trail on top of the level. Diagnostic only: it reads game state and
-// never changes collision, physics or level objects.
+// hitbox trail on top of the level, plus a hitbox-only portrait preview.
+// Diagnostic only: it reads game state and never changes collision, physics or
+// level objects.
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <array>
 #include <optional>
 #include <vector>
@@ -12,16 +14,21 @@
 #include "core/hitbox_model.hpp"
 #include "core/hitbox_trail.hpp"
 #include "overlay_renderer.hpp"
-#include "portrait_capture_target.hpp"
 #include "trajectory.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
 namespace tr = geodan::core::trail;
 namespace overlay = geodan::tools::overlay;
-namespace capture = geodan::tools::capture;
 
 namespace {
+
+// The preview is refreshed this often; the last image stays up in between.
+constexpr float kPreviewInterval = 0.1f;
+// Portrait crop is one third as wide as the window is tall (360x1080 shape).
+constexpr float kPortraitRatio = 1.f / 3.f;
+// Player rectangles use the amber of the deprecated hitbox tool.
+const ccColor4F kPlayerAmber = ccc4f(1.f, 0.78f, 0.15f, 1.f);
 
 std::optional<tr::Snapshot> snapshotOf(PlayerObject* p) {
     if (!p || !p->isVisible()) return std::nullopt;
@@ -33,6 +40,12 @@ std::optional<tr::Snapshot> snapshotOf(PlayerObject* p) {
     return s;
 }
 
+// Screen position of a node: its parent's position converted to world space.
+CCPoint screenPositionOf(CCNode* node) {
+    auto* parent = node->getParent();
+    return parent ? parent->convertToWorldSpace(node->getPosition()) : node->getPosition();
+}
+
 }  // namespace
 
 class $modify(GeoDanToolsPlayLayer, PlayLayer) {
@@ -40,13 +53,14 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         CCDrawNode* overlay = nullptr;
         CCDrawNode* trailNode = nullptr;
         tr::Tracker tracker;
-        capture::PortraitCaptureTarget portraitTest;
-        bool portraitTestInitialized = false;
-        bool portraitTestInitAttempted = false;
-        // Preview-only subtree: hitboxes only, no sprites or background.
-        // Hidden in the scene; visible only while the preview renders it.
+        // Hitbox-only preview. previewRoot is a hidden child of the object layer;
+        // it is visited once per refresh into a window-sized target, and the
+        // portrait crop around the player is shown as a sprite (GPU only).
         CCNode* previewRoot = nullptr;
         CCDrawNode* previewDraw = nullptr;
+        CCRenderTexture* previewTarget = nullptr;
+        CCSprite* previewSprite = nullptr;
+        float previewAccum = 0.f;
         int previewFrames = 0;
     };
 
@@ -87,96 +101,115 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         }
         updateGeoDanTrajectory(this, dt);
 
-        // Temporary visual validation only: one extra render pass, no readback or files.
         const bool portraitPreview = mod->getSettingValue<bool>("portrait-preview-test");
-        auto* portraitTarget = f.portraitTest.renderTexture();
         if (!portraitPreview) {
-            if (portraitTarget) portraitTarget->setVisible(false);
+            if (f.previewSprite) f.previewSprite->setVisible(false);
             return;
         }
-        if (!f.portraitTestInitAttempted) {
-            f.portraitTestInitAttempted = true;
-            f.portraitTestInitialized = f.portraitTest.initialize(360, 1080);
-            if (!f.portraitTestInitialized) {
-                log::error("GeoDan portrait preview: failed to create exact 360x1080 render target");
-                return;
-            }
-            portraitTarget = f.portraitTest.renderTexture();
-            if (!portraitTarget) return;
-            this->addChild(portraitTarget, 100000);
-        }
-        if (!f.portraitTestInitialized || !portraitTarget) return;
-        const auto focus1 = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
-        if (!focus1) { portraitTarget->setVisible(false); return; }
+        f.previewAccum += dt;
+        if (f.previewAccum < kPreviewInterval) return;
+        f.previewAccum = 0.f;
+        updateHitboxPreview();
+    }
+
+    // Rebuilds the preview from the scene's own transforms: no custom GL matrices
+    // and no readback to the CPU.
+    void updateHitboxPreview() {
+        auto& f = *m_fields.self();
         const auto win = CCDirector::sharedDirector()->getWinSize();
-        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) return;
-
-        // Dual mode: centre on the middle of both players, and widen the view
-        // when they are far apart vertically so both stay visible.
-        CCPoint focus = *focus1;
-        float span = 0.f;
-        if (m_gameState.m_isDualMode && m_player2) {
-            if (const auto focus2 = capture::PortraitCaptureTarget::worldPositionOf(m_player2)) {
-                focus = ccp((focus1->x + focus2->x) * 0.5f, (focus1->y + focus2->y) * 0.5f);
-                span = focus1->y > focus2->y ? focus1->y - focus2->y : focus2->y - focus1->y;
-            }
+        if (!m_objectLayer || win.width <= 0.f || win.height <= 0.f) {
+            setGeoDanPreviewStatus(f.previewFrames, false);
+            return;
         }
-        // Zoomed out from the screen scale (was 1x of the window height).
-        const float viewHeight = std::max(win.height * 2.f, span * 1.5f + 200.f);
-        const float worldToPointScale = static_cast<float>(f.portraitTest.pointHeight()) / viewHeight;
 
-        // Hitboxes only: level objects and both players, culled to the preview's
-        // own view (not the main camera's), in the same coordinates as the scene.
-        if (!f.previewRoot) {
+        if (!f.previewTarget) {
+            f.previewTarget = CCRenderTexture::create(
+                static_cast<int>(win.width), static_cast<int>(win.height),
+                kCCTexture2DPixelFormat_RGBA8888);
             f.previewRoot = CCNode::create();
             f.previewDraw = CCDrawNode::create();
-            if (!f.previewRoot || !f.previewDraw) return;
+            f.previewSprite = CCSprite::create();
+            if (!f.previewTarget || !f.previewRoot || !f.previewDraw || !f.previewSprite) {
+                setGeoDanPreviewStatus(f.previewFrames, false);
+                return;
+            }
             f.previewRoot->addChild(f.previewDraw);
             f.previewRoot->setVisible(false);
             m_objectLayer->addChild(f.previewRoot, 10002);
+            this->addChild(f.previewSprite, 100000);
         }
-        f.previewDraw->clear();
-        const float halfWidth = f.portraitTest.pointWidth() / worldToPointScale * 0.5f + 120.f;
-        const float halfHeight = f.portraitTest.pointHeight() / worldToPointScale * 0.5f + 120.f;
-        const CCPoint centre = m_objectLayer->convertToNodeSpace(focus);
-        const CCRect cull = CCRectMake(centre.x - halfWidth, centre.y - halfHeight,
-                                       halfWidth * 2.f, halfHeight * 2.f);
-        overlay::drawHitboxes(f.previewDraw, m_objects, m_objectLayer, true, true, &cull);
 
-        auto drawPlayerRect = [&](PlayerObject* player, const ccColor4F& colour) {
-            if (!player || !player->isVisible()) return;
+        // Focus: player 1, or the midpoint of both players in dual mode. The view
+        // widens when they are far apart vertically so both stay visible.
+        CCPoint focusWorld = screenPositionOf(m_player1);
+        float span = 0.f;
+        if (m_gameState.m_isDualMode && m_player2) {
+            const CCPoint second = screenPositionOf(m_player2);
+            focusWorld = ccp((focusWorld.x + second.x) * 0.5f, (focusWorld.y + second.y) * 0.5f);
+            span = std::abs(screenPositionOf(m_player1).y - second.y);
+        }
+        const float viewHeight = std::max(win.height * 2.f, span * 1.5f + 200.f);
+        const float zoom = win.height / viewHeight;
+        const CCPoint focusLocal = m_objectLayer->convertToNodeSpace(focusWorld);
+
+        // Zoom about the focus: its own transform keeps focusLocal fixed.
+        f.previewRoot->setAnchorPoint(ccp(0.f, 0.f));
+        f.previewRoot->setScale(zoom);
+        f.previewRoot->setPosition(ccp(focusLocal.x * (1.f - zoom), focusLocal.y * (1.f - zoom)));
+
+        // Hitboxes only: objects and players inside the preview's own view.
+        f.previewDraw->clear();
+        const float halfW = win.width * 0.5f / zoom + 120.f;
+        const float halfH = win.height * 0.5f / zoom + 120.f;
+        const CCRect cull = CCRectMake(focusLocal.x - halfW, focusLocal.y - halfH,
+                                       halfW * 2.f, halfH * 2.f);
+        overlay::drawHitboxes(f.previewDraw, m_objects, m_objectLayer, true, true, &cull);
+        for (PlayerObject* player : {m_player1, m_player2}) {
+            if (!player || !player->isVisible() || (player == m_player2 && !m_gameState.m_isDualMode))
+                continue;
             const auto rect = player->getObjectRect();
             const CCPoint a = ccp(rect.getMinX(), rect.getMinY());
             const CCPoint b = ccp(rect.getMinX(), rect.getMaxY());
             const CCPoint c = ccp(rect.getMaxX(), rect.getMaxY());
             const CCPoint d = ccp(rect.getMaxX(), rect.getMinY());
-            f.previewDraw->drawSegment(a, b, 1.5f, colour);
-            f.previewDraw->drawSegment(b, c, 1.5f, colour);
-            f.previewDraw->drawSegment(c, d, 1.5f, colour);
-            f.previewDraw->drawSegment(d, a, 1.5f, colour);
-        };
-        drawPlayerRect(m_player1, ccc4f(1.f, 0.2f, 0.2f, 1.f));
-        if (m_gameState.m_isDualMode) drawPlayerRect(m_player2, ccc4f(0.2f, 1.f, 0.2f, 1.f));
+            f.previewDraw->drawSegment(a, b, 1.5f, kPlayerAmber);
+            f.previewDraw->drawSegment(b, c, 1.5f, kPlayerAmber);
+            f.previewDraw->drawSegment(c, d, 1.5f, kPlayerAmber);
+            f.previewDraw->drawSegment(d, a, 1.5f, kPlayerAmber);
+        }
 
+        // Render the hidden subtree with the scene's ancestor transforms applied.
         f.previewRoot->setVisible(true);
-        const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
+        f.previewTarget->beginWithClear(0.f, 0.f, 0.f, 1.f);
+        f.previewRoot->transformAncestors();
+        f.previewRoot->visit();
+        f.previewTarget->end();
         f.previewRoot->setVisible(false);
-        if (!rendered) {
+
+        // Portrait crop centred on the focus, shown as a flipped texture region.
+        auto* texture = f.previewTarget->getSprite()->getTexture();
+        if (!texture) {
             setGeoDanPreviewStatus(f.previewFrames, false);
             return;
         }
+        const float cropW = win.height * kPortraitRatio;
+        const float left = std::clamp(focusWorld.x - cropW * 0.5f, 0.f, win.width - cropW);
+        const float pixels = static_cast<float>(texture->getPixelsWide()) / win.width;
+        f.previewSprite->setTexture(texture);
+        f.previewSprite->setTextureRect(CCRectMake(left * pixels, 0.f,
+                                                   cropW * pixels, win.height * pixels));
+        f.previewSprite->setFlipY(true);
+        f.previewSprite->setContentSize(CCSizeMake(cropW, win.height));
+
+        // Display at up to 42% of the window width and 78% of its height.
+        const float displayH = std::min(win.height * 0.78f, win.width * 0.42f / kPortraitRatio);
+        const float k = displayH / win.height;
+        f.previewSprite->setScale(k);
+        f.previewSprite->setPosition(ccp(win.width - 10.f - cropW * k * 0.5f, win.height * 0.5f));
+        f.previewSprite->setVisible(true);
+
         ++f.previewFrames;
         setGeoDanPreviewStatus(f.previewFrames, true);
-
-        const float previewScale = std::min(
-            (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
-            (win.height * 0.78f) / static_cast<float>(f.portraitTest.pointHeight()));
-        portraitTarget->setScale(previewScale);
-        // Right edge, vertically centred, clear of the top-right game buttons.
-        portraitTarget->setPosition(ccp(
-            win.width - 10.f - f.portraitTest.pointWidth() * previewScale * 0.5f,
-            win.height * 0.5f));
-        portraitTarget->setVisible(true);
     }
 
     void resetLevel() {
