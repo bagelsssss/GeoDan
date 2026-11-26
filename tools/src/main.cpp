@@ -185,6 +185,8 @@ private:
     }
 };
 
+}  // namespace
+
 class $modify(GeoDanToolsPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
