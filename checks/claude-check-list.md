@@ -206,3 +206,22 @@
 - Portable tests at `2177a04`: all 10 PASS (per-file, -Werror).
 - Not verified in game: menu contents, trajectory behaviour, the spawnParticle nullptr risk (crash candidate when trajectory simulation spawns particles).
 - Next: user in-game checks on this build, then fix trajectory risks found in review.
+
+## Review of Codex's alpha-branch (f80478a) — 2026-11-26
+
+Checked against `workflow-codex/master` (e5937fc). Codex has pushed no new commits to `workflow-codex/master` since then.
+
+- `trajectory.cpp` regressions in alpha-branch, rejected (kept our versions):
+  - Step reverted to frame time (`dt / timeWarp`). Our fixed 1/240 s step stays.
+  - `playBurstEffect` hook re-added. It is Windows-inline and breaks the Windows build (see the 9acfeb0 result above).
+  - Final `$modify` block ends with `}` instead of `};`. Compile error.
+- `dan_analyzer_model.hpp` and its test: alpha removes the Unsupported-evidence assertions instead of fixing the code, and changes rating-band rounding. Portable test `test_dan_analyzer_model` aborts on alpha. Rejected; our version stays.
+- `recorder_geometry.hpp` `valid()`: alpha accepts a frame with no player when status is Unsupported. Not ported yet; needs a test and a decision.
+- `overlay.cpp`: trajectory call moved before the portrait preview and `resetLevel` reordered. Harmless; not ported.
+- `tool_registry.hpp` and `mod.json` text changes: wording only; not ported.
+- Alpha deletes most of both checklists. Not accepted; both logs stay verbatim.
+- Portable tests on alpha: all pass except `test_dan_analyzer_model` (run failure). Every other test passes.
+
+Our fix (workflow-claude/master `bc2236a`): `spawnParticle` override no longer returns `nullptr`. It spawns normally and detaches the particle while simulating. Not compiled here (Geode-only file); needs the Windows build.
+
+Open, needs the PC: recorder zero-frame bug; trajectory diagnostics (workflow-claude/trajectory-diagnostics `173175f`) still waiting for a build and log.
