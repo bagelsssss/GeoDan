@@ -59,6 +59,12 @@ struct LiveRecorder::Session {
     rec::InputLog inputs;         // button presses and releases, game thread only
 };
 
+namespace {
+LiveRecorder* g_activeRecorder = nullptr;
+} // namespace
+
+LiveRecorder* activeRecorder() { return g_activeRecorder; }
+
 LiveRecorder::LiveRecorder() = default;
 
 LiveRecorder::~LiveRecorder() {
@@ -122,6 +128,7 @@ bool LiveRecorder::start(PlayLayer* layer) {
     session->startSteadyNs = steadyNowNs();
     log::info("GeoDan recorder: recording to {}", session->directory.string());
     m_session = std::move(session);
+    g_activeRecorder = this;
     return true;
 }
 
@@ -199,11 +206,13 @@ std::string LiveRecorder::status() const {
     if (!m_session) return m_startFailed ? "REC failed to start" : "REC waiting";
     const auto& s = *m_session;
     return "REC queued " + std::to_string(s.queued) + " nobuf " + std::to_string(s.noBufferDrops)
-        + " qfull " + std::to_string(s.queueFull) + " last " + s.lastDrop;
+        + " qfull " + std::to_string(s.queueFull) + " in " + std::to_string(s.inputs.events().size())
+        + " last " + s.lastDrop;
 }
 
 void LiveRecorder::stop(const std::string& reason) {
     m_startFailed = false; // the next attempt may start again
+    if (g_activeRecorder == this) g_activeRecorder = nullptr;
     if (!m_session) return;
     auto& s = *m_session;
 

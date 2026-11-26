@@ -21,6 +21,11 @@ struct Scene {
     float worldToPointScale = 0.f;
 };
 
+class LiveRecorder;
+// The recorder whose session is running right now, or null. Set by start(),
+// cleared by stop(). Lets the GJBaseGameLayer button hook reach it.
+LiveRecorder* activeRecorder();
+
 class LiveRecorder final {
 public:
     LiveRecorder(); // defined in the .cpp: Session is incomplete here

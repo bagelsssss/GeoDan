@@ -3,6 +3,7 @@
 // never changes collision, physics or level objects.
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
+#include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/binding/GJGroundLayer.hpp>
 
 #include <algorithm>
@@ -293,10 +294,15 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         PlayLayer::onQuit();
     }
 
-    // Records every press and release for the I/I Analyzer. The game's own
-    // handling runs first and is never changed.
+};
+
+// Button presses and releases are reported on GJBaseGameLayer, where
+// handleButton is declared. The game's own handling runs first and is not
+// changed; this only records while a level recording is running.
+class $modify(GeoDanInputGameLayer, GJBaseGameLayer) {
     void handleButton(bool down, int button, bool isPlayer1) {
-        PlayLayer::handleButton(down, button, isPlayer1);
-        m_fields->recorder.recordInput(down, button, isPlayer1);
+        GJBaseGameLayer::handleButton(down, button, isPlayer1);
+        if (auto* recorder = recorder_live::activeRecorder())
+            recorder->recordInput(down, button, isPlayer1);
     }
 };
