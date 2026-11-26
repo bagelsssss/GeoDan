@@ -15,12 +15,14 @@
 #include "core/hitbox_trail.hpp"
 #include "overlay_renderer.hpp"
 #include "portrait_capture_target.hpp"
+#include "recorder_live.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
 namespace tr = geodan::core::trail;
 namespace overlay = geodan::tools::overlay;
 namespace capture = geodan::tools::capture;
+namespace recorder_live = geodan::tools::recorder_live;
 
 namespace {
 
@@ -44,6 +46,8 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         capture::PortraitCaptureTarget portraitTest;
         bool portraitTestInitialized = false;
         bool portraitTestInitAttempted = false;
+        recorder_live::LiveRecorder recorder;
+        CCLabelBMFont* recorderStatus = nullptr;
         // Preview-only subtree: hitboxes only, no sprites or background.
         // Hidden in the scene; visible only while the preview renders it.
         CCNode* previewRoot = nullptr;
@@ -88,6 +92,31 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         if (showTrail) {
             overlay::drawTrail(f.trailNode, f.tracker.trail(0));
             overlay::drawTrail(f.trailNode, f.tracker.trail(1));
+        }
+
+        // Level recorder: runs after the overlays so recordings include them.
+        const bool recordingOn = mod->getSettingValue<bool>("level-recorder");
+        f.recorder.update(this, recordingOn);
+
+        // On-screen recorder status (top-left) so drops can be seen on the phone.
+        if (recordingOn) {
+            if (!f.recorderStatus) {
+                f.recorderStatus = CCLabelBMFont::create("REC", "chatFont.fnt");
+                if (f.recorderStatus) {
+                    f.recorderStatus->setScale(0.4f);
+                    f.recorderStatus->setAnchorPoint(ccp(0.f, 1.f));
+                    f.recorderStatus->setColor(ccc3(255, 90, 90));
+                    this->addChild(f.recorderStatus, 100001);
+                }
+            }
+            if (f.recorderStatus) {
+                const auto winSize = CCDirector::sharedDirector()->getWinSize();
+                f.recorderStatus->setVisible(true);
+                f.recorderStatus->setPosition(ccp(4.f, winSize.height - 4.f));
+                f.recorderStatus->setString(f.recorder.status().c_str());
+            }
+        } else if (f.recorderStatus) {
+            f.recorderStatus->setVisible(false);
         }
 
         // Temporary visual validation only: one extra render pass, no readback or files.
@@ -223,11 +252,14 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
 
     void resetLevel() {
         // Finish the current attempt before resetting per-attempt state.
+        // A restart ends the current recording attempt; the next frame starts a new one.
+        m_fields->recorder.stop("level_restart");
         PlayLayer::resetLevel();
         m_fields->tracker.reset();
     }
 
     void onQuit() {
+        m_fields->recorder.stop("user_quit");
         PlayLayer::onQuit();
     }
 };
