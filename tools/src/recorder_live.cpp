@@ -145,13 +145,14 @@ void LiveRecorder::captureFrame(PlayLayer* layer) {
     CCImage* image = s.target.renderTexture()->newCCImage(true);
     if (!image) { s.lastDrop = "readback_null"; return; }
     const std::size_t expected = lease.size();
-    const bool sameSize = image->getData() &&
-        static_cast<std::size_t>(image->getDataLen()) == expected;
+    const std::size_t got = static_cast<std::size_t>(image->getDataLen());
+    const bool sameSize = image->getData() && got == expected;
     if (sameSize) std::memcpy(lease.data(), image->getData(), expected);
     image->release();
     if (!sameSize) {
         log::warn("GeoDan recorder: readback size mismatch, frame skipped");
-        s.lastDrop = "readback_size";
+        // Shows bytes returned / bytes expected, so the cause is visible on screen.
+        s.lastDrop = "size " + std::to_string(got) + "/" + std::to_string(expected);
         return;
     }
 
