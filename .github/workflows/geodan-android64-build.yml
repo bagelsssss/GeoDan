@@ -1,0 +1,37 @@
+name: GeoDan Android64 build
+
+on:
+  # Manual only. Run it when a candidate checkpoint is ready for phone testing.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or commit to build (for example workflow-claude/master)"
+        required: false
+        default: "workflow-claude/master"
+
+jobs:
+  android64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'workflow-claude/master' }}
+
+      - name: Build Android64 mod
+        id: build
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          target: Android64
+          build-config: RelWithDebInfo
+          path: tools
+          export-symbols: true
+
+      - name: Show build output path
+        run: echo "Built: ${{ steps.build.outputs.build-output }}"
+
+      - name: Upload .geode package
+        uses: actions/upload-artifact@v4
+        with:
+          name: geodan-tools-android64
+          path: ${{ steps.build.outputs.build-output }}
+          if-no-files-found: error
