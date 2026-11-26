@@ -2,7 +2,7 @@
 
 ## The commit to test
 
-**`4d26d48`** on `workflow-claude/recorder-video`.
+**`4d12f81`** on `workflow-claude/recorder-video`.
 
 The recorder encodes the level in-process through the **FFmpeg API** mod, so it no longer needs an `ffmpeg.exe` on the PATH. This is the change that fixes the missing `video.mp4` under Proton.
 
@@ -24,11 +24,11 @@ Status: none of these steps have been run on your PC yet.
 git clone https://github.com/bagelsssss/GeoDan.git
 cd GeoDan
 git fetch origin
-git checkout 4d26d48
+git checkout 4d12f81
 git log --oneline -1
 ```
 
-The last line must start with `4d26d48`.
+The last line must start with `4d12f81`.
 
 ## 3. Build the mod
 
