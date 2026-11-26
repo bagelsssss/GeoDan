@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include "core/recorder_video_sink.hpp"
 
@@ -65,7 +66,9 @@ public:
     bool writeFrame(const std::uint8_t* rgba, std::size_t size) override {
         if (!m_open) { m_error = "encoder is not open"; return false; }
         if (!rgba || size != m_frameBytes) { m_error = "frame size mismatch"; return false; }
-        auto result = m_recorder.writeFrame(std::span<const std::uint8_t>(rgba, size));
+        // The FFmpeg API 1.2.2 header takes a whole vector, so the frame is copied once here.
+        m_buffer.assign(rgba, rgba + size);
+        auto result = m_recorder.writeFrame(m_buffer);
         if (result.isErr()) {
             m_error = "FFmpeg API frame failed: " + result.unwrapErr();
             return false;
@@ -105,6 +108,7 @@ private:
     ffmpeg::Recorder m_recorder;
     bool m_open = false;
     std::size_t m_frameBytes = 0;
+    std::vector<std::uint8_t> m_buffer;
     std::uint64_t m_frames = 0;
     std::filesystem::path m_path;
     std::string m_error;
