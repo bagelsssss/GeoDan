@@ -227,3 +227,9 @@ Our fix (workflow-claude/master `bc2236a`): `spawnParticle` override no longer r
 Open, needs the PC: recorder zero-frame bug; trajectory diagnostics (workflow-claude/trajectory-diagnostics `173175f`) still waiting for a build and log.
 
 Correction to the entry above: Codex's `FrameGeometry::valid()` rule is stricter for supported frames, not only looser for unsupported ones. A `Valid` frame must now contain a Player entity; an `Unsupported` frame may omit it. Ported to workflow-claude/master as a commit with two geometry-test checks (returns 14 and 15). Risk: `RecorderSession::writeFrame` fails the write if a Valid frame has no player, so the live producer must set `Unsupported` when the player is absent.
+
+## Workflow rules — 2026-11-26
+
+- CI: do not start a GitHub Actions run unless the user explicitly asks for one. CI testing is only allowed after every stage in the checklist is done.
+- Target: when CI is allowed, build `android64` only (the user's platform). `tools/mod.json` already lists android `2.2081`. No Android workflow exists yet; `.github/workflows/` only has test workflows (analyzer, codex-review, combined-tools, core-tests, recorder-model).
+- Blocked on the user's PC: Windows build of `workflow-claude/master` (`bc2236a`, `0c01249`) and of `workflow-claude/trajectory-diagnostics` (`173175f`); the trajectory log; the recorder zero-frame bug.
