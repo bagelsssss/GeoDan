@@ -10,13 +10,12 @@
   "name": "GeoDan Tools",
   "version": "v0.2.0",
   "developer": "bagelsssss",
-  "dependencies": [
-    {
-      "id": "eclipse.ffmpeg-api",
+  "dependencies": {
+    "eclipse.ffmpeg-api": {
       "version": ">=1.2.2",
       "importance": "required"
     }
-  ],
+  },
   "description": "Debug tools for GeoDan: hitboxes, hitbox trail and level recorder. Diagnostic only; never changes collision or physics. Switch them on from the TOOLS button on the pause menu.",
   "settings": {
     "hitboxes": {
