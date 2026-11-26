@@ -233,3 +233,12 @@ Correction to the entry above: Codex's `FrameGeometry::valid()` rule is stricter
 - CI: do not start a GitHub Actions run unless the user explicitly asks for one. CI testing is only allowed after every stage in the checklist is done.
 - Target: when CI is allowed, build `android64` only (the user's platform). `tools/mod.json` already lists android `2.2081`. No Android workflow exists yet; `.github/workflows/` only has test workflows (analyzer, codex-review, combined-tools, core-tests, recorder-model).
 - Blocked on the user's PC: Windows build of `workflow-claude/master` (`bc2236a`, `0c01249`) and of `workflow-claude/trajectory-diagnostics` (`173175f`); the trajectory log; the recorder zero-frame bug.
+
+## Android64 CI run — 2026-11-26
+
+- Workflow: `.github/workflows/geodan-android64-build.yml` (manual `workflow_dispatch`, added on main in `ded53f6`, YAML fix in `41c12c3`).
+- Ref built: `workflow-claude/master` at `0c01249`.
+- Run 45736330111: success. Builds `tools/` with `geode-sdk/build-geode-mod` (target Android64, RelWithDebInfo, symbols exported).
+- Artifact: `geodan-tools-android64` (`local.geodan-tools.geode`, 2.6 MB, not expired).
+- Logs: the run page, https://github.com/bagelsssss/GeoDan/actions/runs/45736330111
+- Not tested in game. Run 45736273992 failed because of the YAML error fixed in `41c12c3`.
