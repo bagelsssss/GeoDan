@@ -2,6 +2,7 @@
 // settings. The tool list and its rules live in core/tool_registry.hpp.
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PauseLayer.hpp>
+#include <Geode/modify/LevelInfoLayer.hpp>
 #include <Geode/ui/Popup.hpp>
 
 #include <cmath>
@@ -32,11 +33,10 @@ bool savedOrDefault(std::string_view id, bool) {
 }
 
 // Which popup section a tool belongs to.
-enum class Section { Hitboxes, Trajectory, Planned };
+enum class Section { Hitboxes, Planned };
 
 Section sectionOf(const core::ToolDef& tool) {
     if (!core::canEnable(tool)) return Section::Planned;
-    if (tool.id == "trajectory") return Section::Trajectory;
     return Section::Hitboxes;
 }
 
@@ -110,7 +110,6 @@ private:
         float y = size.height - 42.f;
 
         y = addSection(y, "HITBOXES", Section::Hitboxes, size);
-        y = addSection(y, "TRAJECTORY", Section::Trajectory, size);
         y = addSection(y, "COMING NEXT", Section::Planned, size);
 
         auto* summary = CCLabelBMFont::create(
@@ -184,38 +183,6 @@ private:
     }
 };
 
-// The menu holding the most pause-menu buttons: the row the TOOLS button joins.
-CCMenu* findButtonRow(CCNode* layer) {
-    CCMenu* best = nullptr;
-    std::size_t bestCount = 0;
-    auto* children = layer->getChildren();
-    if (!children) return nullptr;
-    for (auto* node : CCArrayExt<CCNode*>(children)) {
-        auto* menu = dynamic_cast<CCMenu*>(node);
-        if (!menu || !menu->getChildren()) continue;
-        std::size_t count = 0;
-        for (auto* child : CCArrayExt<CCNode*>(menu->getChildren())) {
-            if (dynamic_cast<CCMenuItem*>(child)) ++count;
-        }
-        if (count > bestCount) {
-            best = menu;
-            bestCount = count;
-        }
-    }
-    return best;
-}
-
-// Rightmost existing button in a row, in the row's own coordinates.
-CCNode* rightmostButton(CCMenu* row) {
-    CCNode* rightmost = nullptr;
-    for (auto* child : CCArrayExt<CCNode*>(row->getChildren())) {
-        auto* item = dynamic_cast<CCMenuItem*>(child);
-        if (!item) continue;
-        if (!rightmost || item->getPositionX() > rightmost->getPositionX()) rightmost = item;
-    }
-    return rightmost;
-}
-
 }  // namespace
 
 class $modify(GeoDanToolsPauseLayer, PauseLayer) {
@@ -224,6 +191,8 @@ class $modify(GeoDanToolsPauseLayer, PauseLayer) {
         auto* playLayer = PlayLayer::get();
         if (!playLayer || !playLayer->m_level) return;
 
+        // Own menu in the bottom-right corner, above the pause content, so the
+        // button does not depend on another menu's layout.
         auto label = CCLabelBMFont::create("TOOLS", "bigFont.fnt");
         if (!label) return;
         label->setScale(0.32f);
@@ -231,24 +200,40 @@ class $modify(GeoDanToolsPauseLayer, PauseLayer) {
             label, this, menu_selector(GeoDanToolsPauseLayer::onTools));
         if (!button) return;
         button->setTag(kToolsButtonTag);
-
-        // Preferred: join the existing pause-menu button row, right after its
-        // last button, so TOOLS sits next to the game's own buttons.
-        if (auto* row = findButtonRow(this)) {
-            if (auto* last = rightmostButton(row)) {
-                button->setPosition(ccp(last->getPositionX() + 70.f, last->getPositionY()));
-                row->addChild(button);
-                return;
-            }
-        }
-
-        // Fallback when no button row is found: bottom-right corner.
         auto menu = CCMenu::create();
         if (!menu) return;
         menu->addChild(button);
         const auto win = CCDirector::get()->getWinSize();
-        menu->setPosition(ccp(win.width - 50.f, 30.f));
+        menu->setPosition(ccp(win.width - 60.f, 30.f));
+        menu->setZOrder(1000);
         this->addChild(menu);
+    }
+
+    void onTools(CCObject*) {
+        if (auto* popup = ToolsPopup::create()) popup->show();
+    }
+};
+
+// TOOLS on the level page, next to the level's play controls.
+class $modify(GeoDanToolsLevelInfo, LevelInfoLayer) {
+    bool init(GJGameLevel* level, bool challenge) {
+        if (!LevelInfoLayer::init(level, challenge)) return false;
+
+        auto label = CCLabelBMFont::create("TOOLS", "bigFont.fnt");
+        if (!label) return true;
+        label->setScale(0.32f);
+        auto button = CCMenuItemSpriteExtra::create(
+            label, this, menu_selector(GeoDanToolsLevelInfo::onTools));
+        if (!button) return true;
+        button->setTag(kToolsButtonTag);
+        auto menu = CCMenu::create();
+        if (!menu) return true;
+        menu->addChild(button);
+        const auto win = CCDirector::get()->getWinSize();
+        menu->setPosition(ccp(win.width - 60.f, 30.f));
+        menu->setZOrder(1000);
+        this->addChild(menu);
+        return true;
     }
 
     void onTools(CCObject*) {

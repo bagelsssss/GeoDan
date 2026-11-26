@@ -3,167 +3,26 @@
 // never changes collision, physics or level objects.
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
+#include <Geode/binding/GJGroundLayer.hpp>
 
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "core/hitbox_model.hpp"
 #include "core/hitbox_trail.hpp"
+#include "overlay_renderer.hpp"
+#include "portrait_capture_target.hpp"
 
 using namespace geode::prelude;
 namespace hb = geodan::core::hitbox;
 namespace tr = geodan::core::trail;
+namespace overlay = geodan::tools::overlay;
+namespace capture = geodan::tools::capture;
 
 namespace {
-
-// Colours are a screenshot-parser contract (see the old docs/hitbox_mod.md).
-const ccColor4F kHazard = ccc4f(1.00f, 0.18f, 0.18f, 1.f);
-const ccColor4F kSolid = ccc4f(0.20f, 0.50f, 1.00f, 1.f);
-const ccColor4F kModifier = ccc4f(0.18f, 0.88f, 0.44f, 1.f);
-const ccColor4F kUnclassified = ccc4f(1.00f, 0.20f, 0.90f, 1.f);
-const ccColor4F kNoFill = ccc4f(0.f, 0.f, 0.f, 0.f);
-const float kTrailGrey = 0.33f;     // neutral grey, never red or blue
-const float kTrailOpacity = 0.6f;
-const float kLineWidth = 0.65f;
-const float kHazardLineWidth = 1.0f;
-const float kViewMargin = 120.f;    // extra world units around the screen
-
-const ccColor4F& colourOf(hb::Category c) {
-    switch (c) {
-        case hb::Category::Hazard: return kHazard;
-        case hb::Category::Solid: return kSolid;
-        case hb::Category::Modifier: return kModifier;
-        case hb::Category::Unclassified: return kUnclassified;
-    }
-    return kUnclassified;
-}
-
-// Cocos CCDrawNode blends premultiplied colour, so the colour must be scaled by alpha first.
-ccColor4F premultiplied(float grey, float alpha) {
-    return ccc4f(grey * alpha, grey * alpha, grey * alpha, alpha);
-}
-
-CCRect visibleRect(CCNode* layer, float margin) {
-    const auto win = CCDirector::sharedDirector()->getWinSize();
-    const CCPoint corners[4] = {
-        ccp(0.f, 0.f), ccp(win.width, 0.f), ccp(win.width, win.height), ccp(0.f, win.height)};
-    float minX = 1e30f, minY = 1e30f, maxX = -1e30f, maxY = -1e30f;
-    for (const auto& c : corners) {
-        const auto p = layer->convertToNodeSpace(c);
-        minX = std::min(minX, p.x);
-        maxX = std::max(maxX, p.x);
-        minY = std::min(minY, p.y);
-        maxY = std::max(maxY, p.y);
-    }
-    return CCRectMake(minX - margin, minY - margin,
-                      (maxX - minX) + margin * 2.f, (maxY - minY) + margin * 2.f);
-}
-
-std::vector<hb::Pt> toPts(const std::array<CCPoint, 4>& c) {
-    std::vector<hb::Pt> out;
-    out.reserve(4);
-    for (const auto& p : c) out.push_back({p.x, p.y});
-    return out;
-}
-
-// Builds the outline for one object. Returns false when nothing should be drawn.
-bool buildShape(GameObject* o, bool showUnclassified, std::vector<hb::Pt>& points,
-                hb::Category& category, bool& hazardEdge, hb::Pt& edgeA, hb::Pt& edgeB) {
-    if (!o || o->getGroupDisabled() || o->m_isNoTouch) return false;
-
-    const auto cls = hb::classifyType(static_cast<int>(o->getType()));
-    if (!cls.draw) return false;
-    if (cls.category == hb::Category::Unclassified && !showUnclassified) return false;
-    category = cls.category;
-
-    // Circular objects (orbs, saws) are drawn as circles from their radius.
-    const float scale = std::max(std::abs(o->m_scaleX), std::abs(o->m_scaleY));
-    const float radius = o->m_objectRadius * scale;
-    if (radius > 0.f) {
-        const auto p = o->getPosition();
-        points = hb::circlePolygon({p.x, p.y}, radius);
-        return !points.empty();
-    }
-
-    // The game's rotated collision box when present, else the axis-aligned rect.
-    std::array<CCPoint, 4> corners{};
-    bool haveCorners = false;
-    if (o->m_orientedBox) {
-        if (auto* box = o->getOrientedBox()) {
-            for (std::size_t i = 0; i < 4; ++i) corners[i] = box->m_corners[i];
-            haveCorners = true;
-        }
-    }
-    if (!haveCorners) {
-        const auto r = o->getObjectRect();
-        corners = {ccp(r.getMinX(), r.getMinY()), ccp(r.getMaxX(), r.getMinY()),
-                   ccp(r.getMaxX(), r.getMaxY()), ccp(r.getMinX(), r.getMaxY())};
-    }
-    std::array<hb::Pt, 4> pts{};
-    for (std::size_t i = 0; i < 4; ++i) pts[i] = {corners[i].x, corners[i].y};
-
-    // Slopes are a triangle; a hazardous slope also has a lethal longest edge.
-    if (o->getType() == GameObjectType::Slope) {
-        points = hb::slopeTriangle(pts, o->isFlipX(), o->isFlipY());
-        if (o->m_slopeIsHazard && points.size() == 3) {
-            const auto e = hb::longestEdge(points);
-            hazardEdge = true;
-            edgeA = points[e];
-            edgeB = points[(e + 1) % 3];
-        }
-    } else {
-        points.assign(pts.begin(), pts.end());
-    }
-    return points.size() >= 3;
-}
-
-void drawOutline(CCDrawNode* node, const std::vector<hb::Pt>& pts, hb::Category category,
-                 bool hazardEdge, hb::Pt edgeA, hb::Pt edgeB) {
-    std::vector<CCPoint> cc;
-    cc.reserve(pts.size());
-    for (const auto& p : pts) cc.push_back(ccp(p.x, p.y));
-    const float width = category == hb::Category::Hazard ? kHazardLineWidth : kLineWidth;
-    node->drawPolygon(cc.data(), static_cast<unsigned int>(cc.size()), kNoFill, width,
-                      colourOf(category));
-    if (hazardEdge) {
-        node->drawSegment(ccp(edgeA.x, edgeA.y), ccp(edgeB.x, edgeB.y), kHazardLineWidth, kHazard);
-    }
-}
-
-// Draws one player's trail: older samples fainter, neutral grey only.
-void drawTrail(CCDrawNode* node, const tr::Trail& trail) {
-    if (trail.empty()) return;
-    constexpr std::size_t kMaxDrawn = 240;
-    const std::size_t stride =
-        std::max<std::size_t>(1, (trail.size() + kMaxDrawn - 1) / kMaxDrawn);
-
-    const auto drawSample = [&](std::size_t index) {
-        const auto& sample = trail[index];
-        const float progress = trail.size() <= 1
-            ? 1.f
-            : static_cast<float>(index) / static_cast<float>(trail.size() - 1);
-        const float alpha = std::clamp(kTrailOpacity * (0.15f + 0.85f * progress), 0.f, 1.f);
-
-        const auto& b = sample.outer;
-        CCPoint outer[4] = {ccp(b.left, b.bottom), ccp(b.right, b.bottom),
-                            ccp(b.right, b.top), ccp(b.left, b.top)};
-        node->drawPolygon(outer, 4, premultiplied(kTrailGrey, alpha * 0.08f), 0.9f,
-                          premultiplied(kTrailGrey, alpha));
-
-        if (sample.collisionBlock) {
-            const auto& c = *sample.collisionBlock;
-            CCPoint inner[4] = {ccp(c.left, c.bottom), ccp(c.right, c.bottom),
-                                ccp(c.right, c.top), ccp(c.left, c.top)};
-            node->drawPolygon(inner, 4, kNoFill, 0.7f,
-                              premultiplied(kTrailGrey, alpha * 0.85f));
-        }
-    };
-
-    for (std::size_t i = 0; i < trail.size(); i += stride) drawSample(i);
-    if ((trail.size() - 1) % stride != 0) drawSample(trail.size() - 1);
-}
 
 std::optional<tr::Snapshot> snapshotOf(PlayerObject* p) {
     if (!p || !p->isVisible()) return std::nullopt;
@@ -182,6 +41,17 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         CCDrawNode* overlay = nullptr;
         CCDrawNode* trailNode = nullptr;
         tr::Tracker tracker;
+        capture::PortraitCaptureTarget portraitTest;
+        bool portraitTestInitialized = false;
+        bool portraitTestInitAttempted = false;
+        // Preview-only subtree: hitboxes only, no sprites or background.
+        // Hidden in the scene; visible only while the preview renders it.
+        CCNode* previewRoot = nullptr;
+        CCDrawNode* previewDraw = nullptr;
+        // On-screen status for the preview: state of the last update and a count
+        // of successful renders. Shows what the preview is doing without logcat.
+        CCLabelBMFont* previewStatus = nullptr;
+        int previewRenders = 0;
     };
 
     void postUpdate(float dt) {
@@ -210,35 +80,154 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             m_objectLayer->addChild(f.trailNode, 10000);
         }
 
-        f.overlay->clear();
-        f.overlay->setVisible(showHitboxes);
-        if (showHitboxes && m_objects) {
-            const auto view = visibleRect(m_objectLayer, kViewMargin);
-            for (unsigned int i = 0; i < m_objects->count(); ++i) {
-                auto* o = static_cast<GameObject*>(m_objects->objectAtIndex(i));
-                if (!o || !view.containsPoint(o->getPosition())) continue;
-
-                std::vector<hb::Pt> points;
-                hb::Category category = hb::Category::Unclassified;
-                bool hazardEdge = false;
-                hb::Pt edgeA, edgeB;
-                if (!buildShape(o, showUnclassified, points, category,
-                                hazardEdge, edgeA, edgeB))
-                    continue;
-                drawOutline(f.overlay, points, category, hazardEdge, edgeA, edgeB);
-            }
-        }
+        overlay::drawHitboxes(f.overlay, m_objects, m_objectLayer,
+                              showHitboxes, showUnclassified);
 
         f.trailNode->clear();
         f.trailNode->setVisible(showTrail);
         if (showTrail) {
-            drawTrail(f.trailNode, f.tracker.trail(0));
-            drawTrail(f.trailNode, f.tracker.trail(1));
+            overlay::drawTrail(f.trailNode, f.tracker.trail(0));
+            overlay::drawTrail(f.trailNode, f.tracker.trail(1));
         }
+
+        // Temporary visual validation only: one extra render pass, no readback or files.
+        const bool portraitPreview = mod->getSettingValue<bool>("portrait-preview-test");
+        auto* portraitTarget = f.portraitTest.renderTexture();
+        if (!portraitPreview) {
+            if (portraitTarget) portraitTarget->setVisible(false);
+            if (f.previewStatus) f.previewStatus->setVisible(false);
+            return;
+        }
+        if (!f.portraitTestInitAttempted) {
+            f.portraitTestInitAttempted = true;
+            f.portraitTestInitialized = f.portraitTest.initialize(360, 1080);
+            if (!f.portraitTestInitialized) {
+                log::error("GeoDan portrait preview: failed to create exact 360x1080 render target");
+                return;
+            }
+            portraitTarget = f.portraitTest.renderTexture();
+            if (!portraitTarget) return;
+            this->addChild(portraitTarget, 100000);
+            // Hidden until the first successful render, so an early return never
+            // leaves an empty target drawn at the origin.
+            portraitTarget->setVisible(false);
+            // On-screen status line, bottom-left, so the preview can be diagnosed on the phone.
+            f.previewStatus = CCLabelBMFont::create("PV start", "chatFont.fnt");
+            if (f.previewStatus) {
+                f.previewStatus->setScale(0.4f);
+                f.previewStatus->setAnchorPoint(ccp(0.f, 0.f));
+                f.previewStatus->setPosition(ccp(4.f, 4.f));
+                f.previewStatus->setColor(ccc3(255, 230, 80));
+                this->addChild(f.previewStatus, 100001);
+            }
+        }
+        if (!f.portraitTestInitialized || !portraitTarget) return;
+        auto setStatus = [&f](const char* state) {
+            if (!f.previewStatus) return;
+            f.previewStatus->setVisible(true);
+            f.previewStatus->setString(
+                (std::string("PV ") + state + " " + std::to_string(f.previewRenders)).c_str());
+        };
+        const auto focus1 = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
+        if (!focus1) { setStatus("no-player"); portraitTarget->setVisible(false); return; }
+        const auto win = CCDirector::sharedDirector()->getWinSize();
+        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) { setStatus("bad-size"); return; }
+
+        // Dual mode: centre on the middle of both players, and widen the view
+        // when they are far apart vertically so both stay visible.
+        CCPoint focus = *focus1;
+        float span = 0.f;
+        if (m_gameState.m_isDualMode && m_player2) {
+            if (const auto focus2 = capture::PortraitCaptureTarget::worldPositionOf(m_player2)) {
+                focus = ccp((focus1->x + focus2->x) * 0.5f, (focus1->y + focus2->y) * 0.5f);
+                span = focus1->y > focus2->y ? focus1->y - focus2->y : focus2->y - focus1->y;
+            }
+        }
+        // Zoomed out from the screen scale (was 1x of the window height).
+        const float viewHeight = std::max(win.height * 2.f, span * 1.5f + 200.f);
+        const float worldToPointScale = static_cast<float>(f.portraitTest.pointHeight()) / viewHeight;
+
+        // Hitboxes only: level objects and both players, culled to the preview's
+        // own view (not the main camera's), in the same coordinates as the scene.
+        if (!f.previewRoot) {
+            f.previewRoot = CCNode::create();
+            f.previewDraw = CCDrawNode::create();
+            if (!f.previewRoot || !f.previewDraw) { setStatus("no-preview"); return; }
+            f.previewRoot->addChild(f.previewDraw);
+            f.previewRoot->setVisible(false);
+            m_objectLayer->addChild(f.previewRoot, 10002);
+        }
+        f.previewDraw->clear();
+        const float halfWidth = f.portraitTest.pointWidth() / worldToPointScale * 0.5f + 120.f;
+        const float halfHeight = f.portraitTest.pointHeight() / worldToPointScale * 0.5f + 120.f;
+        const CCPoint centre = m_objectLayer->convertToNodeSpace(focus);
+        const CCRect cull = CCRectMake(centre.x - halfWidth, centre.y - halfHeight,
+                                       halfWidth * 2.f, halfHeight * 2.f);
+        overlay::drawHitboxes(f.previewDraw, m_objects, m_objectLayer, true, true, &cull);
+
+        // Ground lines: the game's own ground layers (the floor, and the second
+        // ground in dual or ship modes), converted through each layer's transform.
+        // Same method as the screenshot marker, so the line follows the real ground.
+        constexpr float kGroundHalfExtent = 10000.f;
+        const ccColor4F groundColour = ccc4f(1.f, 1.f, 1.f, 1.f);
+        for (auto* ground : {m_groundLayer, m_groundLayer2}) {
+            if (!ground || !ground->isVisible()) continue;
+            const float groundY = ground->getGroundY();
+            const CCPoint a = m_objectLayer->convertToNodeSpace(
+                ground->convertToWorldSpace(ccp(-kGroundHalfExtent, groundY)));
+            const CCPoint b = m_objectLayer->convertToNodeSpace(
+                ground->convertToWorldSpace(ccp(kGroundHalfExtent, groundY)));
+            f.previewDraw->drawSegment(a, b, 2.f, groundColour);
+        }
+
+        auto drawPlayerRect = [&](PlayerObject* player, const ccColor4F& colour) {
+            if (!player || !player->isVisible()) return;
+            const auto rect = player->getObjectRect();
+            const CCPoint a = ccp(rect.getMinX(), rect.getMinY());
+            const CCPoint b = ccp(rect.getMinX(), rect.getMaxY());
+            const CCPoint c = ccp(rect.getMaxX(), rect.getMaxY());
+            const CCPoint d = ccp(rect.getMaxX(), rect.getMinY());
+            f.previewDraw->drawSegment(a, b, 1.5f, colour);
+            f.previewDraw->drawSegment(b, c, 1.5f, colour);
+            f.previewDraw->drawSegment(c, d, 1.5f, colour);
+            f.previewDraw->drawSegment(d, a, 1.5f, colour);
+        };
+        drawPlayerRect(m_player1, ccc4f(1.f, 0.2f, 0.2f, 1.f));
+        if (m_gameState.m_isDualMode) drawPlayerRect(m_player2, ccc4f(0.2f, 1.f, 0.2f, 1.f));
+        // The hitbox trail follows the same setting as the main overlay.
+        if (showTrail) {
+            overlay::drawTrail(f.previewDraw, f.tracker.trail(0));
+            overlay::drawTrail(f.previewDraw, f.tracker.trail(1));
+        }
+
+        f.previewRoot->setVisible(true);
+        const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
+        f.previewRoot->setVisible(false);
+        if (!rendered) {
+            setStatus("render-fail");
+            return;
+        }
+        ++f.previewRenders;
+        setStatus("ok");
+
+        const float previewScale = std::min(
+            (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
+            (win.height * 0.78f) / static_cast<float>(f.portraitTest.pointHeight()));
+        portraitTarget->setScale(previewScale);
+        // Right edge, vertically centred, clear of the top-right game buttons.
+        portraitTarget->setPosition(ccp(
+            win.width - 10.f - f.portraitTest.pointWidth() * previewScale * 0.5f,
+            win.height * 0.5f));
+        portraitTarget->setVisible(true);
     }
 
     void resetLevel() {
+        // Finish the current attempt before resetting per-attempt state.
         PlayLayer::resetLevel();
         m_fields->tracker.reset();
+    }
+
+    void onQuit() {
+        PlayLayer::onQuit();
     }
 };
