@@ -14,12 +14,17 @@
 namespace geodan::tools::recorder_live {
 
 struct CaptureView {
-    CCNode* root = nullptr;
-    CCPoint focus{};
+    // Keep this header independent of geode::prelude import order. CCNode is
+    // forward-declared by the Geode headers, so a qualified pointer is enough.
+    cocos2d::CCNode* root = nullptr;
+    // Store coordinates as scalars so this header does not need a complete
+    // CCPoint definition; recorder_live.cpp constructs the Cocos point.
+    float focusX = 0.f;
+    float focusY = 0.f;
     float worldToPointScale = 0.f;
 
     bool valid() const {
-        return root && std::isfinite(focus.x) && std::isfinite(focus.y) &&
+        return root && std::isfinite(focusX) && std::isfinite(focusY) &&
                std::isfinite(worldToPointScale) && worldToPointScale > 0.f;
     }
 };
