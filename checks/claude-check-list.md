@@ -225,3 +225,5 @@ Checked against `workflow-codex/master` (e5937fc). Codex has pushed no new commi
 Our fix (workflow-claude/master `bc2236a`): `spawnParticle` override no longer returns `nullptr`. It spawns normally and detaches the particle while simulating. Not compiled here (Geode-only file); needs the Windows build.
 
 Open, needs the PC: recorder zero-frame bug; trajectory diagnostics (workflow-claude/trajectory-diagnostics `173175f`) still waiting for a build and log.
+
+Correction to the entry above: Codex's `FrameGeometry::valid()` rule is stricter for supported frames, not only looser for unsupported ones. A `Valid` frame must now contain a Player entity; an `Unsupported` frame may omit it. Ported to workflow-claude/master as a commit with two geometry-test checks (returns 14 and 15). Risk: `RecorderSession::writeFrame` fails the write if a Valid frame has no player, so the live producer must set `Unsupported` when the player is absent.
