@@ -62,7 +62,7 @@ LiveRecorder::~LiveRecorder() {
     if (m_session) stop("layer_destroyed");
 }
 
-void LiveRecorder::update(PlayLayer* layer, bool enabled) {
+void LiveRecorder::update(PlayLayer* layer, bool enabled, const Scene* scene) {
     if (!enabled) {
         stop("setting_off");
         return;
@@ -74,7 +74,12 @@ void LiveRecorder::update(PlayLayer* layer, bool enabled) {
         else
             Notification::create("GeoDan: recording could not start", NotificationIcon::Error)->show();
     }
-    if (m_session) captureFrame(layer);
+    if (!m_session) return;
+    if (!scene) {
+        m_session->lastDrop = "no_scene";
+        return;
+    }
+    captureFrame(layer, *scene);
 }
 
 bool LiveRecorder::start(PlayLayer* layer) {
@@ -117,7 +122,7 @@ bool LiveRecorder::start(PlayLayer* layer) {
     return true;
 }
 
-void LiveRecorder::captureFrame(PlayLayer* layer) {
+void LiveRecorder::captureFrame(PlayLayer* layer, const Scene& scene) {
     auto& s = *m_session;
 
     // The timeline paces capture to the 60 Hz cadence. A frame that is not due
@@ -135,15 +140,19 @@ void LiveRecorder::captureFrame(PlayLayer* layer) {
     }
     rec::PixelBufferPool::Lease lease = std::move(*leaseOpt);
 
-    const auto focus = capture::PortraitCaptureTarget::worldPositionOf(layer->m_player1);
-    const auto win = CCDirector::sharedDirector()->getWinSize();
-    const int pointHeight = s.target.pointHeight();
-    if (!focus || win.height <= 0.f || pointHeight <= 0) { s.lastDrop = "no_focus"; return; }
-    const float worldToPointScale = static_cast<float>(pointHeight) / win.height;
+    if (scene.root == nullptr || scene.worldToPointScale <= 0.f) {
+        s.lastDrop = "no_scene";
+        return;
+    }
+    // The same hitbox-only subtree, zoom and focus as the on-screen preview.
     // Synchronous GPU readback straight from the render target: exactly
-    // 360x1080 RGBA, rows top-down. Accepted by the user; measure at 60 FPS.
-    if (!s.target.renderAndRead(layer->m_objectLayer, *focus, worldToPointScale,
-                                lease.data(), lease.size())) {
+    // 360x1080 RGBA, rows top-down.
+    scene.root->setVisible(true);
+    const bool rendered = s.target.renderAndRead(scene.root, scene.focus,
+                                                 scene.worldToPointScale,
+                                                 lease.data(), lease.size());
+    scene.root->setVisible(false);
+    if (!rendered) {
         s.lastDrop = "render_fail";
         return;
     }
@@ -152,9 +161,9 @@ void LiveRecorder::captureFrame(PlayLayer* layer) {
     transform.width = rec::kDefaultWidth;
     transform.height = rec::kDefaultHeight;
     transform.contentScale = CC_CONTENT_SCALE_FACTOR();
-    transform.worldToPointScale = worldToPointScale;
-    transform.focusWorld.x = static_cast<double>(focus->x);
-    transform.focusWorld.y = static_cast<double>(focus->y);
+    transform.worldToPointScale = scene.worldToPointScale;
+    transform.focusWorld.x = static_cast<double>(scene.focus.x);
+    transform.focusWorld.y = static_cast<double>(scene.focus.y);
 
     const bool playerDead = !layer->m_player1 || layer->m_player1->m_isDead;
     const auto phase = playerDead ? rec::CapturePhase::Unknown

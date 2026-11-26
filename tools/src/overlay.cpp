@@ -49,7 +49,7 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         recorder_live::LiveRecorder recorder;
         CCLabelBMFont* recorderStatus = nullptr;
         // Preview-only subtree: hitboxes only, no sprites or background.
-        // Hidden in the scene; visible only while the preview renders it.
+        // Hidden in the scene; visible only while it is being rendered.
         CCNode* previewRoot = nullptr;
         CCDrawNode* previewDraw = nullptr;
         // On-screen status for the preview: state of the last update and a count
@@ -94,9 +94,14 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             overlay::drawTrail(f.trailNode, f.tracker.trail(1));
         }
 
-        // Level recorder: runs after the overlays so recordings include them.
+        // The preview scene is built whenever the preview or the recorder needs it,
+        // so both draw the same hitboxes, ground lines and trail.
         const bool recordingOn = mod->getSettingValue<bool>("level-recorder");
-        f.recorder.update(this, recordingOn);
+        const bool portraitPreview = mod->getSettingValue<bool>("portrait-preview-test");
+        const auto scene = buildScene(portraitPreview, recordingOn || portraitPreview);
+
+        // Level recorder: runs after the scene so each frame matches this tick.
+        f.recorder.update(this, recordingOn, scene ? &*scene : nullptr);
 
         // On-screen recorder status (top-left) so drops can be seen on the phone.
         if (recordingOn) {
@@ -118,24 +123,35 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         } else if (f.recorderStatus) {
             f.recorderStatus->setVisible(false);
         }
+    }
 
-        // Temporary visual validation only: one extra render pass, no readback or files.
-        const bool portraitPreview = mod->getSettingValue<bool>("portrait-preview-test");
+    // Builds this tick's preview scene (hitboxes, ground lines, player rectangles
+    // and trail) in the preview subtree. showOnScreen also renders it into the
+    // on-screen preview; wantScene is for the recorder, which renders the subtree
+    // itself. Returns nothing when there is no scene to use this tick.
+    std::optional<recorder_live::Scene> buildScene(bool showOnScreen, bool wantScene) {
+        auto& f = *m_fields.self();
+        const bool showTrail = Mod::get()->getSettingValue<bool>("hitbox-trail");
+
         auto* portraitTarget = f.portraitTest.renderTexture();
-        if (!portraitPreview) {
+        if (!wantScene) {
             if (portraitTarget) portraitTarget->setVisible(false);
             if (f.previewStatus) f.previewStatus->setVisible(false);
-            return;
+            return std::nullopt;
+        }
+        if (!showOnScreen) {
+            if (portraitTarget) portraitTarget->setVisible(false);
+            if (f.previewStatus) f.previewStatus->setVisible(false);
         }
         if (!f.portraitTestInitAttempted) {
             f.portraitTestInitAttempted = true;
             f.portraitTestInitialized = f.portraitTest.initialize(360, 1080);
             if (!f.portraitTestInitialized) {
                 log::error("GeoDan portrait preview: failed to create exact 360x1080 render target");
-                return;
+                return std::nullopt;
             }
             portraitTarget = f.portraitTest.renderTexture();
-            if (!portraitTarget) return;
+            if (!portraitTarget) return std::nullopt;
             this->addChild(portraitTarget, 100000);
             // Hidden until the first successful render, so an early return never
             // leaves an empty target drawn at the origin.
@@ -150,17 +166,24 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
                 this->addChild(f.previewStatus, 100001);
             }
         }
-        if (!f.portraitTestInitialized || !portraitTarget) return;
-        auto setStatus = [&f](const char* state) {
-            if (!f.previewStatus) return;
+        if (!f.portraitTestInitialized || !portraitTarget) return std::nullopt;
+        auto setStatus = [&f, showOnScreen](const char* state) {
+            if (!showOnScreen || !f.previewStatus) return;
             f.previewStatus->setVisible(true);
             f.previewStatus->setString(
                 (std::string("PV ") + state + " " + std::to_string(f.previewRenders)).c_str());
         };
         const auto focus1 = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
-        if (!focus1) { setStatus("no-player"); portraitTarget->setVisible(false); return; }
+        if (!focus1) {
+            setStatus("no-player");
+            portraitTarget->setVisible(false);
+            return std::nullopt;
+        }
         const auto win = CCDirector::sharedDirector()->getWinSize();
-        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) { setStatus("bad-size"); return; }
+        if (win.height <= 0.f || f.portraitTest.pointHeight() <= 0) {
+            setStatus("bad-size");
+            return std::nullopt;
+        }
 
         // Dual mode: centre on the middle of both players, and widen the view
         // when they are far apart vertically so both stay visible.
@@ -181,7 +204,10 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         if (!f.previewRoot) {
             f.previewRoot = CCNode::create();
             f.previewDraw = CCDrawNode::create();
-            if (!f.previewRoot || !f.previewDraw) { setStatus("no-preview"); return; }
+            if (!f.previewRoot || !f.previewDraw) {
+                setStatus("no-preview");
+                return std::nullopt;
+            }
             f.previewRoot->addChild(f.previewDraw);
             f.previewRoot->setVisible(false);
             m_objectLayer->addChild(f.previewRoot, 10002);
@@ -229,25 +255,29 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             overlay::drawTrail(f.previewDraw, f.tracker.trail(1));
         }
 
-        f.previewRoot->setVisible(true);
-        const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
-        f.previewRoot->setVisible(false);
-        if (!rendered) {
-            setStatus("render-fail");
-            return;
-        }
-        ++f.previewRenders;
-        setStatus("ok");
+        if (showOnScreen) {
+            f.previewRoot->setVisible(true);
+            const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
+            f.previewRoot->setVisible(false);
+            if (!rendered) {
+                setStatus("render-fail");
+            } else {
+                ++f.previewRenders;
+                setStatus("ok");
 
-        const float previewScale = std::min(
-            (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
-            (win.height * 0.78f) / static_cast<float>(f.portraitTest.pointHeight()));
-        portraitTarget->setScale(previewScale);
-        // Right edge, vertically centred, clear of the top-right game buttons.
-        portraitTarget->setPosition(ccp(
-            win.width - 10.f - f.portraitTest.pointWidth() * previewScale * 0.5f,
-            win.height * 0.5f));
-        portraitTarget->setVisible(true);
+                const float previewScale = std::min(
+                    (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
+                    (win.height * 0.78f) / static_cast<float>(f.portraitTest.pointHeight()));
+                portraitTarget->setScale(previewScale);
+                // Right edge, vertically centred, clear of the top-right game buttons.
+                portraitTarget->setPosition(ccp(
+                    win.width - 10.f - f.portraitTest.pointWidth() * previewScale * 0.5f,
+                    win.height * 0.5f));
+                portraitTarget->setVisible(true);
+            }
+        }
+
+        return recorder_live::Scene{f.previewRoot, focus, worldToPointScale};
     }
 
     void resetLevel() {

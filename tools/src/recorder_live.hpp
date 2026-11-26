@@ -12,6 +12,15 @@
 
 namespace geodan::tools::recorder_live {
 
+// The preview scene the overlay built this tick: the hitbox-only subtree, the
+// focus point and the zoom it was drawn with. A recording renders this same
+// subtree, so the frames match the on-screen preview.
+struct Scene {
+    cocos2d::CCNode* root = nullptr;
+    cocos2d::CCPoint focus{};
+    float worldToPointScale = 0.f;
+};
+
 class LiveRecorder final {
 public:
     LiveRecorder(); // defined in the .cpp: Session is incomplete here
@@ -19,9 +28,9 @@ public:
     LiveRecorder& operator=(const LiveRecorder&) = delete;
     ~LiveRecorder();
 
-    // Called once per frame from PlayLayer::postUpdate, after the overlays
-    // have been updated so the recording includes them.
-    void update(PlayLayer* layer, bool enabled);
+    // Called once per frame from PlayLayer::postUpdate, after the preview scene
+    // for this tick is built. scene is null when there is no scene this tick.
+    void update(PlayLayer* layer, bool enabled, const Scene* scene);
 
     // Finishes the current session, if any. Blocks until queued frames are
     // written. Safe to call when no session is running.
@@ -36,7 +45,7 @@ public:
 private:
     struct Session;
     bool start(PlayLayer* layer);
-    void captureFrame(PlayLayer* layer);
+    void captureFrame(PlayLayer* layer, const Scene& scene);
 
     std::unique_ptr<Session> m_session;
     bool m_startFailed = false; // cleared when the attempt ends (stop)
