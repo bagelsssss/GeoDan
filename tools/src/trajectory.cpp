@@ -240,6 +240,38 @@ void drawPredictions(TrajectoryRuntime& runtime) {
     }
 }
 
+// Diagnostics: one line per second, so a log shows whether paths are computed,
+// how many samples they have, why they stopped, and whether the draw node is
+// visible and attached above the level objects.
+float s_diagnosticsElapsed = 0.f;
+
+void logBranch(std::size_t playerIndex, const char* name, const trajectory::Path& path) {
+    log::info("GeoDan trajectory p{} {} samples={} stop={}", playerIndex + 1, name,
+              path.samples.size(), static_cast<int>(path.stopReason));
+}
+
+void logDiagnostics(TrajectoryRuntime& runtime, float dt) {
+    s_diagnosticsElapsed += dt;
+    if (s_diagnosticsElapsed < 1.f) return;
+    s_diagnosticsElapsed = 0.f;
+
+    for (std::size_t p = 0; p < kPlayerCount; ++p) {
+        logBranch(p, "hold", runtime.predictions[p].path(trajectory::Branch::Hold));
+        logBranch(p, "release", runtime.predictions[p].path(trajectory::Branch::Release));
+    }
+
+    auto* node = runtime.drawNode;
+    if (!node) {
+        log::info("GeoDan trajectory draw node missing");
+        return;
+    }
+    auto* parent = node->getParent();
+    log::info("GeoDan trajectory draw visible={} children={} zOrder={} parentZ={} parentChildren={}",
+              node->isVisible(), node->getChildrenCount(), node->getZOrder(),
+              parent ? parent->getZOrder() : -1,
+              parent ? parent->getChildrenCount() : 0u);
+}
+
 } // namespace
 
 void updateGeoDanTrajectory(PlayLayer* layer, float dt) {
@@ -286,6 +318,7 @@ void updateGeoDanTrajectory(PlayLayer* layer, float dt) {
     }
 
     drawPredictions(runtime);
+    logDiagnostics(runtime, dt);
 }
 
 void resetGeoDanTrajectory(PlayLayer* layer) {
