@@ -157,6 +157,11 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         };
         drawPlayerRect(m_player1, ccc4f(1.f, 0.2f, 0.2f, 1.f));
         if (m_gameState.m_isDualMode) drawPlayerRect(m_player2, ccc4f(0.2f, 1.f, 0.2f, 1.f));
+        // The hitbox trail follows the same setting as the main overlay.
+        if (showTrail) {
+            overlay::drawTrail(f.previewDraw, f.tracker.trail(0));
+            overlay::drawTrail(f.previewDraw, f.tracker.trail(1));
+        }
 
         f.previewRoot->setVisible(true);
         const bool rendered = f.portraitTest.render(f.previewRoot, focus, worldToPointScale);
