@@ -46,7 +46,6 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         // Hidden in the scene; visible only while the preview renders it.
         CCNode* previewRoot = nullptr;
         CCDrawNode* previewDraw = nullptr;
-        int previewFrames = 0;
     };
 
     void postUpdate(float dt) {
@@ -102,6 +101,9 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
             portraitTarget = f.portraitTest.renderTexture();
             if (!portraitTarget) return;
             this->addChild(portraitTarget, 100000);
+            // Hidden until the first successful render, so an early return never
+            // leaves an empty target drawn at the origin.
+            portraitTarget->setVisible(false);
         }
         if (!f.portraitTestInitialized || !portraitTarget) return;
         const auto focus1 = capture::PortraitCaptureTarget::worldPositionOf(m_player1);
@@ -162,7 +164,6 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         if (!rendered) {
             return;
         }
-        ++f.previewFrames;
 
         const float previewScale = std::min(
             (win.width * 0.42f) / static_cast<float>(f.portraitTest.pointWidth()),
