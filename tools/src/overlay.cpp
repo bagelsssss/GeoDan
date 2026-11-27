@@ -4,6 +4,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
+#include <Geode/modify/GameObject.hpp>
 #include <Geode/binding/GJGroundLayer.hpp>
 #include <Geode/binding/RingObject.hpp>
 
@@ -15,6 +16,7 @@
 
 #include "core/hitbox_model.hpp"
 #include "core/hitbox_trail.hpp"
+#include "core/recorder_state_log.hpp"
 #include "overlay_renderer.hpp"
 #include "portrait_capture_target.hpp"
 #include "recorder_live.hpp"
@@ -308,7 +310,7 @@ class $modify(GeoDanInputGameLayer, GJBaseGameLayer) {
     }
 
     // Orbs are reported through playerTouchedRing. The recorder keeps only the
-    // kinds it knows. Pads and portals are not hooked yet (see the touch log notes).
+    // kinds it knows. Pads and portals are reported through GameObject below.
     void playerTouchedRing(PlayerObject* player, RingObject* object) {
         GJBaseGameLayer::playerTouchedRing(player, object);
         if (auto* recorder = recorder_live::activeRecorder(); recorder && object)
@@ -316,3 +318,18 @@ class $modify(GeoDanInputGameLayer, GJBaseGameLayer) {
     }
 };
 
+// Pads and portals are reported when the game activates them. activateObject does
+// not say which player touched it, so these touches are recorded as player 1 for
+// now. Orbs are skipped here, since playerTouchedRing already records them.
+class $modify(GeoDanActivateObject, GameObject) {
+    void activateObject() {
+        GameObject::activateObject();
+        auto* recorder = recorder_live::activeRecorder();
+        if (!recorder) return;
+        geodan::core::recorder::TouchKind kind = geodan::core::recorder::TouchKind::Orb;
+        const int type = static_cast<int>(this->getType());
+        if (geodan::core::recorder::touchKindFor(type, kind)
+            && kind != geodan::core::recorder::TouchKind::Orb)
+            recorder->recordTouch(type, true);
+    }
+};
