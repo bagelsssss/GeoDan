@@ -15,6 +15,7 @@ using namespace geode::prelude;
 
 #include "core/recorder_geometry.hpp"
 #include "core/recorder_input_log.hpp"
+#include "core/recorder_state_log.hpp"
 #include "core/recorder_unsupported_log.hpp"
 #include "core/recorder_model.hpp"
 #include "core/recorder_session.hpp"
@@ -59,6 +60,9 @@ struct LiveRecorder::Session {
     std::filesystem::path directory;
     rec::InputLog inputs;         // button presses and releases, game thread only
     rec::UnsupportedCounts unsupportedCounts; // reasons frames were unsupported, game thread only
+    std::vector<rec::StateSample> states; // player state per captured frame, game thread only
+    std::vector<rec::TouchEvent> touches; // orb, pad and portal touches, game thread only
+    std::uint64_t touchesDropped = 0;     // touches refused because the log is full
 };
 
 namespace {
@@ -146,6 +150,25 @@ void LiveRecorder::recordInput(bool down, int button, bool player1) {
     s.inputs.push(event);
 }
 
+void LiveRecorder::recordTouch(int objectType, bool player1) {
+    if (!m_session) return;
+    auto& s = *m_session;
+    rec::TouchKind kind = rec::TouchKind::Orb;
+    if (!rec::touchKindFor(objectType, kind)) return;
+    // Capped so a long session cannot grow the log without limit.
+    constexpr std::size_t kMaxTouches = 20000;
+    if (s.touches.size() >= kMaxTouches) {
+        ++s.touchesDropped;
+        return;
+    }
+    rec::TouchEvent event;
+    event.timeNs = steadyNowNs() - s.startSteadyNs;
+    event.kind = kind;
+    event.objectType = objectType;
+    event.player1 = player1;
+    s.touches.push_back(event);
+}
+
 void LiveRecorder::captureFrame(PlayLayer* layer, const Scene& scene) {
     auto& s = *m_session;
 
@@ -195,6 +218,23 @@ void LiveRecorder::captureFrame(PlayLayer* layer, const Scene& scene) {
     auto geometry = capture::snapshotGeometry(layer, stamp->sequence, phase, transform);
     rec::addFrameNotes(s.unsupportedCounts, geometry.unsupportedNotes);
 
+    if (PlayerObject* player = layer->m_player1) {
+        rec::PlayerFlags flags;
+        flags.ship = player->m_isShip;
+        flags.ufo = player->m_isBird;
+        flags.ball = player->m_isBall;
+        flags.wave = player->m_isDart;
+        flags.robot = player->m_isRobot;
+        flags.spider = player->m_isSpider;
+        flags.swing = player->m_isSwing;
+        rec::StateSample sample;
+        sample.sequence = stamp->sequence;
+        sample.mode = rec::modeFromFlags(flags);
+        sample.upsideDown = player->m_isUpsideDown;
+        sample.gravity = player->m_gravity;
+        s.states.push_back(sample);
+    }
+
     rec::QueuedFrame frame{*stamp, std::move(lease), std::move(geometry)};
     // Never waits; a full queue counts a drop.
     if (s.queue.tryPush(std::move(frame))) {
@@ -234,6 +274,19 @@ void LiveRecorder::stop(const std::string& reason) {
         reasons.close();
         if (s.inputs.dropped() > 0)
             log::warn("GeoDan recorder: {} input events dropped (log full)", s.inputs.dropped());
+    }
+    // Player state and touches, written with the same care as inputs.csv.
+    {
+        std::ofstream states(s.directory / "states.csv", std::ios::binary | std::ios::trunc);
+        states << rec::stateCsv(s.states);
+        states.close();
+        if (states.fail()) log::error("GeoDan recorder: could not write states.csv in {}", s.directory.string());
+        std::ofstream touches(s.directory / "touches.csv", std::ios::binary | std::ios::trunc);
+        touches << rec::touchCsv(s.touches);
+        touches.close();
+        if (touches.fail()) log::error("GeoDan recorder: could not write touches.csv in {}", s.directory.string());
+        if (s.touchesDropped > 0)
+            log::warn("GeoDan recorder: {} touches dropped (log full)", s.touchesDropped);
     }
     if (ok) {
         log::info("GeoDan recorder: saved {} frames to {} ({}; no-buffer drops {}, queue drops {})",

@@ -5,6 +5,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/binding/GJGroundLayer.hpp>
+#include <Geode/binding/RingObject.hpp>
 
 #include <algorithm>
 #include <array>
@@ -304,5 +305,19 @@ class $modify(GeoDanInputGameLayer, GJBaseGameLayer) {
         GJBaseGameLayer::handleButton(down, button, isPlayer1);
         if (auto* recorder = recorder_live::activeRecorder())
             recorder->recordInput(down, button, isPlayer1);
+    }
+
+    // Orbs are reported through playerTouchedRing; pads and portals through
+    // playerTouchedObject. The recorder keeps only the kinds it knows.
+    void playerTouchedRing(PlayerObject* player, RingObject* object) {
+        GJBaseGameLayer::playerTouchedRing(player, object);
+        if (auto* recorder = recorder_live::activeRecorder(); recorder && object)
+            recorder->recordTouch(static_cast<int>(object->getType()), player == m_player1);
+    }
+
+    void playerTouchedObject(PlayerObject* player, GameObject* object) {
+        GJBaseGameLayer::playerTouchedObject(player, object);
+        if (auto* recorder = recorder_live::activeRecorder(); recorder && object)
+            recorder->recordTouch(static_cast<int>(object->getType()), player == m_player1);
     }
 };

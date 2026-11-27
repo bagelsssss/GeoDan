@@ -48,6 +48,10 @@ public:
     // session stops. Game thread only.
     void recordInput(bool down, int button, bool player1);
 
+    // Called when the player touches an object. Only orbs, pads and portals are
+    // kept (see core/recorder_state_log.hpp). Written to touches.csv on stop.
+    void recordTouch(int objectType, bool player1);
+
     // One-line status for the on-screen label: frames handed to the writer,
     // and the count and reason of each drop. Game thread only.
     std::string status() const;
