@@ -4,7 +4,6 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
-#include <Geode/modify/PlayerObject.hpp>
 #include <Geode/binding/GJGroundLayer.hpp>
 #include <Geode/binding/RingObject.hpp>
 
@@ -309,7 +308,7 @@ class $modify(GeoDanInputGameLayer, GJBaseGameLayer) {
     }
 
     // Orbs are reported through playerTouchedRing. The recorder keeps only the
-    // kinds it knows. Pads and portals are reported through PlayerObject below.
+    // kinds it knows. Pads and portals are not hooked yet (see the touch log notes).
     void playerTouchedRing(PlayerObject* player, RingObject* object) {
         GJBaseGameLayer::playerTouchedRing(player, object);
         if (auto* recorder = recorder_live::activeRecorder(); recorder && object)
@@ -317,12 +316,3 @@ class $modify(GeoDanInputGameLayer, GJBaseGameLayer) {
     }
 };
 
-// playerTouchedObject is inline in the bindings and cannot be hooked, so pads and
-// portals are recorded from PlayerObject::touchedObject instead.
-class $modify(GeoDanTouchPlayer, PlayerObject) {
-    void touchedObject(GameObject* object) {
-        PlayerObject::touchedObject(object);
-        if (auto* recorder = recorder_live::activeRecorder(); recorder && object)
-            recorder->recordTouch(static_cast<int>(object->getType()), !this->isPlayer2());
-    }
-};
