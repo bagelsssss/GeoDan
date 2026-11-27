@@ -19,13 +19,19 @@ namespace geodan::core::difficulty {
 // Weights for the close-approach thresholds: 5 px, 10 px, 20 px.
 inline constexpr std::array<double, 3> kThresholdWeights = {3.0, 2.0, 1.0};
 
-// Deadlocked's close-approach episodes summed over its sections: 5 px 1, 10 px 2, 20 px 2.
+// Weight per press. Provisional: a guess, to be revisited with a second anchor.
+inline constexpr double kPressWeight = 0.25;
+
+// Deadlocked's totals over its sections: close-approach episodes 5 px 1, 10 px 2,
+// 20 px 2, and 63 presses.
 inline constexpr std::array<std::uint32_t, 3> kDeadlockedCloseTotals = {1, 2, 2};
+inline constexpr std::uint32_t kDeadlockedPresses = 63;
 inline constexpr double kDeadlockedDan = 6.50;
 
 inline constexpr double kRawDeadlocked = kThresholdWeights[0] * kDeadlockedCloseTotals[0]
     + kThresholdWeights[1] * kDeadlockedCloseTotals[1]
-    + kThresholdWeights[2] * kDeadlockedCloseTotals[2];
+    + kThresholdWeights[2] * kDeadlockedCloseTotals[2]
+    + kPressWeight * kDeadlockedPresses;
 
 // Scale that makes Deadlocked's raw total land on 6.50.
 inline constexpr double kScale = kDeadlockedDan / kRawDeadlocked;
@@ -43,8 +49,10 @@ inline constexpr std::array<Anchor, 5> kAnchors = {{
     {"Eta + (Grief)", 17.75},
 }};
 
+// Raw section score: weighted close approaches plus a per-press term, so sections
+// with no close approaches still count for the activity they contain.
 inline double sectionDifficulty(const ii_analyzer::Section& s) {
-    double raw = 0.0;
+    double raw = kPressWeight * static_cast<double>(s.presses);
     for (std::size_t t = 0; t < kThresholdWeights.size(); ++t)
         raw += kThresholdWeights[t] * static_cast<double>(s.closeApproaches[t]);
     return kScale * raw;

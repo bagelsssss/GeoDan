@@ -13,13 +13,17 @@ int main() {
     // Deadlocked's totals (1, 2, 2 episodes) land on 6.50 by construction.
     ii_analyzer::Section a, b;
     a.closeApproaches = {1, 1, 1};
+    a.presses = 30;
     b.closeApproaches = {0, 1, 1};
+    b.presses = 33;
     const std::vector<ii_analyzer::Section> sections = {a, b};
     assert(std::abs(dm::levelDifficulty(sections) - 6.50) < 1e-9);
 
-    // Empty or quiet sections add nothing.
-    ii_analyzer::Section quiet;
+    // Empty sections add nothing; a quiet section with presses still scores.
+    ii_analyzer::Section quiet, active;
     assert(dm::sectionDifficulty(quiet) == 0.0);
+    active.presses = 10;
+    assert(dm::sectionDifficulty(active) > 0.0);
 
     // Closer approaches weigh more: one 5 px episode beats one 20 px episode.
     ii_analyzer::Section close, far;
