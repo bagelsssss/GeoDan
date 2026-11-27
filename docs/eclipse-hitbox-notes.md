@@ -73,3 +73,9 @@ The outer rectangle uses the player colour and the inner one uses the inner colo
 3. **Trail and zoom.** Eclipse records the trail on the game tick and draws it in game coordinates. GeoDan captures a separate render target, so its trail and zoom must match the same tick and scale. Matching the on-screen preview depends on this.
 4. **Player rectangles.** Eclipse's outer and inner rectangles match GeoDan's `addPlayer` (outer `getObjectRect(0.3, 0.3)`, inner variant). Check the inset against Eclipse's rules: 0.25 for big vehicles and 0.4 for mini, rather than a fixed 0.3.
 5. **Slope fix.** GeoDan does not change the slope direction, so the fix is not needed. Check that the sloped hitboxes still match the preview after mirror portals.
+
+## Observed in game (user, 2026-11-27)
+
+- Object type 40 is drawn purple in the game's hitbox draw (Acu, with the Unclassified setting on).
+- Eclipse's colour rule only calls an object Solid when `r == 0` and `b == 1`. A purple shape with `r > 0` would be classed as Danger by Eclipse's rule. The exact RGB still needs checking.
+- Purple says how the game draws the object. It does not say whether touching it kills the player. That still needs confirming.
