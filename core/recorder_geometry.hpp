@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <ostream>
 #include <set>
+#include <string>
 #include <limits>
 #include <utility>
 #include <string_view>
@@ -43,11 +44,19 @@ struct GeometryEntity {
     CaptureBounds bounds;
 };
 
+// Why a frame could not be supported, for the recorder's own diagnostics.
+// Not part of hitboxes.csv. objectType is -1 when no object is involved.
+struct UnsupportedNote {
+    std::string reason;
+    int objectType = -1;
+};
+
 struct FrameGeometry {
     std::uint64_t sequence = 0;
     CapturePhase phase = CapturePhase::Unknown;
     GeometryStatus status = GeometryStatus::Unsupported;
     std::vector<GeometryEntity> entities;
+    std::vector<UnsupportedNote> unsupportedNotes;
 
     bool valid() const {
         std::set<std::pair<GeometryEntityKind, std::uint64_t>> ids;

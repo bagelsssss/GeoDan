@@ -15,6 +15,7 @@ using namespace geode::prelude;
 
 #include "core/recorder_geometry.hpp"
 #include "core/recorder_input_log.hpp"
+#include "core/recorder_unsupported_log.hpp"
 #include "core/recorder_model.hpp"
 #include "core/recorder_session.hpp"
 #include "core/recorder_worker.hpp"
@@ -57,6 +58,7 @@ struct LiveRecorder::Session {
     std::string lastDrop = "none";
     std::filesystem::path directory;
     rec::InputLog inputs;         // button presses and releases, game thread only
+    rec::UnsupportedCounts unsupportedCounts; // reasons frames were unsupported, game thread only
 };
 
 namespace {
@@ -191,6 +193,7 @@ void LiveRecorder::captureFrame(PlayLayer* layer, const Scene& scene) {
     const auto phase = playerDead ? rec::CapturePhase::Unknown
                                   : rec::CapturePhase::ActiveGameplay;
     auto geometry = capture::snapshotGeometry(layer, stamp->sequence, phase, transform);
+    rec::addFrameNotes(s.unsupportedCounts, geometry.unsupportedNotes);
 
     rec::QueuedFrame frame{*stamp, std::move(lease), std::move(geometry)};
     // Never waits; a full queue counts a drop.
@@ -226,6 +229,9 @@ void LiveRecorder::stop(const std::string& reason) {
         out << rec::inputCsv(s.inputs.events());
         out.close();
         if (out.fail()) log::error("GeoDan recorder: could not write inputs.csv in {}", s.directory.string());
+        std::ofstream reasons(s.directory / "unsupported_reasons.csv", std::ios::binary | std::ios::trunc);
+        reasons << rec::unsupportedCsv(s.unsupportedCounts);
+        reasons.close();
         if (s.inputs.dropped() > 0)
             log::warn("GeoDan recorder: {} input events dropped (log full)", s.inputs.dropped());
     }

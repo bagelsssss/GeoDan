@@ -50,11 +50,16 @@ inline rec::CaptureBounds mapObjectLayerPolygon(
     return rec::boundsFromWorldPoints(world, transform);
 }
 
+inline void markUnsupported(rec::FrameGeometry& frame, const char* reason, int objectType = -1) {
+    frame.status = rec::GeometryStatus::Unsupported;
+    frame.unsupportedNotes.push_back({reason, objectType});
+}
+
 inline void addPlayer(rec::FrameGeometry& frame, PlayerObject* player,
                       std::uint64_t playerId, CCNode* objectLayer,
                       const rec::CaptureTransform& transform) {
     if (!player || !player->isVisible()) {
-        frame.status = rec::GeometryStatus::Unsupported;
+        markUnsupported(frame, "player_hidden");
         return;
     }
     // This is the inner collision block already used by the live hitbox trail.
@@ -62,7 +67,7 @@ inline void addPlayer(rec::FrameGeometry& frame, PlayerObject* player,
     const auto bounds = mapObjectLayerRect(
         player->getObjectRect(0.3f, 0.3f), objectLayer, transform);
     if (!bounds.valid()) {
-        frame.status = rec::GeometryStatus::Unsupported;
+        markUnsupported(frame, "player_bounds_invalid");
         return;
     }
     const auto clipped = rec::clipToCapture(bounds, transform.width, transform.height);
@@ -76,11 +81,11 @@ inline rec::FrameGeometry snapshotGeometry(
     rec::FrameGeometry frame;
     frame.sequence = sequence;
     frame.phase = phase;
-    frame.status = phase == rec::CapturePhase::Unknown
-        ? rec::GeometryStatus::Unsupported : rec::GeometryStatus::Valid;
+    frame.status = rec::GeometryStatus::Valid;
+    if (phase == rec::CapturePhase::Unknown) markUnsupported(frame, "phase_unknown");
 
     if (!layer || !layer->m_objectLayer || !layer->m_objects || !transform.valid()) {
-        frame.status = rec::GeometryStatus::Unsupported;
+        markUnsupported(frame, "layer_missing");
         return frame;
     }
 
@@ -101,7 +106,7 @@ inline rec::FrameGeometry snapshotGeometry(
 
         if (classification.category == hb::Category::Unclassified || !classification.draw) {
             // Unknown interactive types are not silently interpreted as safe.
-            frame.status = rec::GeometryStatus::Unsupported;
+            markUnsupported(frame, "unclassified", type);
             continue;
         }
         if (classification.category != hb::Category::Hazard && !hazardousSlope)
@@ -113,25 +118,25 @@ inline rec::FrameGeometry snapshotGeometry(
         hb::Pt edgeA, edgeB;
         if (!overlay::buildShape(object, true, polygon, category,
                                   hazardEdge, edgeA, edgeB)) {
-            frame.status = rec::GeometryStatus::Unsupported;
+            markUnsupported(frame, "shape_failed", type);
             continue;
         }
         // A lethal slope edge is a segment, not a filled polygon. The current
         // parser contract stores rectangles, so preserve uncertainty explicitly.
         if (hazardEdge || polygon.size() < 3) {
-            frame.status = rec::GeometryStatus::Unsupported;
+            markUnsupported(frame, hazardEdge ? "hazard_edge" : "polygon_too_small", type);
             continue;
         }
 
         const auto bounds = mapObjectLayerPolygon(polygon, layer->m_objectLayer, transform);
         if (!bounds.valid()) {
-            frame.status = rec::GeometryStatus::Unsupported;
+            markUnsupported(frame, "hazard_bounds_invalid", type);
             continue;
         }
         if (!rec::intersectsCapture(bounds, transform.width, transform.height)) continue;
         const auto clipped = rec::clipToCapture(bounds, transform.width, transform.height);
         if (!clipped.valid()) {
-            frame.status = rec::GeometryStatus::Unsupported;
+            markUnsupported(frame, "hazard_clip_invalid", type);
             continue;
         }
         // Object-array index is stable for the duration of a level session and
@@ -143,7 +148,7 @@ inline rec::FrameGeometry snapshotGeometry(
     if (std::none_of(frame.entities.begin(), frame.entities.end(), [](const auto& entity) {
             return entity.kind == rec::GeometryEntityKind::Player;
         })) {
-        frame.status = rec::GeometryStatus::Unsupported;
+        markUnsupported(frame, "no_player");
     }
     return frame;
 }
