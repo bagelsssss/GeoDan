@@ -94,7 +94,6 @@ void LiveRecorder::update(PlayLayer* layer, bool enabled, const Scene* scene) {
 }
 
 bool LiveRecorder::start(PlayLayer* layer) {
-    (void)layer;
     const auto width = rec::kDefaultWidth;
     const auto height = rec::kDefaultHeight;
     const auto bytesPerFrame = static_cast<std::size_t>(width) * height * rec::kBytesPerPixel;
@@ -117,6 +116,7 @@ bool LiveRecorder::start(PlayLayer* layer) {
     config.height = height;
     config.targetFramesPerSecond = rec::kDefaultFramesPerSecond;
     config.storage = rec::FrameStorage::Mp4;  // one video.mp4, not a PNG per frame
+    if (layer && layer->m_level) config.levelName = std::string(layer->m_level->m_levelName.c_str());
     // In-process encoder from the FFmpeg API mod; no ffmpeg.exe on the PATH is needed.
     session->worker.setVideoSink(std::make_unique<encoder::FfmpegApiSink>());
 

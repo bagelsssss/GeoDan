@@ -27,6 +27,7 @@ struct SessionConfig {
     std::uint32_t height = kDefaultHeight;
     std::uint32_t targetFramesPerSecond = kDefaultFramesPerSecond;
     FrameStorage storage = FrameStorage::Png;
+    std::string levelName = ""; // empty means unknown; written as null in the v2 manifest
     bool valid() const { return width > 0 && height > 0 && targetFramesPerSecond > 0; }
 };
 
@@ -281,6 +282,8 @@ private:
             json << "  \"frame_storage\": \"mp4\",\n"
                  << "  \"video_file\": \"video.mp4\",\n"
                  << "  \"input_file\": \"inputs.csv\",\n"
+                 << "  \"level_name\": " << (m_config.levelName.empty() ? std::string("null")
+                        : "\"" + jsonEscape(m_config.levelName) + "\"") << ",\n"
                  << "  \"frames_directory\": null\n}\n";
         } else {
             json << "  \"frames_directory\": \"frames\"\n}\n";

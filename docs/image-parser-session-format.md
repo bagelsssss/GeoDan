@@ -75,6 +75,8 @@ Sessions recorded with `FrameStorage::Mp4` use `schemas/recorder-session-v2.sche
 
 v2 adds `input_file: "inputs.csv"`. The live recorder writes it when the session stops, with columns `time_ns,down,button,player1` (down and player1 are 1 or 0). `time_ns` uses the same clock base as `frames.csv`. The file is written even for incomplete sessions.
 
+v2 also adds `level_name`: the level's name from the game when the session started, as a JSON string, or `null` when it was not known. Older v2 sessions recorded before this field have no `level_name` key; the I/I Analyzer reports them as `unknown`.
+
 ```text
 <session>/
 ├── manifest.json

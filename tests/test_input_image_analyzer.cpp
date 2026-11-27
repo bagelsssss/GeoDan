@@ -33,6 +33,7 @@ void writeSession(const fs::path& dir, bool complete, bool withInputs) {
           << "  \"frame_storage\": \"mp4\",\n"
           << "  \"video_file\": \"video.mp4\",\n"
           << "  \"input_file\": \"inputs.csv\",\n"
+          << "  \"level_name\": " << (complete ? "\"Acu\"" : "null") << ",\n"
           << "  \"frames_directory\": null\n}\n";
     }
     {
@@ -83,6 +84,7 @@ int main() {
     auto good = ii_analyzer::analyzeSession(root / "good", error);
     assert(good && error.empty());
     assert(good->frameCount == 200);
+    assert(good->levelName == "Acu");
     assert(good->unsupportedFrames == 100);
     assert(good->blocks.size() == ii_analyzer::kBlockCount);
     assert(good->pressCount == 1 && good->releaseCount == 1 && good->unmatchedInputs == 0);

@@ -33,6 +33,7 @@ struct Block {
 };
 
 struct Result {
+    std::string levelName = "unknown";     // from the manifest; "unknown" when null or absent
     std::uint64_t frameCount = 0;
     std::uint64_t unsupportedFrames = 0;   // hitbox frames with no usable geometry
     std::uint64_t inactiveFrames = 0;      // frames outside active gameplay
@@ -100,6 +101,9 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     std::uint32_t width = 0, height = 0, fps = 0;
     std::uint64_t framesWritten = 0;
     if (!checkManifestV2(session, width, height, fps, framesWritten, error)) return std::nullopt;
+    std::string manifestJson;
+    readText(session / "manifest.json", manifestJson);
+    const auto levelName = image_parser::jsonStringField(manifestJson, "level_name");
 
     const auto frames = image_parser::readFrameCsv(session / "frames.csv", error);
     if (!frames) return std::nullopt;
@@ -127,6 +131,7 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     // usable player or hazard set have no sample.
     const double scale = image_parser::kReferenceCaptureWidth / static_cast<double>(width);
     Result result;
+    result.levelName = levelName ? *levelName : std::string("unknown");
     result.frameCount = frames->size();
     std::vector<std::optional<double>> frameClearance(frames->size());
     std::vector<double> allClearances;
