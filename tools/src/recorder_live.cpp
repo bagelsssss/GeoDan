@@ -63,6 +63,7 @@ struct LiveRecorder::Session {
     std::vector<rec::StateSample> states; // player state per captured frame, game thread only
     std::vector<rec::TouchEvent> touches; // orb, pad and portal touches, game thread only
     std::uint64_t touchesDropped = 0;     // touches refused because the log is full
+    rec::ContactFilter contacts;          // one touch per contact, game thread only
 };
 
 namespace {
@@ -150,11 +151,13 @@ void LiveRecorder::recordInput(bool down, int button, bool player1) {
     s.inputs.push(event);
 }
 
-void LiveRecorder::recordTouch(int objectType, bool player1) {
+void LiveRecorder::recordTouch(const void* object, int objectType, bool player1) {
     if (!m_session) return;
     auto& s = *m_session;
     rec::TouchKind kind = rec::TouchKind::Orb;
     if (!rec::touchKindFor(objectType, kind)) return;
+    const std::uint64_t now = steadyNowNs() - s.startSteadyNs;
+    if (!s.contacts.newContact(object, now)) return; // same contact as a recent call
     // Capped so a long session cannot grow the log without limit.
     constexpr std::size_t kMaxTouches = 20000;
     if (s.touches.size() >= kMaxTouches) {
@@ -162,7 +165,7 @@ void LiveRecorder::recordTouch(int objectType, bool player1) {
         return;
     }
     rec::TouchEvent event;
-    event.timeNs = steadyNowNs() - s.startSteadyNs;
+    event.timeNs = now;
     event.kind = kind;
     event.objectType = objectType;
     event.player1 = player1;

@@ -314,7 +314,7 @@ class $modify(GeoDanInputGameLayer, GJBaseGameLayer) {
     void playerTouchedRing(PlayerObject* player, RingObject* object) {
         GJBaseGameLayer::playerTouchedRing(player, object);
         if (auto* recorder = recorder_live::activeRecorder(); recorder && object)
-            recorder->recordTouch(static_cast<int>(object->getType()), player == m_player1);
+            recorder->recordTouch(object, static_cast<int>(object->getType()), player == m_player1);
     }
 };
 
@@ -330,6 +330,6 @@ class $modify(GeoDanActivateObject, GameObject) {
         const int type = static_cast<int>(this->getType());
         if (geodan::core::recorder::touchKindFor(type, kind)
             && kind != geodan::core::recorder::TouchKind::Orb)
-            recorder->recordTouch(type, true);
+            recorder->recordTouch(this, type, true);
     }
 };

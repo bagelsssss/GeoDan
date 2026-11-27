@@ -58,6 +58,15 @@ int main() {
            "time_ns,kind,object_type,player1\n"
            "1234,pad,8,0\n");
 
+    // Contacts: repeated calls for one object within the gap are one contact.
+    ContactFilter filter(100);
+    int a = 0, b = 0;
+    assert(filter.newContact(&a, 1000));    // first touch starts a contact
+    assert(!filter.newContact(&a, 1050));   // same contact, within the gap
+    assert(!filter.newContact(&a, 1100));
+    assert(filter.newContact(&b, 1100));    // another object is its own contact
+    assert(filter.newContact(&a, 1300));    // a gap of more than 100 ns ends the contact
+
     std::puts("Recorder state log tests passed");
     return 0;
 }

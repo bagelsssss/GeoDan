@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -106,6 +107,26 @@ struct TouchEvent {
     TouchKind kind = TouchKind::Orb;
     int objectType = 0;
     bool player1 = true;
+};
+
+// One touch per contact. The game calls the touch hooks every frame while the
+// player overlaps an object, so a contact is a run of calls for the same object
+// with no gap longer than gapNs.
+class ContactFilter {
+public:
+    explicit ContactFilter(std::uint64_t gapNs = 100'000'000ull) : m_gapNs(gapNs) {}
+
+    // True when this call starts a new contact with the object identified by key.
+    bool newContact(const void* key, std::uint64_t nowNs) {
+        const auto [it, inserted] = m_last.try_emplace(key, nowNs);
+        const bool fresh = inserted || nowNs - it->second > m_gapNs;
+        it->second = nowNs;
+        return fresh;
+    }
+
+private:
+    std::uint64_t m_gapNs;
+    std::map<const void*, std::uint64_t> m_last;
 };
 
 // CSV text: time_ns,kind,object_type,player1 (player1 is 1 or 0).
