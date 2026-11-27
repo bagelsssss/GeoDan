@@ -104,6 +104,14 @@ int main() {
     assert(good->blocks[0].clearance.meanPx.status == image_parser::EvidenceStatus::Missing);
     assert(good->blocks[99].clearance.meanPx.status == image_parser::EvidenceStatus::Measured);
 
+    // Sections: 200 frames at 60 fps is one 5-second section (300 frames).
+    assert(good->sections.size() == 1);
+    assert(good->sections[0].firstFrame == 0 && good->sections[0].lastFrame == 199);
+    assert(good->sections[0].presses == 1 && good->sections[0].releases == 1);
+    // Clearance is 3 px from frame 100 on: one close-approach episode per threshold.
+    for (const auto count : good->sections[0].closeApproaches) assert(count == 1);
+    assert(std::abs(good->sections[0].clearance.meanPx.value - 3.0) < 1e-9);
+
     // Incomplete sessions are refused.
     writeSession(root / "incomplete", false, true);
     assert(!ii_analyzer::analyzeSession(root / "incomplete", error));

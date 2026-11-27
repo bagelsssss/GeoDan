@@ -9,6 +9,7 @@
 #include "input_session.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -32,6 +33,20 @@ struct Block {
     image_parser::Metric pressClearanceMeanPx;
 };
 
+// Close-approach thresholds in reference pixels (360 px wide). Provisional values.
+inline constexpr std::array<double, 3> kCloseThresholdsPx = {5.0, 10.0, 20.0};
+
+// A section is about 5 seconds of frames (fps * 5). Close approaches are counted as
+// episodes: a run of frames below a threshold counts once, when it starts.
+struct Section {
+    std::uint32_t index = 0;
+    std::uint64_t firstFrame = 0; // inclusive frame ordinal
+    std::uint64_t lastFrame = 0;  // inclusive frame ordinal
+    std::uint32_t presses = 0, releases = 0;
+    image_parser::ClearanceStatistics clearance;
+    std::array<std::uint32_t, kCloseThresholdsPx.size()> closeApproaches{};
+};
+
 struct Result {
     std::string levelName = "unknown";     // from the manifest; "unknown" when null or absent
     std::uint64_t frameCount = 0;
@@ -41,6 +56,7 @@ struct Result {
     std::uint64_t unmatchedInputs = 0;     // events with no frame at or before them
     image_parser::ClearanceStatistics clearance;
     std::vector<Block> blocks;
+    std::vector<Section> sections;
 };
 
 inline bool readText(const std::filesystem::path& path, std::string& out) {
@@ -175,16 +191,32 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
         if (frameClearance[i]) blockClearances[b].push_back(*frameClearance[i]);
     }
 
+    // Sections of about 5 seconds, counted in frames at the declared fps.
+    const std::size_t sectionFrames = static_cast<std::size_t>(fps) * 5;
+    const std::size_t sectionCount = (frames->size() + sectionFrames - 1) / sectionFrames;
+    result.sections.resize(sectionCount);
+    std::vector<std::vector<double>> sectionClearances(sectionCount);
+    for (std::size_t s = 0; s < sectionCount; ++s) result.sections[s].index = static_cast<std::uint32_t>(s);
+    for (std::size_t i = 0; i < frames->size(); ++i) {
+        auto& section = result.sections[i / sectionFrames];
+        if (i % sectionFrames == 0) section.firstFrame = i;
+        section.lastFrame = i;
+        if (frameClearance[i]) sectionClearances[i / sectionFrames].push_back(*frameClearance[i]);
+    }
+
     for (const auto& e : *events) {
         const auto frame = frameAtOrBefore(*frames, e.timeNs);
         if (!frame) { ++result.unmatchedInputs; continue; }
         auto& block = result.blocks[blockOf(*frame)];
+        auto& section = result.sections[*frame / sectionFrames];
         if (e.down) {
             ++block.presses;
+            ++section.presses;
             ++result.pressCount;
             if (frameClearance[*frame]) blockPressClearances[blockOf(*frame)].push_back(*frameClearance[*frame]);
         } else {
             ++block.releases;
+            ++section.releases;
             ++result.releaseCount;
         }
     }
@@ -194,6 +226,20 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
         block.clearance = image_parser::clearanceStatistics(blockClearances[b]);
         const auto press = image_parser::clearanceStatistics(blockPressClearances[b]);
         block.pressClearanceMeanPx = press.meanPx;
+    }
+
+    for (std::size_t s = 0; s < sectionCount; ++s)
+        result.sections[s].clearance = image_parser::clearanceStatistics(sectionClearances[s]);
+
+    // Close-approach episodes per section and threshold.
+    std::array<bool, kCloseThresholdsPx.size()> inside{};
+    for (std::size_t i = 0; i < frames->size(); ++i) {
+        auto& section = result.sections[i / sectionFrames];
+        for (std::size_t t = 0; t < kCloseThresholdsPx.size(); ++t) {
+            const bool now = frameClearance[i] && *frameClearance[i] < kCloseThresholdsPx[t];
+            if (now && !inside[t]) ++section.closeApproaches[t];
+            inside[t] = now;
+        }
     }
     error.clear();
     return result;
