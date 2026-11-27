@@ -28,6 +28,7 @@ struct SessionConfig {
     std::uint32_t targetFramesPerSecond = kDefaultFramesPerSecond;
     FrameStorage storage = FrameStorage::Png;
     std::string levelName = ""; // empty means unknown; written as null in the v2 manifest
+    bool dualMode = false;      // written as dual_mode in the v2 manifest
     bool valid() const { return width > 0 && height > 0 && targetFramesPerSecond > 0; }
 };
 
@@ -284,6 +285,7 @@ private:
                  << "  \"input_file\": \"inputs.csv\",\n"
                  << "  \"level_name\": " << (m_config.levelName.empty() ? std::string("null")
                         : "\"" + jsonEscape(m_config.levelName) + "\"") << ",\n"
+                 << "  \"dual_mode\": " << (m_config.dualMode ? "true" : "false") << ",\n"
                  << "  \"frames_directory\": null\n}\n";
         } else {
             json << "  \"frames_directory\": \"frames\"\n}\n";

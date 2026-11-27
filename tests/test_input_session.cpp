@@ -49,6 +49,18 @@ int main() {
     auto heldAtStart = parseInputCsv("time_ns,down,button,player1\n50,0,1,1\n100,1,1,1\n", error);
     assert(heldAtStart && checkInputs(*heldAtStart, 1000, error));
 
+    // Single-player: a press and its release with different player flags still pair.
+    auto mixedFlags = parseInputCsv("time_ns,down,button,player1\n100,1,1,0\n200,0,1,1\n", error);
+    assert(mixedFlags && checkInputs(*mixedFlags, 1000, error, false));
+    assert(mixedFlags && checkInputs(*mixedFlags, 1000, error, true));
+    // Two presses with different player flags: a double press in single-player,
+    // but two players pressing the same button in dual mode.
+    auto twoPlayers = parseInputCsv("time_ns,down,button,player1\n100,1,1,0\n200,1,1,1\n", error);
+    assert(twoPlayers && !checkInputs(*twoPlayers, 1000, error, false));
+    assert(error == "inputs_do_not_alternate");
+    error.clear();
+    assert(twoPlayers && checkInputs(*twoPlayers, 1000, error, true));
+
     // Header-only log is valid and empty.
     auto empty = parseInputCsv("time_ns,down,button,player1\n", error);
     assert(empty && empty->empty() && checkInputs(*empty, 0, error));

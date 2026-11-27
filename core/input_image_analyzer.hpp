@@ -141,7 +141,9 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     const std::uint64_t sessionEndNs = frames->back().timestampNs + frameIntervalNs;
     const auto events = input_session::readInputCsv(session / "inputs.csv", error);
     if (!events) return std::nullopt;
-    if (!input_session::checkInputs(*events, sessionEndNs, error)) return std::nullopt;
+    // Older manifests have no dual_mode field; they are treated as single-player.
+    const bool dualMode = manifestJson.find("\"dual_mode\": true") != std::string::npos;
+    if (!input_session::checkInputs(*events, sessionEndNs, error, dualMode)) return std::nullopt;
 
     // Clearance per frame, in reference pixels (360 px wide). Frames without a
     // usable player or hazard set have no sample.

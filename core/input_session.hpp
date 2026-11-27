@@ -88,18 +88,20 @@ inline std::optional<std::vector<InputRecord>> readInputCsv(const std::filesyste
 }
 
 // Checks the log against the session: times never go backwards, no event is
-// after the session end, and for each button and player the presses and
-// releases alternate. The first event of a button may be either a press or a
-// release, because a button can be held when recording starts.
+// after the session end, and presses and releases alternate for each button.
+// In a dual-mode run they alternate per button and player. In a single-player
+// run the player flag is not reliable, so they alternate per button alone. The
+// first event of a button may be either a press or a release, because a button
+// can be held when recording starts.
 inline bool checkInputs(const std::vector<InputRecord>& records, std::uint64_t sessionEndNs,
-                        std::string& error) {
+                        std::string& error, bool dualMode = false) {
     std::uint64_t previous = 0;
     std::map<std::pair<int, bool>, bool> lastDown;
     for (const auto& r : records) {
         if (r.timeNs < previous) { error = "inputs_time_not_ordered"; return false; }
         if (r.timeNs > sessionEndNs) { error = "inputs_after_session_end"; return false; }
         previous = r.timeNs;
-        const auto key = std::make_pair(r.button, r.player1);
+        const auto key = std::make_pair(r.button, dualMode ? r.player1 : false);
         const auto it = lastDown.find(key);
         if (it != lastDown.end() && it->second == r.down) {
             error = "inputs_do_not_alternate";
