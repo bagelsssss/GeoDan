@@ -99,6 +99,11 @@ inline rec::FrameGeometry snapshotGeometry(
 
         const int type = static_cast<int>(object->getType());
         if (type == 7) continue; // Decoration is explicitly non-collidable.
+        if (hb::isRecorderIgnored(type)) {
+            // Logged for the reasons file only; the frame stays supported.
+            frame.unsupportedNotes.push_back({"ignored_type", type});
+            continue;
+        }
 
         const auto classification = hb::classifyType(type);
         const bool hazardousSlope =

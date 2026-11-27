@@ -22,9 +22,14 @@ int main() {
     assert((counts[{"shape_failed", 7}]) == 1);
     assert((counts[{"no_player", -1}]) == 1);
 
+    // Ignored-type notes are counted like any other note.
+    addFrameNotes(counts, {{"ignored_type", 22}, {"ignored_type", 22}});
+    assert((counts[{"ignored_type", 22}]) == 1);
+
     const std::string csv = unsupportedCsv(counts);
     const std::string expected =
         "reason,object_type,frames\n"
+        "ignored_type,22,1\n"
         "no_player,-1,1\n"
         "shape_failed,7,1\n"
         "unclassified,42,2\n";

@@ -33,6 +33,12 @@ int main() {
     CHECK(!hb::classifyType(7).draw);                               // decoration
     CHECK(!hb::classifyType(999).draw);                             // unknown
 
+    // Recorder ignore list: pickups 22 and 30 only.
+    CHECK(hb::isRecorderIgnored(22));
+    CHECK(hb::isRecorderIgnored(30));
+    CHECK(!hb::isRecorderIgnored(40));
+    CHECK(!hb::isRecorderIgnored(2));
+
     // Circle: 48 points, all at the radius from the centre.
     auto circle = hb::circlePolygon({10.f, 20.f}, 5.f);
     CHECK(circle.size() == 48);

@@ -24,6 +24,18 @@ struct Classification {
     Category category = Category::Unclassified;
 };
 
+// Pickups the recorder leaves out of the unsupported rule (they are not hazards).
+// Each is still listed in unsupported_reasons.csv as an "ignored_type" note, which
+// does not change the frame's status. Add a type here to stop it marking frames
+// unsupported. Numbers from the 2.2081 bindings: 22 SecretCoin, 30 Collectible.
+inline constexpr std::array<int, 2> kRecorderIgnoredTypes = {22, 30};
+
+inline bool isRecorderIgnored(int type) {
+    for (const int ignored : kRecorderIgnoredTypes)
+        if (ignored == type) return true;
+    return false;
+}
+
 // Classification by GameObjectType value (numbers from the 2.2081 bindings).
 inline Classification classifyType(int type) {
     switch (type) {
