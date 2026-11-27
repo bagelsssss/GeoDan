@@ -10,7 +10,7 @@
   "name": "GeoDan Tools",
   "version": "v0.2.0",
   "developer": "bagelsssss",
-  "description": "Debug tools for GeoDan: hitboxes and hitbox trail. Diagnostic only; never changes collision or physics. Switch them on from the TOOLS button on the pause menu.",
+  "description": "Debug tools for GeoDan: hitboxes, hitbox trail and level recorder. Diagnostic only; never changes collision or physics. Switch them on from the TOOLS button on the pause menu.",
   "settings": {
     "hitboxes": {
       "type": "bool",
@@ -30,10 +30,16 @@
       "description": "Faded grey trail of the player's recent hitboxes.",
       "default": false
     },
+    "level-recorder": {
+      "type": "bool",
+      "name": "Level recorder",
+      "description": "Records the level, tools on, to a session folder.",
+      "default": false
+    },
     "portrait-preview-test": {
       "type": "bool",
       "name": "Portrait capture preview (TEST)",
-      "description": "Temporary diagnostic: continuously renders the gameplay object layer into a 360x1080 black portrait target and previews it on-screen. No frames are saved. Disable after testing; may reduce performance.",
+      "description": "Temporary diagnostic: previews the same 360x1080 hitbox, player-outline, ground and optional trail scene that the Level Recorder saves. No frames are saved. Disable after testing; may reduce performance.",
       "default": false
     }
   }

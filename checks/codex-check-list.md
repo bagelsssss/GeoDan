@@ -441,3 +441,28 @@ Additional model correction found during review: classifyMainSkillset and classi
 - 35042561622e0d1a0e222eb3b12614355ba93de8 — add one-time review workflow and run the test suite.
 
 Next action: define the parser-to-analyzer adapter and evidence-grounded section scoring formula, then populate real measured calibration anchors before any accuracy claim.
+
+## 2026-11-26 — Recorder output aligned with portrait preview
+
+- **Branch:** `workflow-codex/recorder-preview-match`.
+- **Base:** `workflow-codex/master` at `dc24b1851715d22ffbc7b107df650a78c5ccfddd`; comparison reports 0 commits behind.
+- **Latest code/test commit:** `121d8a8b4205eb83a2271aef32f54d39b01c6765`.
+- **Objective:** Make recorded PNG frames match the on-screen 360×1080 diagnostic portrait preview instead of capturing the full gameplay object layer (icon sprites and object art).
+- **Source review finding:** The former Recorder called `renderAndRead(layer->m_objectLayer, ...)`, while the preview rendered a separate `previewRoot` containing diagnostic hitbox outlines, both ground lines, player rectangles and optional hitbox trail. The two paths also used different focus/zoom parameters.
+- **Implementation:** Added a shared prepared portrait view (`previewRoot`, focus and scale) in `tools/src/overlay.cpp`. `preparePortraitContent()` builds the preview scene once per frame when either preview or recording is enabled. The visible preview and Recorder now render the same subtree with the same focus and scale. The Recorder no longer renders `m_objectLayer`.
+- **Capture metadata:** `CaptureTransform` now uses the same focus and scale as the rendered diagnostic scene, keeping the hitbox sidecar mapped to the output image.
+- **Readback hardening:** `PortraitCaptureTarget::renderAndRead()` checks the `glReadPixels()` GL error and restores the previous `GL_PACK_ALIGNMENT`; it does not copy stale scratch bytes after a readback error. Shared capture-view coordinates are checked for finite values, and camera dimensions use the render target's rounded point dimensions.
+- **Tools UI:** Level Recorder is Available in the menu, default off. The portrait preview setting description now describes the diagnostic-only scene it previews.
+- **Portable tests:** 9/9 PASS on GitHub Actions Ubuntu 24.04 at commit `121d8a8b4205eb83a2271aef32f54d39b01c6765`, run [45776881808](https://github.com/bagelsssss/GeoDan/actions/runs/45776881808). Tests: dan analyzer, hitbox/trail, image parser, recorder geometry/model/PNG/session/worker, and tool registry.
+- **Not run:** No Geode Windows build and no in-game capture test. The repository MP4 binaries could not be decoded through the GitHub file connector in this session; the visual mismatch was identified from the actual two render paths in source. A user device build and side-by-side clip check remain required.
+- **No changes:** `workflow-codex/master`, `workflow-claude/master`, `workflow-claude/recorder`, `main`, and `alpha-branch` were not modified.
+- **Next action:** Build this exact candidate on the user's Arch/Geode 5.11.2 toolchain. Record a short capture with Level Recorder on and compare `frames/frame_*.png` or the resulting video against the visible portrait preview. Keep the feature branch isolated until that check passes.
+
+
+## 2026-11-26 — Fix Recorder header include-order build failure
+
+- **User build result:** The Geode Windows `RelWithDebInfo` build reached `overlay.cpp.obj` and `recorder_live.cpp.obj`, then stopped while compiling `recorder_live.cpp` because `CaptureView` used unqualified `CCNode` and `CCPoint` before `using namespace geode::prelude` was declared.
+- **Root cause:** `recorder_live.hpp` was not self-contained; it relied on a namespace import from the including translation unit. `CCPoint` was also stored by value in the header even though only its forward declaration was available at that include point.
+- **Fix:** `CaptureView` now stores a qualified `cocos2d::CCNode*` plus scalar `focusX` / `focusY` values. `recorder_live.cpp` constructs the Cocos `CCPoint` locally, and `overlay.cpp` passes the two focus coordinates into the view. No render behavior or capture coordinate values were intentionally changed.
+- **Source commits:** `7297665557a2da68dd8f7b1feef6105c5a23b7ac` (self-contained header), `a2582adcf31e832f2da9f35d5199f392ad38df20` (construct focus point in implementation), and `f6f5379e05cc78799b58ad218c4a251803877800` (update shared-view call site).
+- **Validation still required:** The user's Windows build failed before these changes, so this correction has **not** yet been compiled with the Geode SDK. The portable test suite does not compile the Geode-facing source files. Re-run the Geode build at the new branch head before attempting the in-game preview/Recorder comparison.
