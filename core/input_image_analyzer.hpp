@@ -376,8 +376,14 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
                 }
                 std::string touchText;
                 if (readText(session / "touches.csv", touchText)) {
-                    for (const auto& t : motion::readTouchTimes(touchText))
-                        touchFrames[(dualMode && !t.player1) ? 1 : 0].push_back(frameShowingEvent(*frames, t.timeNs));
+                    // The player recorded on a touch is not reliable (R3, and an orb in session e
+                    // is logged for player 2 while player 1 bounces), so a touch may explain a
+                    // deviation on either player.
+                    for (const auto& t : motion::readTouchTimes(touchText)) {
+                        const auto frame = frameShowingEvent(*frames, t.timeNs);
+                        touchFrames[0].push_back(frame);
+                        touchFrames[1].push_back(frame);
+                    }
                 }
                 for (std::size_t p = 0; p < 2; ++p)
                     result.motion[p] = motion::analyzePlayer((*tracks)[p], pressFrames[p], touchFrames[p], active);
