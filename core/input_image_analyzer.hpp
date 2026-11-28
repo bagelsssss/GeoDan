@@ -30,6 +30,8 @@ struct Block {
     std::uint64_t lastFrame = 0;  // inclusive frame ordinal
     image_parser::ClearanceStatistics clearance;
     std::uint32_t presses = 0, releases = 0;
+    // Index 0 is player 1, index 1 is player 2. Single-player runs count everything as player 1.
+    std::array<std::uint32_t, 2> playerPresses{}, playerReleases{};
     image_parser::Metric pressClearanceMeanPx;
 };
 
@@ -43,6 +45,7 @@ struct Section {
     std::uint64_t firstFrame = 0; // inclusive frame ordinal
     std::uint64_t lastFrame = 0;  // inclusive frame ordinal
     std::uint32_t presses = 0, releases = 0;
+    std::array<std::uint32_t, 2> playerPresses{}, playerReleases{};
     image_parser::ClearanceStatistics clearance;
     std::array<std::uint32_t, kCloseThresholdsPx.size()> closeApproaches{};
 };
@@ -53,6 +56,8 @@ struct Result {
     std::uint64_t unsupportedFrames = 0;   // hitbox frames with no usable geometry
     std::uint64_t inactiveFrames = 0;      // frames outside active gameplay
     std::uint64_t pressCount = 0, releaseCount = 0;
+    bool dualMode = false;                 // from the manifest; players are split only when true
+    std::array<std::uint64_t, 2> playerPressCount{}, playerReleaseCount{};
     std::uint64_t unmatchedInputs = 0;     // events with no frame at or before them
     image_parser::ClearanceStatistics clearance;
     std::vector<Block> blocks;
@@ -149,6 +154,7 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     // usable player or hazard set have no sample.
     const double scale = image_parser::kReferenceCaptureWidth / static_cast<double>(width);
     Result result;
+    result.dualMode = dualMode;
     result.levelName = levelName ? *levelName : std::string("unknown");
     result.frameCount = frames->size();
     std::vector<std::optional<double>> frameClearance(frames->size());
@@ -211,14 +217,21 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
         if (!frame) { ++result.unmatchedInputs; continue; }
         auto& block = result.blocks[blockOf(*frame)];
         auto& section = result.sections[*frame / sectionFrames];
+        const std::size_t player = (dualMode && !e.player1) ? 1 : 0;
         if (e.down) {
             ++block.presses;
             ++section.presses;
+            ++block.playerPresses[player];
+            ++section.playerPresses[player];
+            ++result.playerPressCount[player];
             ++result.pressCount;
             if (frameClearance[*frame]) blockPressClearances[blockOf(*frame)].push_back(*frameClearance[*frame]);
         } else {
             ++block.releases;
             ++section.releases;
+            ++block.playerReleases[player];
+            ++section.playerReleases[player];
+            ++result.playerReleaseCount[player];
             ++result.releaseCount;
         }
     }

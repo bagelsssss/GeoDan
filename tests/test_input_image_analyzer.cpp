@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
+#include <iterator>
 
 using namespace geodan::core;
 namespace fs = std::filesystem;
@@ -111,6 +112,48 @@ int main() {
     // Clearance is 3 px from frame 100 on: one close-approach episode per threshold.
     for (const auto count : good->sections[0].closeApproaches) assert(count == 1);
     assert(std::abs(good->sections[0].clearance.meanPx.value - 3.0) < 1e-9);
+
+    // Dual mode: player 2 presses and releases are counted separately.
+    const std::uint64_t frameNsMain = 1'000'000'000ull / 60;
+    const auto setInputs = [&](const fs::path& dir) {
+        std::ofstream in(dir / "inputs.csv");
+        in << "time_ns,down,button,player1\n";
+        in << 150 * frameNsMain + 1 << ",1,1,1\n";  // player 1 press, frame 150
+        in << 151 * frameNsMain + 1 << ",0,1,1\n";  // player 1 release, frame 151
+        in << 152 * frameNsMain + 1 << ",1,1,0\n";  // player 2 press, frame 152
+        in << 153 * frameNsMain + 1 << ",0,1,0\n";  // player 2 release, frame 153
+    };
+    writeSession(root / "dual", true, false);
+    setInputs(root / "dual");
+    {
+        const fs::path manifest = root / "dual" / "manifest.json";
+        std::ifstream read(manifest);
+        std::string text((std::istreambuf_iterator<char>(read)), std::istreambuf_iterator<char>());
+        const std::string marker = "\"frames_directory\": null";
+        const auto at = text.find(marker);
+        assert(at != std::string::npos);
+        text.insert(at, "\"dual_mode\": true,\n  ");
+        std::ofstream write(manifest);
+        write << text;
+    }
+    auto dual = ii_analyzer::analyzeSession(root / "dual", error);
+    assert(dual && error.empty());
+    assert(dual->dualMode);
+    assert(dual->pressCount == 2 && dual->releaseCount == 2);
+    assert(dual->playerPressCount[0] == 1 && dual->playerPressCount[1] == 1);
+    assert(dual->playerReleaseCount[0] == 1 && dual->playerReleaseCount[1] == 1);
+    // Player 1 clicks on frames 150-151 (block 75); player 2 clicks on frames 152-153 (block 76).
+    assert(dual->blocks[75].playerPresses[0] == 1 && dual->blocks[75].playerPresses[1] == 0);
+    assert(dual->blocks[76].playerPresses[0] == 0 && dual->blocks[76].playerPresses[1] == 1);
+    assert(dual->sections[0].playerPresses[1] == 1 && dual->sections[0].playerReleases[1] == 1);
+
+    // The same log in a single-player run counts every click as player 1.
+    writeSession(root / "single", true, false);
+    setInputs(root / "single");
+    auto single = ii_analyzer::analyzeSession(root / "single", error);
+    assert(single && !single->dualMode);
+    assert(single->playerPressCount[0] == 2 && single->playerPressCount[1] == 0);
+    assert(single->playerReleaseCount[0] == 2 && single->playerReleaseCount[1] == 0);
 
     // Incomplete sessions are refused.
     writeSession(root / "incomplete", false, true);
