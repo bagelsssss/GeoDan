@@ -26,6 +26,12 @@ int main() {
     assert(gate.finished());
     for (int frame = 0; frame < 1000; ++frame) assert(!gate.mayStart(false, true));
 
+    // The end animation and levelComplete both report the finish; the second
+    // report changes nothing.
+    gate.levelCompleted();
+    gate.sessionStopped();
+    assert(gate.finished() && !gate.mayStart(false, true));
+
     // Restarting the level allows the next attempt, and clears a stale failure.
     gate.startFailed();
     gate.levelRestarted();

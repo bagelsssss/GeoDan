@@ -299,6 +299,19 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
         PlayLayer::levelComplete();
     }
 
+    // The player touched the end wall: this is the exact end of play, about a
+    // second before levelComplete. The recording stops here. The later
+    // levelComplete call finds no session and changes nothing.
+    void playEndAnimationToPos(CCPoint pos) {
+        m_fields->recorder.onLevelComplete();
+        PlayLayer::playEndAnimationToPos(pos);
+    }
+
+    void playPlatformerEndAnimationToPos(CCPoint pos, bool flag) {
+        m_fields->recorder.onLevelComplete();
+        PlayLayer::playPlatformerEndAnimationToPos(pos, flag);
+    }
+
     void onQuit() {
         m_fields->recorder.stop("user_quit");
         PlayLayer::onQuit();
