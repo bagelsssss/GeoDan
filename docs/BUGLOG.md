@@ -17,6 +17,7 @@ Status: `open` (no fix yet), `fixed-untested` (code change on a branch, not conf
 | R9 | fixed | Touch log flooding: one row per frame during contact. | 17,447 rows for about 71 contacts | `ContactFilter` (one touch per contact). | `workflow-claude/player-state` |
 | R10 | fixed | `PlayerObject::touchedObject` and `playerTouchedObject` cannot be hooked on PC (inline). | PC build errors | Hooks removed. | `workflow-claude/player-state` |
 | R11 | fixed | Level name written as `null`. | Earlier manifests | `level_name` written from the level. | `workflow-claude/level-name` |
+| R12 | open | Dropped inputs, dropped touches and no-buffer frame drops are written only to the game log (`log::warn`), not to the session folder. The analyzer cannot tell a lossy session from a clean one. | `tools/src/recorder_live.cpp` `stop()`: counts kept in memory, then discarded | Write the drop counts into the manifest or a small file, and have the analyzer refuse or flag lossy sessions. | — |
 
 ## Analyzer (I/I)
 
@@ -30,6 +31,7 @@ Status: `open` (no fix yet), `fixed-untested` (code change on a branch, not conf
 | A6 | open | Difficulty model fitted to one anchor. Press weight 0.25 is a guess. Scores are provisional. | Deadlocked = 6.50 only | Revised anchor list from user, then refit. | — |
 | A7 | open | Substage 2 (video check) is not implemented. The screen-y method cannot work. | See R7 | Use world y once R4 is confirmed on PC. | — |
 | A8 | open | The analyzer doesn't use `states.csv` for anything except dual detection. Mode and gravity are unused. | Code | Add to the verification step. | — |
+| A9 | open | Unverified: a press may be assigned to the frame before the one that shows it. Inputs are stamped when handled; `frameAtOrBefore` picks the last frame captured at or before that time, and capture happens later in the update. | Reading `recorder_live.cpp` and the analyzer; no data confirms it yet | Check with world-position data on a real jump, then shift the match window if needed. | — |
 
 ## Tooling and docs
 
