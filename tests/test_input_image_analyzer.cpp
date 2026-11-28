@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
+#include <sstream>
 #include <iterator>
 
 using namespace geodan::core;
@@ -146,6 +147,20 @@ int main() {
     assert(dual->blocks[75].playerPresses[0] == 1 && dual->blocks[75].playerPresses[1] == 0);
     assert(dual->blocks[76].playerPresses[0] == 0 && dual->blocks[76].playerPresses[1] == 1);
     assert(dual->sections[0].playerPresses[1] == 1 && dual->sections[0].playerReleases[1] == 1);
+
+    // Dual mode turned on after the manifest was written: states.csv shows player 2,
+    // so the run is still treated as dual.
+    writeSession(root / "late", true, false);
+    setInputs(root / "late");
+    {
+        std::ofstream states(root / "late" / "states.csv");
+        states << "sequence,mode,upside_down,gravity,world_x,world_y,mode_p2,world_x_p2,world_y_p2\n"
+               << "0,cube,0,1,0,0,,,\n"
+               << "1,cube,0,1,0,0,cube,5,5\n";
+    }
+    auto late = ii_analyzer::analyzeSession(root / "late", error);
+    assert(late && late->dualMode);
+    assert(late->playerPressCount[1] == 1);
 
     // The same log in a single-player run counts every click as player 1.
     writeSession(root / "single", true, false);

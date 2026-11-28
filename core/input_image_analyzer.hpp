@@ -73,6 +73,23 @@ inline bool readText(const std::filesystem::path& path, std::string& out) {
     return true;
 }
 
+// True when states.csv has a row with player 2 values (the world_x_p2 column is non-empty).
+inline bool statesHavePlayer2(const std::filesystem::path& path) {
+    std::string text;
+    if (!readText(path, text)) return false;
+    std::istringstream lines(text);
+    std::string line;
+    std::getline(lines, line); // header
+    while (std::getline(lines, line)) {
+        std::vector<std::string> fields;
+        std::istringstream cells(line);
+        std::string cell;
+        while (std::getline(cells, cell, ',')) fields.push_back(cell);
+        if (fields.size() >= 9 && !fields[7].empty()) return true;
+    }
+    return false;
+}
+
 // Checks the v2 manifest contract and returns the frame rate and size it declares.
 inline bool checkManifestV2(const std::filesystem::path& session, std::uint32_t& width,
                             std::uint32_t& height, std::uint32_t& fps, std::uint64_t& framesWritten,
@@ -146,8 +163,10 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     const std::uint64_t sessionEndNs = frames->back().timestampNs + frameIntervalNs;
     const auto events = input_session::readInputCsv(session / "inputs.csv", error);
     if (!events) return std::nullopt;
-    // Older manifests have no dual_mode field; they are treated as single-player.
-    const bool dualMode = manifestJson.find("\"dual_mode\": true") != std::string::npos;
+    // The manifest flag is read when recording starts, so a level that turns on
+    // dual mode later shows only in states.csv (player 2 values on those frames).
+    const bool dualMode = manifestJson.find("\"dual_mode\": true") != std::string::npos
+                          || statesHavePlayer2(session / "states.csv");
     if (!input_session::checkInputs(*events, sessionEndNs, error, dualMode)) return std::nullopt;
 
     // Clearance per frame, in reference pixels (360 px wide). Frames without a
