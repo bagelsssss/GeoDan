@@ -63,8 +63,8 @@ void writeSession(const fs::path& dir, bool complete, bool withInputs) {
     if (withInputs) {
         std::ofstream in(dir / "inputs.csv");
         in << "time_ns,down,button,player1\n";
-        in << 150 * frameNs + 1 << ",1,1,1\n";   // press during frame 150
-        in << 151 * frameNs + 1 << ",0,1,1\n";   // release during frame 151
+        in << 150 * frameNs << ",1,1,1\n";       // press at the stamp of frame 150
+        in << 151 * frameNs << ",0,1,1\n";       // release at the stamp of frame 151
     } else {
         std::ofstream in(dir / "inputs.csv");
         in << "time_ns,down,button,player1\n";
@@ -119,10 +119,10 @@ int main() {
     const auto setInputs = [&](const fs::path& dir) {
         std::ofstream in(dir / "inputs.csv");
         in << "time_ns,down,button,player1\n";
-        in << 150 * frameNsMain + 1 << ",1,1,1\n";  // player 1 press, frame 150
-        in << 151 * frameNsMain + 1 << ",0,1,1\n";  // player 1 release, frame 151
-        in << 152 * frameNsMain + 1 << ",1,1,0\n";  // player 2 press, frame 152
-        in << 153 * frameNsMain + 1 << ",0,1,0\n";  // player 2 release, frame 153
+        in << 150 * frameNsMain << ",1,1,1\n";  // player 1 press, frame 150
+        in << 151 * frameNsMain << ",0,1,1\n";  // player 1 release, frame 151
+        in << 152 * frameNsMain << ",1,1,0\n";  // player 2 press, frame 152
+        in << 153 * frameNsMain << ",0,1,0\n";  // player 2 release, frame 153
     };
     writeSession(root / "dual", true, false);
     setInputs(root / "dual");
@@ -155,8 +155,9 @@ int main() {
     {
         std::ofstream states(root / "late" / "states.csv");
         states << "sequence,mode,upside_down,gravity,world_x,world_y,mode_p2,world_x_p2,world_y_p2\n"
-               << "0,cube,0,1,0,0,,,\n"
-               << "1,cube,0,1,0,0,cube,5,5\n";
+               << "0,cube,0,1,0,0,,,\n";
+        for (int i = 1; i < 200; ++i)   // player 2 appears at frame 1; both keep moving
+            states << i << ",cube,0,1," << i * 5 << ",0,cube," << i * 5 << ",0\n";
     }
     auto late = ii_analyzer::analyzeSession(root / "late", error);
     assert(late && late->dualMode);
@@ -211,6 +212,72 @@ int main() {
     { std::ofstream d(root / "baddrops" / "capture_drops.csv"); d << "not a drops file\n"; }
     assert(!ii_analyzer::analyzeSession(root / "baddrops", error));
     assert(error == "capture_drops_invalid");
+
+    // A9: an input is shown by the first frame stamped at or after it.
+    writeSession(root / "shift", true, false);
+    {
+        std::ofstream in(root / "shift" / "inputs.csv");
+        in << "time_ns,down,button,player1\n";
+        in << 100 * frameNsMain + 1 << ",1,1,1\n";                  // just after frame 100 -> frame 101
+        in << 102 * frameNsMain - 1 << ",0,1,1\n";                  // just before frame 102 -> frame 102
+        in << 199 * frameNsMain + 10 << ",1,1,1\n";                 // after the last stamp -> last frame
+    }
+    auto shifted = ii_analyzer::analyzeSession(root / "shift", error);
+    assert(shifted && error.empty());
+    assert(shifted->pressCount == 2 && shifted->releaseCount == 1 && shifted->unmatchedInputs == 0);
+    assert(shifted->blocks[50].presses == 1 && shifted->blocks[50].releases == 0);   // frame 101
+    assert(shifted->blocks[51].releases == 1);                                       // frame 102
+    assert(shifted->blocks[99].presses == 1);                                        // frame 199
+
+    // A10: a tail of frames where nobody moves is the end screen.
+    writeSession(root / "endscreen", true, false);
+    {
+        std::ofstream states(root / "endscreen" / "states.csv");
+        states << "sequence,mode,upside_down,gravity,world_x,world_y,mode_p2,world_x_p2,world_y_p2\n";
+        for (int i = 0; i < 200; ++i) {          // moves until frame 119, then frozen for 80 frames
+            const int x = (i < 120 ? i : 119) * 5;
+            states << i << ",cube,0,1," << x << ",10,,,\n";
+        }
+        std::ofstream in(root / "endscreen" / "inputs.csv");
+        in << "time_ns,down,button,player1\n";
+        in << 100 * frameNsMain << ",1,1,1\n";   // gameplay
+        in << 110 * frameNsMain << ",0,1,1\n";   // gameplay
+        in << 150 * frameNsMain << ",1,1,1\n";   // end screen
+        in << 160 * frameNsMain << ",0,1,1\n";   // end screen
+    }
+    auto ended = ii_analyzer::analyzeSession(root / "endscreen", error);
+    assert(ended && error.empty());
+    assert(ended->frameCount == 200 && ended->analyzedFrames == 120 && ended->endScreenFrames == 80);
+    assert(ended->pressCount == 1 && ended->releaseCount == 1 && ended->endScreenInputs == 2);
+    assert(ended->sections.size() == 1 && ended->sections[0].lastFrame == 119);
+    assert(ended->blocks.size() == ii_analyzer::kBlockCount);
+    assert(ended->blocks[99].lastFrame == 119);
+    // The player exists from frame 100, so only frames 100-119 have clearance.
+    assert(ended->clearance.meanPx.status == image_parser::EvidenceStatus::Measured);
+
+    // A frozen tail shorter than half a second (30 frames at 60 fps) is not an end screen.
+    writeSession(root / "shorttail", true, false);
+    {
+        std::ofstream states(root / "shorttail" / "states.csv");
+        states << "sequence,mode,upside_down,gravity,world_x,world_y,mode_p2,world_x_p2,world_y_p2\n";
+        for (int i = 0; i < 200; ++i)
+            states << i << ",cube,0,1," << (i < 190 ? i : 190) * 5 << ",10,,,\n";
+    }
+    auto shortTail = ii_analyzer::analyzeSession(root / "shorttail", error);
+    assert(shortTail && shortTail->analyzedFrames == 200 && shortTail->endScreenFrames == 0);
+
+    // A session where nothing ever moved is not trimmed to nothing.
+    writeSession(root / "still", true, false);
+    {
+        std::ofstream states(root / "still" / "states.csv");
+        states << "sequence,mode,upside_down,gravity,world_x,world_y,mode_p2,world_x_p2,world_y_p2\n";
+        for (int i = 0; i < 200; ++i) states << i << ",cube,0,1,5,10,,,\n";
+    }
+    auto still = ii_analyzer::analyzeSession(root / "still", error);
+    assert(still && still->analyzedFrames == 200);
+
+    // A session without states.csv has no end screen found.
+    assert(good->analyzedFrames == good->frameCount && good->endScreenFrames == 0);
 
     // Incomplete sessions are refused.
     writeSession(root / "incomplete", false, true);

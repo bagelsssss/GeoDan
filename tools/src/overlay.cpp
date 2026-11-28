@@ -287,9 +287,16 @@ class $modify(GeoDanToolsPlayLayer, PlayLayer) {
     void resetLevel() {
         // Finish the current attempt before resetting per-attempt state.
         // A restart ends the current recording attempt; the next frame starts a new one.
-        m_fields->recorder.stop("level_restart");
+        m_fields->recorder.onLevelRestart();
         PlayLayer::resetLevel();
         m_fields->tracker.reset();
+    }
+
+    // The level was completed. The recording ends here instead of running on
+    // through the end screen. Game behaviour is unchanged.
+    void levelComplete() {
+        m_fields->recorder.onLevelComplete();
+        PlayLayer::levelComplete();
     }
 
     void onQuit() {

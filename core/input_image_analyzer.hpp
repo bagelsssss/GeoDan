@@ -13,6 +13,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -54,13 +55,19 @@ struct Section {
 
 struct Result {
     std::string levelName = "unknown";     // from the manifest; "unknown" when null or absent
-    std::uint64_t frameCount = 0;
+    std::uint64_t frameCount = 0;          // every recorded frame
+    // The end screen: trailing frames where no player moved (found from states.csv).
+    // Everything below is counted over analyzedFrames only; a session without
+    // states.csv has no end screen found and analyzedFrames == frameCount.
+    std::uint64_t analyzedFrames = 0;
+    std::uint64_t endScreenFrames = 0;
+    std::uint64_t endScreenInputs = 0;     // presses and releases made on the end screen, not counted
     std::uint64_t unsupportedFrames = 0;   // hitbox frames with no usable geometry
     std::uint64_t inactiveFrames = 0;      // frames outside active gameplay
     std::uint64_t pressCount = 0, releaseCount = 0;
     bool dualMode = false;                 // from the manifest; players are split only when true
     std::array<std::uint64_t, 2> playerPressCount{}, playerReleaseCount{};
-    std::uint64_t unmatchedInputs = 0;     // events with no frame at or before them
+    std::uint64_t unmatchedInputs = 0;     // events that could not be given a frame (always 0 since A9)
     // Capture losses from capture_drops.csv. A session without the file predates it:
     // dropsReported is false and the counts are unknown (zero).
     bool dropsReported = false;
@@ -143,14 +150,70 @@ inline bool checkManifestV2(const std::filesystem::path& session, std::uint32_t&
     return true;
 }
 
-// Index of the last frame whose timestamp is at or before t, or nullopt if t is
-// before the first frame.
-inline std::optional<std::size_t> frameAtOrBefore(const std::vector<image_parser::FrameStamp>& frames,
-                                                  std::uint64_t t) {
-    auto it = std::upper_bound(frames.begin(), frames.end(), t,
-        [](std::uint64_t value, const image_parser::FrameStamp& s) { return value < s.timestampNs; });
-    if (it == frames.begin()) return std::nullopt;
-    return static_cast<std::size_t>(std::distance(frames.begin(), it) - 1);
+// The frame that first shows an input made at time t: the first frame stamped at or
+// after t. A frame is stamped when it is captured, and an input handled after that
+// stamp appears in the next frame. An input after the last stamp (still inside the
+// session) belongs to the last frame. Frames must not be empty.
+inline std::size_t frameShowingEvent(const std::vector<image_parser::FrameStamp>& frames,
+                                     std::uint64_t t) {
+    const auto it = std::lower_bound(frames.begin(), frames.end(), t,
+        [](const image_parser::FrameStamp& s, std::uint64_t value) { return s.timestampNs < value; });
+    if (it == frames.end()) return frames.size() - 1;
+    return static_cast<std::size_t>(std::distance(frames.begin(), it));
+}
+
+// How many leading frames are gameplay. The end screen (or a death screen) is a tail
+// of frames where no player's world position changes. A tail shorter than half a
+// second is ignored, and so is a session where nothing ever moved. Returns the frame
+// count when states.csv is missing or has no position columns.
+inline std::size_t activeFrameCount(const std::filesystem::path& statesPath,
+                                    const std::vector<image_parser::FrameStamp>& frames,
+                                    std::uint32_t fps) {
+    const std::size_t total = frames.size();
+    std::string text;
+    if (!readText(statesPath, text)) return total;
+    std::istringstream lines(text);
+    std::string line;
+    if (!std::getline(lines, line)) return total;
+    const auto header = splitCsvLine(line);
+    const auto columnOf = [&](const std::string& name) -> std::optional<std::size_t> {
+        const auto it = std::find(header.begin(), header.end(), name);
+        if (it == header.end()) return std::nullopt;
+        return static_cast<std::size_t>(std::distance(header.begin(), it));
+    };
+    const auto sequenceColumn = columnOf("sequence");
+    const auto xColumn = columnOf("world_x");
+    const auto yColumn = columnOf("world_y");
+    if (!sequenceColumn || !xColumn || !yColumn) return total;
+    std::vector<std::size_t> positionColumns = {*xColumn, *yColumn};
+    if (const auto x2 = columnOf("world_x_p2")) positionColumns.push_back(*x2);
+    if (const auto y2 = columnOf("world_y_p2")) positionColumns.push_back(*y2);
+
+    std::unordered_map<std::uint64_t, std::size_t> indexOfSequence;
+    indexOfSequence.reserve(total);
+    for (std::size_t i = 0; i < total; ++i) indexOfSequence.emplace(frames[i].sequence, i);
+
+    std::vector<std::string> previous;
+    bool havePrevious = false;
+    std::optional<std::size_t> lastMove;
+    while (std::getline(lines, line)) {
+        const auto fields = splitCsvLine(line);
+        if (*sequenceColumn >= fields.size()) continue;
+        char* endPtr = nullptr;
+        const auto sequence = std::strtoull(fields[*sequenceColumn].c_str(), &endPtr, 10);
+        if (endPtr == fields[*sequenceColumn].c_str() || *endPtr != '\0') continue;
+        const auto found = indexOfSequence.find(sequence);
+        if (found == indexOfSequence.end()) continue;
+        std::vector<std::string> current;
+        for (const auto column : positionColumns)
+            current.push_back(column < fields.size() ? fields[column] : std::string());
+        if (havePrevious && current != previous) lastMove = found->second;
+        previous = std::move(current);
+        havePrevious = true;
+    }
+    if (!lastMove) return total;
+    const std::size_t tail = total - 1 - *lastMove;
+    return tail >= static_cast<std::size_t>(fps / 2) ? *lastMove + 1 : total;
 }
 
 inline std::optional<Result> analyzeSession(const std::filesystem::path& session, std::string& error) {
@@ -210,9 +273,13 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     result.dualMode = dualMode;
     result.levelName = levelName ? *levelName : std::string("unknown");
     result.frameCount = frames->size();
+    // Frames after the last movement are the end screen; they are not gameplay.
+    const std::size_t active = activeFrameCount(session / "states.csv", *frames, fps);
+    result.analyzedFrames = active;
+    result.endScreenFrames = frames->size() - active;
     std::vector<std::optional<double>> frameClearance(frames->size());
     std::vector<double> allClearances;
-    for (std::size_t i = 0; i < frames->size(); ++i) {
+    for (std::size_t i = 0; i < active; ++i) {
         const auto& g = *byIndex[i];
         if (g.status == image_parser::GeometryStatus::Unsupported) { ++result.unsupportedFrames; continue; }
         if (g.phase != image_parser::Phase::ActiveGameplay) { ++result.inactiveFrames; continue; }
@@ -235,9 +302,9 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
                                                          result.unsupportedFrames > 0);
 
     // 100 blocks of frames (fewer if the session has fewer frames).
-    const std::size_t blockCount = std::min<std::size_t>(kBlockCount, frames->size());
+    const std::size_t blockCount = std::min<std::size_t>(kBlockCount, active);
     const auto blockOf = [&](std::size_t frameIndex) {
-        return frameIndex * blockCount / frames->size();
+        return frameIndex * blockCount / active;
     };
     result.blocks.resize(blockCount);
     std::vector<std::vector<double>> blockClearances(blockCount);
@@ -245,7 +312,7 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     for (std::size_t b = 0; b < blockCount; ++b) {
         result.blocks[b].index = static_cast<std::uint32_t>(b);
     }
-    for (std::size_t i = 0; i < frames->size(); ++i) {
+    for (std::size_t i = 0; i < active; ++i) {
         const auto b = blockOf(i);
         if (i == 0 || blockOf(i - 1) != b) result.blocks[b].firstFrame = i;
         result.blocks[b].lastFrame = i;
@@ -254,11 +321,11 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
 
     // Sections of about 5 seconds, counted in frames at the declared fps.
     const std::size_t sectionFrames = static_cast<std::size_t>(fps) * 5;
-    const std::size_t sectionCount = (frames->size() + sectionFrames - 1) / sectionFrames;
+    const std::size_t sectionCount = (active + sectionFrames - 1) / sectionFrames;
     result.sections.resize(sectionCount);
     std::vector<std::vector<double>> sectionClearances(sectionCount);
     for (std::size_t s = 0; s < sectionCount; ++s) result.sections[s].index = static_cast<std::uint32_t>(s);
-    for (std::size_t i = 0; i < frames->size(); ++i) {
+    for (std::size_t i = 0; i < active; ++i) {
         auto& section = result.sections[i / sectionFrames];
         if (i % sectionFrames == 0) section.firstFrame = i;
         section.lastFrame = i;
@@ -266,10 +333,10 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     }
 
     for (const auto& e : *events) {
-        const auto frame = frameAtOrBefore(*frames, e.timeNs);
-        if (!frame) { ++result.unmatchedInputs; continue; }
-        auto& block = result.blocks[blockOf(*frame)];
-        auto& section = result.sections[*frame / sectionFrames];
+        const std::size_t frame = frameShowingEvent(*frames, e.timeNs);
+        if (frame >= active) { ++result.endScreenInputs; continue; }
+        auto& block = result.blocks[blockOf(frame)];
+        auto& section = result.sections[frame / sectionFrames];
         const std::size_t player = (dualMode && !e.player1) ? 1 : 0;
         if (e.down) {
             ++block.presses;
@@ -278,7 +345,7 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
             ++section.playerPresses[player];
             ++result.playerPressCount[player];
             ++result.pressCount;
-            if (frameClearance[*frame]) blockPressClearances[blockOf(*frame)].push_back(*frameClearance[*frame]);
+            if (frameClearance[frame]) blockPressClearances[blockOf(frame)].push_back(*frameClearance[frame]);
         } else {
             ++block.releases;
             ++section.releases;
@@ -301,7 +368,7 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
 
     // Close-approach episodes per section and threshold.
     std::array<bool, kCloseThresholdsPx.size()> inside{};
-    for (std::size_t i = 0; i < frames->size(); ++i) {
+    for (std::size_t i = 0; i < active; ++i) {
         auto& section = result.sections[i / sectionFrames];
         for (std::size_t t = 0; t < kCloseThresholdsPx.size(); ++t) {
             const bool now = frameClearance[i] && *frameClearance[i] < kCloseThresholdsPx[t];

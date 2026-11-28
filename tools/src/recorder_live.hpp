@@ -7,6 +7,8 @@
 
 #include <Geode/Geode.hpp>
 
+#include "core/recorder_start_gate.hpp"
+
 #include <memory>
 #include <string>
 
@@ -43,6 +45,13 @@ public:
 
     bool active() const { return m_session != nullptr; }
 
+    // The level was completed: finish the session now, and do not start another
+    // until the level is restarted (otherwise the end screen is recorded).
+    void onLevelComplete();
+
+    // The level was restarted: finish the session and allow the next attempt.
+    void onLevelRestart();
+
     // Called from the game's button handler for every press and release. Does
     // nothing when no session is running. Written to inputs.csv when the
     // session stops. Game thread only.
@@ -63,7 +72,7 @@ private:
     void captureFrame(PlayLayer* layer, const Scene& scene);
 
     std::unique_ptr<Session> m_session;
-    bool m_startFailed = false; // cleared when the attempt ends (stop)
+    geodan::core::recorder::StartGate m_gate; // failed start / finished level
 };
 
 } // namespace geodan::tools::recorder_live

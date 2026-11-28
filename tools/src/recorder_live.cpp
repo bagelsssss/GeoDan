@@ -99,7 +99,7 @@ void LiveRecorder::update(PlayLayer* layer, bool enabled, const Scene* scene) {
         return;
     }
     if (!layer) return;
-    if (!m_session && !m_startFailed && layer->m_player1) {
+    if (m_gate.mayStart(m_session != nullptr, layer->m_player1 != nullptr)) {
         if (start(layer))
             Notification::create("GeoDan: recording started", NotificationIcon::Success)->show();
         else
@@ -123,7 +123,7 @@ bool LiveRecorder::start(PlayLayer* layer) {
 
     if (!session->target.initialize(static_cast<int>(width), static_cast<int>(height))) {
         log::error("GeoDan recorder: could not create an exact {}x{} render target", width, height);
-        m_startFailed = true;
+        m_gate.startFailed();
         return false;
     }
 
@@ -144,7 +144,7 @@ bool LiveRecorder::start(PlayLayer* layer) {
     if (!session->worker.start(session->directory, config, unixStart)) {
         log::error("GeoDan recorder: session did not start at {}: {}",
                    session->directory.string(), session->worker.error());
-        m_startFailed = true;
+        m_gate.startFailed();
         return false; // session destructor joins the worker thread
     }
 
@@ -266,15 +266,28 @@ void LiveRecorder::captureFrame(PlayLayer* layer, const Scene& scene) {
 }
 
 std::string LiveRecorder::status() const {
-    if (!m_session) return m_startFailed ? "REC failed to start" : "REC waiting";
+    if (!m_session) {
+        if (m_gate.failed()) return "REC failed to start";
+        return m_gate.finished() ? "REC level complete" : "REC waiting";
+    }
     const auto& s = *m_session;
     return "REC queued " + std::to_string(s.queued) + " nobuf " + std::to_string(s.noBufferDrops)
         + " qfull " + std::to_string(s.queueFull) + " in " + std::to_string(s.inputs.events().size())
         + " last " + s.lastDrop;
 }
 
+void LiveRecorder::onLevelComplete() {
+    stop("level_complete");
+    m_gate.levelCompleted();
+}
+
+void LiveRecorder::onLevelRestart() {
+    stop("level_restart");
+    m_gate.levelRestarted();
+}
+
 void LiveRecorder::stop(const std::string& reason) {
-    m_startFailed = false; // the next attempt may start again
+    m_gate.sessionStopped(); // a failed start may be retried
     if (g_activeRecorder == this) g_activeRecorder = nullptr;
     if (!m_session) return;
     auto& s = *m_session;
