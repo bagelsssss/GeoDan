@@ -6,6 +6,7 @@
 #pragma once
 
 #include "image_parser.hpp"
+#include "input_motion_check.hpp"
 #include "input_session.hpp"
 #include "recorder_drops.hpp"
 
@@ -73,6 +74,10 @@ struct Result {
     bool dropsReported = false;
     bool lossy = false;                    // any input, touch or frame was dropped
     std::uint64_t inputsDropped = 0, touchesDropped = 0, noBufferDrops = 0;
+    // Substage 2: presses and trajectory deviations per player, from states.csv and
+    // touches.csv. motionKnown is false when states.csv is missing or has no height column.
+    bool motionKnown = false;
+    std::array<motion::PlayerMotion, 2> motion;
     image_parser::ClearanceStatistics clearance;
     std::vector<Block> blocks;
     std::vector<Section> sections;
@@ -353,6 +358,31 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
             ++section.playerReleases[player];
             ++result.playerReleaseCount[player];
             ++result.releaseCount;
+        }
+    }
+
+    // Substage 2: check presses against the recorded motion.
+    {
+        std::string statesText;
+        std::vector<std::uint64_t> sequences;
+        sequences.reserve(frames->size());
+        for (const auto& stamp : *frames) sequences.push_back(stamp.sequence);
+        if (readText(session / "states.csv", statesText)) {
+            if (const auto tracks = motion::readStateSamples(statesText, sequences)) {
+                std::array<std::vector<std::size_t>, 2> pressFrames, touchFrames;
+                for (const auto& e : *events) {
+                    if (!e.down) continue;
+                    pressFrames[(dualMode && !e.player1) ? 1 : 0].push_back(frameShowingEvent(*frames, e.timeNs));
+                }
+                std::string touchText;
+                if (readText(session / "touches.csv", touchText)) {
+                    for (const auto& t : motion::readTouchTimes(touchText))
+                        touchFrames[(dualMode && !t.player1) ? 1 : 0].push_back(frameShowingEvent(*frames, t.timeNs));
+                }
+                for (std::size_t p = 0; p < 2; ++p)
+                    result.motion[p] = motion::analyzePlayer((*tracks)[p], pressFrames[p], touchFrames[p], active);
+                result.motionKnown = true;
+            }
         }
     }
 
