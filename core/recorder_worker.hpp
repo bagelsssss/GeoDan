@@ -64,10 +64,11 @@ public:
     // Stop accepting frames before calling this. close() wakes the worker;
     // waitPop drains every accepted frame before the worker finalizes.
     bool stop(std::uint64_t totalMissedCaptureIntervals,
-              const std::string& reason = "user_stop") {
+              const std::string& reason = "user_stop", bool dualModeSeen = false) {
         if (!m_started || m_joined) return m_success;
         m_missedAtStop = totalMissedCaptureIntervals;
         m_stopReason = reason;
+        m_dualAtStop = dualModeSeen;
         m_queue.close();
         if (m_thread.joinable()) m_thread.join();
         m_joined = true;
@@ -146,6 +147,7 @@ private:
             }
 
             m_writer.recordMissedCaptureIntervals(m_missedAtStop);
+            m_writer.markDualModeSeen(m_dualAtStop);
             m_writer.recordQueueDrops(m_queue.dropped());
             if (m_error.empty()) {
                 m_success = m_writer.finalize(SessionWriter::nowUnixNs(), m_stopReason);
@@ -179,6 +181,7 @@ private:
     bool m_success = false;
     std::uint64_t m_missedAtStop = 0;
     std::string m_stopReason = "user_stop";
+    bool m_dualAtStop = false;
     std::string m_error;
 };
 

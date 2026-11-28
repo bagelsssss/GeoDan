@@ -101,7 +101,8 @@ int main() {
             std::printf("FAIL start: %s\n", worker.error().c_str());
             return EXIT_FAILURE;
         }
-        if (!worker.stop(0, "test_complete")) {
+        // The session started with dual mode off; the recorder saw it turn on later.
+        if (!worker.stop(0, "test_complete", true)) {
             std::printf("FAIL stop: %s\n", worker.error().c_str());
             return EXIT_FAILURE;
         }
@@ -121,6 +122,7 @@ int main() {
     CHECK(manifest.find("\"video_file\": \"video.mp4\"") != std::string::npos);
     CHECK(manifest.find("\"input_file\": \"inputs.csv\"") != std::string::npos);
     CHECK(manifest.find("\"level_name\": null") != std::string::npos); // none set in this test
+    CHECK(manifest.find("\"dual_mode\": true") != std::string::npos); // set at stop, not at start
     CHECK(manifest.find("\"frames_directory\": null") != std::string::npos);
     CHECK(manifest.find("\"status\": \"complete\"") != std::string::npos);
     CHECK(manifest.find("\"frames_written\": 30,") != std::string::npos);

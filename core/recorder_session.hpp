@@ -138,6 +138,10 @@ public:
         m_queueDrops = saturatingAdd(m_queueDrops, count);
     }
 
+    // A level can turn on two-player mode after recording starts. Once dual mode has
+    // been seen the manifest says so; it never goes back to false.
+    void markDualModeSeen(bool seen) { if (seen) m_config.dualMode = true; }
+
     bool finalize(std::uint64_t endUnixNs, const std::string& stopReason = "user_stop") {
         if (m_state != State::Recording) return false;
         m_csv.flush();

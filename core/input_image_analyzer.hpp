@@ -7,6 +7,7 @@
 
 #include "image_parser.hpp"
 #include "input_session.hpp"
+#include "recorder_drops.hpp"
 
 #include <algorithm>
 #include <array>
@@ -18,6 +19,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace geodan::core::ii_analyzer {
@@ -59,6 +61,11 @@ struct Result {
     bool dualMode = false;                 // from the manifest; players are split only when true
     std::array<std::uint64_t, 2> playerPressCount{}, playerReleaseCount{};
     std::uint64_t unmatchedInputs = 0;     // events with no frame at or before them
+    // Capture losses from capture_drops.csv. A session without the file predates it:
+    // dropsReported is false and the counts are unknown (zero).
+    bool dropsReported = false;
+    bool lossy = false;                    // any input, touch or frame was dropped
+    std::uint64_t inputsDropped = 0, touchesDropped = 0, noBufferDrops = 0;
     image_parser::ClearanceStatistics clearance;
     std::vector<Block> blocks;
     std::vector<Section> sections;
@@ -73,19 +80,30 @@ inline bool readText(const std::filesystem::path& path, std::string& out) {
     return true;
 }
 
-// True when states.csv has a row with player 2 values (the world_x_p2 column is non-empty).
+inline std::vector<std::string> splitCsvLine(const std::string& line) {
+    std::vector<std::string> fields;
+    std::string cell;
+    std::istringstream cells(line);
+    while (std::getline(cells, cell, ',')) fields.push_back(cell);
+    if (!line.empty() && line.back() == ',') fields.emplace_back(); // trailing empty cell
+    return fields;
+}
+
+// True when states.csv has a row with player 2 values (the world_x_p2 column is
+// non-empty). The column is found by its header name, so column order can change.
 inline bool statesHavePlayer2(const std::filesystem::path& path) {
     std::string text;
     if (!readText(path, text)) return false;
     std::istringstream lines(text);
     std::string line;
-    std::getline(lines, line); // header
+    if (!std::getline(lines, line)) return false;
+    const auto header = splitCsvLine(line);
+    const auto column = std::find(header.begin(), header.end(), "world_x_p2");
+    if (column == header.end()) return false;
+    const auto index = static_cast<std::size_t>(std::distance(header.begin(), column));
     while (std::getline(lines, line)) {
-        std::vector<std::string> fields;
-        std::istringstream cells(line);
-        std::string cell;
-        while (std::getline(cells, cell, ',')) fields.push_back(cell);
-        if (fields.size() >= 9 && !fields[7].empty()) return true;
+        const auto fields = splitCsvLine(line);
+        if (index < fields.size() && !fields[index].empty()) return true;
     }
     return false;
 }
@@ -150,13 +168,17 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     const auto geometry = image_parser::readGeometryCsv(session / "hitboxes.csv", error);
     if (!geometry) return std::nullopt;
     if (geometry->size() != frames->size()) { error = "geometry_frame_count_mismatch"; return std::nullopt; }
+    // Geometry is looked up by sequence number (one hash lookup per frame).
+    std::unordered_map<std::uint64_t, const image_parser::GeometryFrame*> geometryBySequence;
+    geometryBySequence.reserve(geometry->size());
+    for (const auto& g : *geometry) geometryBySequence.emplace(g.sequence, &g);
+    if (geometryBySequence.size() != geometry->size()) { error = "duplicate_frame_geometry"; return std::nullopt; }
     std::vector<const image_parser::GeometryFrame*> byIndex;
     byIndex.reserve(frames->size());
     for (const auto& stamp : *frames) {
-        const auto match = std::find_if(geometry->begin(), geometry->end(),
-            [&](const image_parser::GeometryFrame& g) { return g.sequence == stamp.sequence; });
-        if (match == geometry->end()) { error = "missing_frame_geometry"; return std::nullopt; }
-        byIndex.push_back(&*match);
+        const auto match = geometryBySequence.find(stamp.sequence);
+        if (match == geometryBySequence.end()) { error = "missing_frame_geometry"; return std::nullopt; }
+        byIndex.push_back(match->second);
     }
 
     const std::uint64_t frameIntervalNs = 1'000'000'000ull / fps;
@@ -173,6 +195,18 @@ inline std::optional<Result> analyzeSession(const std::filesystem::path& session
     // usable player or hazard set have no sample.
     const double scale = image_parser::kReferenceCaptureWidth / static_cast<double>(width);
     Result result;
+    {
+        std::string dropsText;
+        if (readText(session / "capture_drops.csv", dropsText)) {
+            recorder::DropCounts drops;
+            if (!recorder::parseDropsCsv(dropsText, drops)) { error = "capture_drops_invalid"; return std::nullopt; }
+            result.dropsReported = true;
+            result.inputsDropped = drops.inputsDropped;
+            result.touchesDropped = drops.touchesDropped;
+            result.noBufferDrops = drops.noBufferDrops;
+            result.lossy = drops.any();
+        }
+    }
     result.dualMode = dualMode;
     result.levelName = levelName ? *levelName : std::string("unknown");
     result.frameCount = frames->size();

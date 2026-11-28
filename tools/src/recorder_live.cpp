@@ -13,6 +13,7 @@
 
 using namespace geode::prelude;
 
+#include "core/recorder_drops.hpp"
 #include "core/recorder_geometry.hpp"
 #include "core/recorder_input_log.hpp"
 #include "core/recorder_state_log.hpp"
@@ -76,6 +77,7 @@ struct LiveRecorder::Session {
     std::vector<rec::StateSample> states; // player state per captured frame, game thread only
     std::vector<rec::TouchEvent> touches; // orb, pad and portal touches, game thread only
     std::uint64_t touchesDropped = 0;     // touches refused because the log is full
+    bool dualSeen = false;                // dual mode was on in at least one captured frame
     rec::ContactFilter contacts;          // one touch per contact, game thread only
 };
 
@@ -235,6 +237,7 @@ void LiveRecorder::captureFrame(PlayLayer* layer, const Scene& scene) {
     auto geometry = capture::snapshotGeometry(layer, stamp->sequence, phase, transform);
     rec::addFrameNotes(s.unsupportedCounts, geometry.unsupportedNotes);
 
+    if (layer->m_gameState.m_isDualMode) s.dualSeen = true;
     if (PlayerObject* player = layer->m_player1) {
         rec::StateSample sample;
         sample.sequence = stamp->sequence;
@@ -276,7 +279,7 @@ void LiveRecorder::stop(const std::string& reason) {
     if (!m_session) return;
     auto& s = *m_session;
 
-    const bool ok = s.worker.stop(s.timeline.missedIntervals(), reason);
+    const bool ok = s.worker.stop(s.timeline.missedIntervals(), reason, s.dualSeen);
 
     // The input log is small text, so it is written here on the game thread
     // after the video worker has finished. Written even when the session was
@@ -304,6 +307,15 @@ void LiveRecorder::stop(const std::string& reason) {
         if (touches.fail()) log::error("GeoDan recorder: could not write touches.csv in {}", s.directory.string());
         if (s.touchesDropped > 0)
             log::warn("GeoDan recorder: {} touches dropped (log full)", s.touchesDropped);
+        // Loss counts go into the session folder so the analyzer can see them.
+        rec::DropCounts drops;
+        drops.inputsDropped = s.inputs.dropped();
+        drops.touchesDropped = s.touchesDropped;
+        drops.noBufferDrops = s.noBufferDrops;
+        std::ofstream dropFile(s.directory / "capture_drops.csv", std::ios::binary | std::ios::trunc);
+        dropFile << rec::dropsCsv(drops);
+        dropFile.close();
+        if (dropFile.fail()) log::error("GeoDan recorder: could not write capture_drops.csv in {}", s.directory.string());
     }
     if (ok) {
         log::info("GeoDan recorder: saved {} frames to {} ({}; no-buffer drops {}, queue drops {})",

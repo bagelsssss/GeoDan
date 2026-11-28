@@ -170,6 +170,48 @@ int main() {
     assert(single->playerPressCount[0] == 2 && single->playerPressCount[1] == 0);
     assert(single->playerReleaseCount[0] == 2 && single->playerReleaseCount[1] == 0);
 
+    // States columns are found by header name, not position.
+    writeSession(root / "reordered", true, false);
+    setInputs(root / "reordered");
+    {
+        std::ofstream states(root / "reordered" / "states.csv");
+        states << "sequence,world_x_p2,mode,world_x\n" << "0,,cube,1\n" << "1,7,cube,1\n";
+    }
+    auto reordered = ii_analyzer::analyzeSession(root / "reordered", error);
+    assert(reordered && reordered->dualMode);
+    // A states file with no player 2 column, or an empty one, is not dual.
+    writeSession(root / "nop2", true, false);
+    {
+        std::ofstream states(root / "nop2" / "states.csv");
+        states << "sequence,mode\n" << "0,cube\n";
+    }
+    auto noP2 = ii_analyzer::analyzeSession(root / "nop2", error);
+    assert(noP2 && !noP2->dualMode);
+    writeSession(root / "emptyp2", true, false);
+    {
+        std::ofstream states(root / "emptyp2" / "states.csv");
+        states << "sequence,mode,world_x_p2\n" << "0,cube,\n" << "1,cube,\n";
+    }
+    auto emptyP2 = ii_analyzer::analyzeSession(root / "emptyp2", error);
+    assert(emptyP2 && !emptyP2->dualMode);
+
+    // Capture losses: absent file = unknown, clean file = not lossy, any drop = lossy.
+    assert(!good->dropsReported && !good->lossy);
+    writeSession(root / "clean", true, false);
+    { std::ofstream d(root / "clean" / "capture_drops.csv");
+      d << "kind,count\ninputs_dropped,0\ntouches_dropped,0\nno_buffer_drops,0\n"; }
+    auto clean = ii_analyzer::analyzeSession(root / "clean", error);
+    assert(clean && clean->dropsReported && !clean->lossy);
+    writeSession(root / "lossy", true, false);
+    { std::ofstream d(root / "lossy" / "capture_drops.csv");
+      d << "kind,count\ninputs_dropped,2\ntouches_dropped,0\nno_buffer_drops,5\n"; }
+    auto lossy = ii_analyzer::analyzeSession(root / "lossy", error);
+    assert(lossy && lossy->lossy && lossy->inputsDropped == 2 && lossy->noBufferDrops == 5);
+    writeSession(root / "baddrops", true, false);
+    { std::ofstream d(root / "baddrops" / "capture_drops.csv"); d << "not a drops file\n"; }
+    assert(!ii_analyzer::analyzeSession(root / "baddrops", error));
+    assert(error == "capture_drops_invalid");
+
     // Incomplete sessions are refused.
     writeSession(root / "incomplete", false, true);
     assert(!ii_analyzer::analyzeSession(root / "incomplete", error));
