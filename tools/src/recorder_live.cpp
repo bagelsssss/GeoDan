@@ -30,6 +30,19 @@ namespace geodan::tools::recorder_live {
 
 namespace {
 
+// Gameplay mode of a player from its mode flags.
+rec::PlayerMode playerMode(PlayerObject* player) {
+    rec::PlayerFlags flags;
+    flags.ship = player->m_isShip;
+    flags.ufo = player->m_isBird;
+    flags.ball = player->m_isBall;
+    flags.wave = player->m_isDart;
+    flags.robot = player->m_isRobot;
+    flags.spider = player->m_isSpider;
+    flags.swing = player->m_isSwing;
+    return rec::modeFromFlags(flags);
+}
+
 // One buffer being rendered, one being read back, on top of the queue slots.
 constexpr std::size_t kBufferSlack = 2;
 
@@ -223,19 +236,19 @@ void LiveRecorder::captureFrame(PlayLayer* layer, const Scene& scene) {
     rec::addFrameNotes(s.unsupportedCounts, geometry.unsupportedNotes);
 
     if (PlayerObject* player = layer->m_player1) {
-        rec::PlayerFlags flags;
-        flags.ship = player->m_isShip;
-        flags.ufo = player->m_isBird;
-        flags.ball = player->m_isBall;
-        flags.wave = player->m_isDart;
-        flags.robot = player->m_isRobot;
-        flags.spider = player->m_isSpider;
-        flags.swing = player->m_isSwing;
         rec::StateSample sample;
         sample.sequence = stamp->sequence;
-        sample.mode = rec::modeFromFlags(flags);
+        sample.mode = playerMode(player);
         sample.upsideDown = player->m_isUpsideDown;
         sample.gravity = player->m_gravity;
+        sample.worldX = static_cast<double>(player->m_position.x);
+        sample.worldY = static_cast<double>(player->m_position.y);
+        if (layer->m_gameState.m_isDualMode && layer->m_player2) {
+            sample.hasPlayer2 = true;
+            sample.mode2 = playerMode(layer->m_player2);
+            sample.worldX2 = static_cast<double>(layer->m_player2->m_position.x);
+            sample.worldY2 = static_cast<double>(layer->m_player2->m_position.y);
+        }
         s.states.push_back(sample);
     }
 

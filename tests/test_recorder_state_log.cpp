@@ -31,11 +31,22 @@ int main() {
     b.upsideDown = true;
     b.gravity = -1.0;
     samples.push_back(b);
+    StateSample dual;
+    dual.sequence = 2;
+    dual.worldX = 5.5;
+    dual.worldY = 6.0;
+    dual.hasPlayer2 = true;
+    dual.mode2 = PlayerMode::Ship;
+    dual.worldX2 = 10.5;
+    dual.worldY2 = 20.0;
+    samples.push_back(dual);
     assert(stateCsv(samples) ==
-           "sequence,mode,upside_down,gravity\n"
-           "0,cube,0,1\n"
-           "1,ship,1,-1\n");
-    assert(stateCsv({}) == "sequence,mode,upside_down,gravity\n");
+           "sequence,mode,upside_down,gravity,world_x,world_y,mode_p2,world_x_p2,world_y_p2\n"
+           "0,cube,0,1,0,0,,,\n"
+           "1,ship,1,-1,0,0,,,\n"
+           "2,cube,0,1,5.5,6,ship,10.5,20\n");
+    assert(stateCsv({}) ==
+           "sequence,mode,upside_down,gravity,world_x,world_y,mode_p2,world_x_p2,world_y_p2\n");
 
     // Touch kinds: known types map to orb, pad or portal; others are rejected.
     TouchKind kind = TouchKind::Orb;

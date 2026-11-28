@@ -56,15 +56,28 @@ struct StateSample {
     PlayerMode mode = PlayerMode::Cube;
     bool upsideDown = false;
     double gravity = 1.0; // PlayerObject::m_gravity
+    double worldX = 0.0, worldY = 0.0; // PlayerObject::m_position, player 1, level units
+    // Player 2 is present only in dual-mode runs; its columns are left empty otherwise.
+    bool hasPlayer2 = false;
+    PlayerMode mode2 = PlayerMode::Cube;
+    double worldX2 = 0.0, worldY2 = 0.0;
 };
 
-// CSV text: header, then one row per sample. Columns: sequence,mode,upside_down,gravity.
+// CSV text: header, then one row per sample. Columns: sequence, mode, upside_down,
+// gravity, world_x, world_y, mode_p2, world_x_p2, world_y_p2. The player 2 columns
+// are empty when the sample has no player 2.
 inline std::string stateCsv(const std::vector<StateSample>& samples) {
     std::ostringstream out;
-    out << "sequence,mode,upside_down,gravity\n";
-    for (const auto& s : samples)
+    out << "sequence,mode,upside_down,gravity,world_x,world_y,mode_p2,world_x_p2,world_y_p2\n";
+    for (const auto& s : samples) {
         out << s.sequence << ',' << modeName(s.mode) << ',' << (s.upsideDown ? 1 : 0) << ','
-            << s.gravity << '\n';
+            << s.gravity << ',' << s.worldX << ',' << s.worldY << ',';
+        if (s.hasPlayer2)
+            out << modeName(s.mode2) << ',' << s.worldX2 << ',' << s.worldY2;
+        else
+            out << ",,";
+        out << '\n';
+    }
     return out.str();
 }
 
